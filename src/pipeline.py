@@ -53,7 +53,6 @@ def run_util_pipeline(
 ) -> dict[str, Any]:
     """
     Run the full Util backend workflow.
-        Schedule optimization mode.
     """
     from src import baseline, metrics, optimizer, scheduler
 
