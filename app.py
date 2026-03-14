@@ -1,7 +1,8 @@
 import streamlit as st
-from datetime import datetime
+from datetime import datetime, timedelta
 from pathlib import Path
 import pandas as pd
+import altair as alt
 from PIL import Image
 
 from src.inputs import WorkloadInput
@@ -118,18 +119,18 @@ st.markdown(
     }
 
     button[data-baseweb="tab"] {
-    background: #12121a !important;
-    color: #bdbdd3 !important;
-    border-radius: 10px;
-    padding: 0.55rem 1rem;
-    border: 1px solid rgba(141, 95, 255, 0.18);
+        background: #12121a !important;
+        color: #bdbdd3 !important;
+        border-radius: 10px;
+        padding: 0.55rem 1rem;
+        border: 1px solid rgba(141, 95, 255, 0.18);
     }
 
     button[data-baseweb="tab"][aria-selected="true"] {
-    background: #8b5cf6 !important;
-    color: #ffffff !important;
-    border: none !important;
-}
+        background: #8b5cf6 !important;
+        color: #ffffff !important;
+        border: none !important;
+    }
 
     div.stButton > button {
         background: linear-gradient(90deg, #7c3aed 0%, #8b5cf6 100%);
@@ -168,6 +169,30 @@ st.markdown(
         margin-right: 0.4rem;
         margin-bottom: 0.4rem;
     }
+
+    .util-good-pill {
+        display: inline-block;
+        padding: 0.35rem 0.7rem;
+        border-radius: 999px;
+        background: rgba(34, 197, 94, 0.12);
+        color: #bbf7d0;
+        font-size: 0.85rem;
+        border: 1px solid rgba(34, 197, 94, 0.25);
+        margin-right: 0.4rem;
+        margin-bottom: 0.4rem;
+    }
+
+    .util-warning-pill {
+        display: inline-block;
+        padding: 0.35rem 0.7rem;
+        border-radius: 999px;
+        background: rgba(245, 158, 11, 0.12);
+        color: #fde68a;
+        font-size: 0.85rem;
+        border: 1px solid rgba(245, 158, 11, 0.25);
+        margin-right: 0.4rem;
+        margin-bottom: 0.4rem;
+    }
     </style>
     """,
     unsafe_allow_html=True
@@ -191,7 +216,23 @@ def render_metric_card(label: str, value: str, delta: str | None = None):
     )
 
 
-def build_forecast_display_df(forecast_df: pd.DataFrame, schedule_df: pd.DataFrame | None = None) -> pd.DataFrame:
+def infer_interval_minutes(df: pd.DataFrame) -> float:
+    if len(df) < 2:
+        return 60.0
+
+    ts = pd.to_datetime(df["timestamp"]).sort_values()
+    diffs = ts.diff().dropna()
+
+    if diffs.empty:
+        return 60.0
+
+    return diffs.dt.total_seconds().median() / 60
+
+
+def build_forecast_display_df(
+    forecast_df: pd.DataFrame,
+    schedule_df: pd.DataFrame | None = None
+) -> pd.DataFrame:
     df = forecast_df.copy()
     df["timestamp"] = pd.to_datetime(df["timestamp"])
     df["hour_label"] = df["timestamp"].dt.strftime("%b %d, %I:%M %p")
@@ -204,6 +245,8 @@ def build_forecast_display_df(forecast_df: pd.DataFrame, schedule_df: pd.DataFra
         df["run_flag"] = 0
         df["recommended_action"] = "Unknown"
 
+    df["run_flag"] = df["run_flag"].fillna(0).astype(int)
+    df["recommended_action"] = df["recommended_action"].fillna("Unknown")
     return df
 
 
@@ -239,6 +282,22 @@ def build_timeline_df(schedule_df: pd.DataFrame) -> pd.DataFrame:
     )
 
 
+def build_selected_schedule_df(schedule_df: pd.DataFrame) -> pd.DataFrame:
+    df = schedule_df[schedule_df["run_flag"] == 1].copy()
+    df["timestamp"] = pd.to_datetime(df["timestamp"])
+    df["Time"] = df["timestamp"].dt.strftime("%b %d, %I:%M %p")
+
+    return df[
+        ["Time", "recommended_action", "price_per_kwh", "carbon_g_per_kwh"]
+    ].rename(
+        columns={
+            "recommended_action": "Action",
+            "price_per_kwh": "Price ($/kWh)",
+            "carbon_g_per_kwh": "Carbon (g/kWh)",
+        }
+    )
+
+
 def build_run_hours_summary(schedule_df: pd.DataFrame) -> str:
     run_rows = schedule_df[schedule_df["run_flag"] == 1].copy()
     if run_rows.empty:
@@ -246,7 +305,137 @@ def build_run_hours_summary(schedule_df: pd.DataFrame) -> str:
 
     run_rows["timestamp"] = pd.to_datetime(run_rows["timestamp"])
     labels = run_rows["timestamp"].dt.strftime("%b %d %I:%M %p").tolist()
+
+    if len(labels) > 12:
+        return " • ".join(labels[:12]) + f" • ... ({len(labels)} selected intervals)"
     return " • ".join(labels)
+
+
+def build_run_window_summary(schedule_df: pd.DataFrame) -> dict:
+    run_rows = schedule_df[schedule_df["run_flag"] == 1].copy()
+
+    if run_rows.empty:
+        return {
+            "start": "N/A",
+            "end": "N/A",
+            "intervals": 0
+        }
+
+    run_rows["timestamp"] = pd.to_datetime(run_rows["timestamp"])
+
+    return {
+        "start": run_rows["timestamp"].min().strftime("%b %d, %I:%M %p"),
+        "end": run_rows["timestamp"].max().strftime("%b %d, %I:%M %p"),
+        "intervals": len(run_rows)
+    }
+
+
+def compute_schedule_totals(
+    schedule_like_df: pd.DataFrame,
+    machine_watts: int
+) -> dict:
+    df = schedule_like_df.copy()
+    if df.empty:
+        return {"cost": 0.0, "carbon_kg": 0.0, "energy_kwh": 0.0}
+
+    interval_minutes = infer_interval_minutes(df)
+    interval_hours = interval_minutes / 60
+    power_kw = machine_watts / 1000
+
+    energy_per_row_kwh = power_kw * interval_hours
+    total_energy_kwh = energy_per_row_kwh * len(df)
+
+    total_cost = (df["price_per_kwh"] * energy_per_row_kwh).sum()
+    total_carbon_kg = ((df["carbon_g_per_kwh"] * energy_per_row_kwh).sum()) / 1000
+
+    return {
+        "cost": float(total_cost),
+        "carbon_kg": float(total_carbon_kg),
+        "energy_kwh": float(total_energy_kwh)
+    }
+
+
+def build_run_now_comparison(
+    optimized_df: pd.DataFrame,
+    machine_watts: int
+) -> dict:
+    df = optimized_df.copy()
+    df["timestamp"] = pd.to_datetime(df["timestamp"])
+
+    selected_df = df[df["run_flag"] == 1].copy()
+    eligible_df = df[df["eligible_flag"] == 1].copy().sort_values("timestamp")
+
+    slots_required = len(selected_df)
+    run_now_df = eligible_df.head(slots_required).copy()
+
+    optimized_totals = compute_schedule_totals(selected_df, machine_watts)
+    run_now_totals = compute_schedule_totals(run_now_df, machine_watts)
+
+    return {
+        "run_now_df": run_now_df,
+        "optimized_df": selected_df,
+        "run_now_cost": run_now_totals["cost"],
+        "optimized_cost": optimized_totals["cost"],
+        "run_now_carbon_kg": run_now_totals["carbon_kg"],
+        "optimized_carbon_kg": optimized_totals["carbon_kg"],
+        "cost_saved_vs_now": run_now_totals["cost"] - optimized_totals["cost"],
+        "carbon_saved_vs_now_kg": run_now_totals["carbon_kg"] - optimized_totals["carbon_kg"],
+    }
+
+
+def render_status_pills(
+    forecast_mode_label: str,
+    schedule_mode_label: str,
+    region: str,
+    forecast_df: pd.DataFrame
+):
+    interval_minutes = infer_interval_minutes(forecast_df)
+    forecast_min = pd.to_datetime(forecast_df["timestamp"]).min()
+    forecast_max = pd.to_datetime(forecast_df["timestamp"]).max()
+
+    source_label = "WattTime API" if forecast_mode_label == "Live Carbon" else "Sample CSV Data"
+    source_css = "util-good-pill" if forecast_mode_label == "Live Carbon" else "util-warning-pill"
+
+    st.markdown(
+        f"""
+        <span class="{source_css}">Source: {source_label}</span>
+        <span class="util-pill">Region: {region}</span>
+        <span class="util-pill">Forecast Mode: {forecast_mode_label}</span>
+        <span class="util-pill">Schedule Mode: {schedule_mode_label}</span>
+        <span class="util-pill">Granularity: {interval_minutes:.0f} min</span>
+        <span class="util-pill">Forecast Window: {forecast_min.strftime("%b %d %I:%M %p")} → {forecast_max.strftime("%b %d %I:%M %p")}</span>
+        """,
+        unsafe_allow_html=True
+    )
+
+
+def build_carbon_chart(display_df: pd.DataFrame) -> alt.Chart:
+    chart_df = display_df.copy()
+    chart_df["timestamp"] = pd.to_datetime(chart_df["timestamp"])
+    chart_df["Selected"] = chart_df["run_flag"].apply(lambda x: "Selected" if x == 1 else "Not Selected")
+
+    base = alt.Chart(chart_df).encode(
+        x=alt.X("timestamp:T", title="Time"),
+        y=alt.Y("carbon_g_per_kwh:Q", title="Carbon Intensity (g/kWh)")
+    )
+
+    line = base.mark_line(color="#8b5cf6", strokeWidth=2).encode(
+        tooltip=[
+            alt.Tooltip("timestamp:T", title="Time"),
+            alt.Tooltip("carbon_g_per_kwh:Q", title="Carbon (g/kWh)", format=".1f"),
+            alt.Tooltip("price_per_kwh:Q", title="Price ($/kWh)", format=".3f"),
+            alt.Tooltip("Selected:N", title="Selection")
+        ]
+    )
+
+    selected_points = base.transform_filter(
+        alt.datum.run_flag == 1
+    ).mark_circle(
+        size=90,
+        color="#22c55e"
+    )
+
+    return (line + selected_points).properties(height=350)
 
 
 # ---------------------------------------------------
@@ -256,38 +445,34 @@ def build_run_hours_summary(schedule_df: pd.DataFrame) -> str:
 if "estimated_power_watts" not in st.session_state:
     st.session_state["estimated_power_watts"] = 300
 
+if "optimizer_machine_watts" not in st.session_state:
+    st.session_state["optimizer_machine_watts"] = 300
+
 if "result" not in st.session_state:
     st.session_state["result"] = None
+
+if "last_forecast_mode_label" not in st.session_state:
+    st.session_state["last_forecast_mode_label"] = "Demo"
+
+if "last_schedule_mode_label" not in st.session_state:
+    st.session_state["last_schedule_mode_label"] = "Flexible"
 
 # ---------------------------------------------------
 # Header
 # ---------------------------------------------------
 
-col_logo, col_title = st.columns([1,6])
+col_logo, col_title = st.columns([1, 6])
 
 with col_logo:
     st.image(logo, width=80)
 
 with col_title:
-    st.markdown(
-        """
-        # Util
-        """
-    )
-
-st.markdown(
-"""
-Compute scheduling software that minimizes **electricity cost** or **carbon emissions** by choosing the best hours to run workloads.
-"""
-)
+    st.markdown("# Util")
 
 st.markdown(
     """
-    <div class="util-subtext">
-    Compute scheduling and optimization software for minimizing electricity cost or carbon emissions.
-    </div>
-    """,
-    unsafe_allow_html=True
+    Compute scheduling software that minimizes **electricity cost** or **carbon emissions** by choosing the best times to run workloads.
+    """
 )
 
 # ---------------------------------------------------
@@ -331,6 +516,18 @@ with tab1:
             ["carbon", "cost"]
         )
 
+        forecast_mode_label = st.radio(
+            "Forecast Source",
+            ["Demo", "Live Carbon"],
+            horizontal=True
+        )
+
+        schedule_mode_label = st.radio(
+            "Scheduling Strategy",
+            ["Flexible", "Continuous Block"],
+            horizontal=True
+        )
+
         machine_watts = st.number_input(
             "Machine Wattage (Watts)",
             min_value=50,
@@ -339,9 +536,10 @@ with tab1:
             step=10
         )
 
+        default_deadline = datetime.now() + timedelta(hours=24)
         deadline = st.datetime_input(
             "Deadline",
-            value=datetime(2026, 3, 13, 17, 0)
+            value=default_deadline
         )
 
         run_button = st.button("Run Optimization")
@@ -355,6 +553,9 @@ with tab1:
     with col_output:
         if run_button:
             try:
+                forecast_mode = "live_carbon" if forecast_mode_label == "Live Carbon" else "demo"
+                schedule_mode = "block" if schedule_mode_label == "Continuous Block" else "flexible"
+
                 workload = WorkloadInput(
                     zip_code=zip_code,
                     compute_hours_required=int(compute_hours),
@@ -367,10 +568,14 @@ with tab1:
                     workload_input=workload,
                     mapping_path=ZIP_PATH,
                     carbon_path=CARBON_PATH,
-                    price_path=PRICE_PATH
+                    price_path=PRICE_PATH,
+                    forecast_mode=forecast_mode,
+                    schedule_mode=schedule_mode,
                 )
 
                 st.session_state["result"] = result
+                st.session_state["last_forecast_mode_label"] = forecast_mode_label
+                st.session_state["last_schedule_mode_label"] = schedule_mode_label
 
             except Exception as e:
                 st.error("An error occurred while running the pipeline.")
@@ -384,14 +589,34 @@ with tab1:
             region = result["region"]
             schedule = result["schedule"].copy()
             metrics = result["metrics"]
+            forecast = result["forecast"].copy()
+            optimized = result["optimized"].copy()
+
+            selected_schedule = schedule[schedule["run_flag"] == 1].copy()
+            run_window = build_run_window_summary(schedule)
+            comparison = build_run_now_comparison(
+                optimized_df=optimized,
+                machine_watts=int(result["workload_input"].machine_watts)
+            )
 
             st.subheader("Optimization Summary")
+
+            render_status_pills(
+                forecast_mode_label=st.session_state["last_forecast_mode_label"],
+                schedule_mode_label=st.session_state["last_schedule_mode_label"],
+                region=region,
+                forecast_df=forecast
+            )
+
             st.markdown(
                 f"""
                 <div class="util-card">
                     <strong>Mapped Region:</strong> {region}<br>
-                    <strong>Selected Objective:</strong> {objective.title()}<br>
-                    <strong>Machine Wattage:</strong> {int(machine_watts):,} W
+                    <strong>Selected Objective:</strong> {result["workload_input"].objective.title()}<br>
+                    <strong>Machine Wattage:</strong> {int(result["workload_input"].machine_watts):,} W<br>
+                    <strong>Recommended Window Start:</strong> {run_window["start"]}<br>
+                    <strong>Recommended Window End:</strong> {run_window["end"]}<br>
+                    <strong>Selected Intervals:</strong> {run_window["intervals"]}
                 </div>
                 """,
                 unsafe_allow_html=True
@@ -418,13 +643,38 @@ with tab1:
                     f"Reduction: {metrics['carbon_reduction_pct']:.1f}%"
                 )
 
+            st.subheader("Run Now vs Optimized")
+
+            rn1, rn2, rn3, rn4 = st.columns(4)
+            with rn1:
+                render_metric_card(
+                    "Run Now Carbon",
+                    f"{comparison['run_now_carbon_kg']:.2f} kg"
+                )
+            with rn2:
+                render_metric_card(
+                    "Optimized Carbon",
+                    f"{comparison['optimized_carbon_kg']:.2f} kg",
+                    f"Saved vs now: {comparison['carbon_saved_vs_now_kg']:.2f} kg"
+                )
+            with rn3:
+                render_metric_card(
+                    "Run Now Cost",
+                    f"${comparison['run_now_cost']:.2f}"
+                )
+            with rn4:
+                render_metric_card(
+                    "Optimized Cost",
+                    f"${comparison['optimized_cost']:.2f}",
+                    f"Saved vs now: ${comparison['cost_saved_vs_now']:.2f}"
+                )
+
             st.subheader("Recommended Schedule")
 
-            display_schedule = schedule.copy()
-            display_schedule["timestamp"] = pd.to_datetime(display_schedule["timestamp"])
-            display_schedule["timestamp"] = display_schedule["timestamp"].dt.strftime("%b %d, %I:%M %p")
-
-            st.dataframe(display_schedule, use_container_width=True)
+            if selected_schedule.empty:
+                st.warning("No run intervals were selected.")
+            else:
+                st.dataframe(build_selected_schedule_df(schedule), use_container_width=True)
 
 # ====================================================
 # TAB 2 — SAVINGS ANALYSIS
@@ -440,9 +690,15 @@ with tab2:
     else:
         metrics = result["metrics"]
         workload = result["workload_input"]
-        total_energy_kwh = (workload.machine_watts / 1000) * workload.compute_hours_required
+        optimized = result["optimized"]
+        comparison = build_run_now_comparison(
+            optimized_df=optimized,
+            machine_watts=int(workload.machine_watts)
+        )
 
-        c1, c2, c3 = st.columns(3)
+        total_energy_kwh = comparison["optimized_df"].shape[0] * (workload.machine_watts / 1000) * (infer_interval_minutes(result["forecast"]) / 60)
+
+        c1, c2, c3, c4 = st.columns(4)
         with c1:
             render_metric_card("Workload Energy", f"{total_energy_kwh:.2f} kWh")
         with c2:
@@ -456,6 +712,12 @@ with tab2:
                 "Carbon Savings",
                 f"{metrics['carbon_savings_kg']:.2f} kg",
                 f"{metrics['carbon_reduction_pct']:.1f}% lower than baseline"
+            )
+        with c4:
+            render_metric_card(
+                "Saved vs Run Now",
+                f"{comparison['carbon_saved_vs_now_kg']:.2f} kg CO₂",
+                f"${comparison['cost_saved_vs_now']:.2f} lower cost"
             )
 
         st.subheader("Baseline vs Optimized")
@@ -480,9 +742,13 @@ with tab2:
             f"""
             <div class="util-card">
                 This run uses approximately <strong>{total_energy_kwh:.2f} kWh</strong> of electricity.
-                Under the placeholder forecast, optimizing for <strong>{workload.objective}</strong> reduces
-                cost by <strong>${metrics['cost_savings']:.2f}</strong> and reduces emissions by
-                <strong>{metrics['carbon_savings_kg']:.2f} kg CO₂</strong> relative to a naive schedule.
+                The current recommendation reduces cost by <strong>${metrics['cost_savings']:.2f}</strong>
+                and reduces emissions by <strong>{metrics['carbon_savings_kg']:.2f} kg CO₂</strong>
+                versus a naive baseline schedule.
+                <br><br>
+                Compared with starting immediately, the optimized schedule saves
+                <strong>{comparison['carbon_saved_vs_now_kg']:.2f} kg CO₂</strong>
+                and <strong>${comparison['cost_saved_vs_now']:.2f}</strong>.
             </div>
             """,
             unsafe_allow_html=True
@@ -505,7 +771,17 @@ with tab3:
 
         display_df = build_forecast_display_df(forecast, schedule)
 
-        st.subheader("Hourly Forecast Table")
+        render_status_pills(
+            forecast_mode_label=st.session_state["last_forecast_mode_label"],
+            schedule_mode_label=st.session_state["last_schedule_mode_label"],
+            region=result["region"],
+            forecast_df=forecast
+        )
+
+        st.subheader("Carbon Forecast with Recommended Intervals")
+        st.altair_chart(build_carbon_chart(display_df), use_container_width=True)
+
+        st.subheader("Forecast Table")
 
         forecast_table = display_df[[
             "hour_label",
@@ -513,7 +789,7 @@ with tab3:
             "price_per_kwh",
             "recommended_action"
         ]].rename(columns={
-            "hour_label": "Hour",
+            "hour_label": "Time",
             "carbon_g_per_kwh": "Carbon (g/kWh)",
             "price_per_kwh": "Price ($/kWh)",
             "recommended_action": "Recommended Action"
@@ -521,37 +797,22 @@ with tab3:
 
         st.dataframe(forecast_table, use_container_width=True)
 
-        st.subheader("Carbon Intensity Forecast")
-        st.line_chart(
-            display_df.set_index("timestamp")[["carbon_g_per_kwh"]],
-            use_container_width=True
-        )
-
-        run_carbon = display_df[display_df["run_flag"] == 1][[
-            "hour_label", "carbon_g_per_kwh"
+        selected_rows = display_df[display_df["run_flag"] == 1][[
+            "hour_label", "carbon_g_per_kwh", "price_per_kwh"
         ]].rename(columns={
-            "hour_label": "Selected Run Hour",
-            "carbon_g_per_kwh": "Carbon (g/kWh)"
+            "hour_label": "Selected Run Time",
+            "carbon_g_per_kwh": "Carbon (g/kWh)",
+            "price_per_kwh": "Price ($/kWh)"
         })
 
-        st.caption("Recommended run hours under current optimization:")
-        st.dataframe(run_carbon, use_container_width=True)
+        st.subheader("Selected Intervals")
+        st.dataframe(selected_rows, use_container_width=True)
 
         st.subheader("Electricity Price Forecast")
         st.line_chart(
             display_df.set_index("timestamp")[["price_per_kwh"]],
             use_container_width=True
         )
-
-        run_price = display_df[display_df["run_flag"] == 1][[
-            "hour_label", "price_per_kwh"
-        ]].rename(columns={
-            "hour_label": "Selected Run Hour",
-            "price_per_kwh": "Price ($/kWh)"
-        })
-
-        st.caption("Price levels during selected run hours:")
-        st.dataframe(run_price, use_container_width=True)
 
 # ====================================================
 # TAB 4 — RUN TIMELINE
@@ -571,7 +832,7 @@ with tab4:
         st.markdown(
             f"""
             <div class="util-card">
-                <strong>Selected run hours:</strong><br><br>
+                <strong>Selected run intervals:</strong><br><br>
                 {build_run_hours_summary(schedule)}
             </div>
             """,
@@ -734,7 +995,7 @@ with tab6:
             </ul>
             Future versions can add:
             <ul>
-                <li>live carbon APIs</li>
+                <li>live carbon APIs ✅</li>
                 <li>electricity pricing APIs</li>
                 <li>system auto-detection</li>
                 <li>live telemetry</li>

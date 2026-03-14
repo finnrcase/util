@@ -13,6 +13,7 @@ This module connects:
 Current development status:
 - Supports demo forecast mode using placeholder CSVs
 - Supports live carbon mode using WattTime + placeholder price
+- Supports flexible and block schedule optimization modes
 - Region is mapped and returned, but live carbon is currently using a prototype flow
 - Designed to make the backend app-ready before Streamlit integration
 """
@@ -48,6 +49,7 @@ def run_util_pipeline(
     carbon_path: str | Path | None = None,
     price_path: str | Path | None = None,
     forecast_mode: str = "demo",
+    schedule_mode: str = "flexible",
 ) -> dict[str, Any]:
     """
     Run the full Util backend workflow.
@@ -67,6 +69,11 @@ def run_util_pipeline(
         Supported values:
         - "demo"
         - "live_carbon"
+    schedule_mode : str
+        Schedule optimization mode.
+        Supported values:
+        - "flexible"
+        - "block"
 
     Returns
     -------
@@ -123,11 +130,9 @@ def run_util_pipeline(
         ],
     )
 
-    # 1. Map ZIP to region
     mapping_df = load_zip_region_map(mapping_path)
     region = map_zip_to_region(workload_input.zip_code, mapping_df)
 
-    # 2. Load forecast table
     forecast_df = get_forecast_table(
         forecast_mode=forecast_mode,
         region=region,
@@ -135,24 +140,21 @@ def run_util_pipeline(
         price_filepath=price_path,
     )
 
-    # 3. Build naive baseline
     baseline_df = build_baseline_func(
         forecast_df=forecast_df,
         compute_hours_required=workload_input.compute_hours_required,
     )
 
-    # 4. Run optimization
     optimized_df = optimize_func(
         forecast_df=forecast_df,
         compute_hours_required=workload_input.compute_hours_required,
         objective=workload_input.objective,
         deadline=workload_input.deadline,
+        schedule_mode=schedule_mode,
     )
 
-    # 5. Build readable schedule
     schedule_df = build_schedule_func(optimized_df)
 
-    # 6. Calculate comparison metrics
     metrics_dict = calculate_metrics_func(
         baseline_df=baseline_df,
         optimized_df=optimized_df,
