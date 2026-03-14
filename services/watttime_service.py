@@ -2,10 +2,15 @@ import os
 import pandas as pd
 import requests
 from requests.auth import HTTPBasicAuth
-from dotenv import load_dotenv
 
-load_dotenv()
+try:
+    from dotenv import load_dotenv
+except ModuleNotFoundError:
+    load_dotenv = None
 
+if load_dotenv is not None:
+    load_dotenv()
+    
 # ============================================================
 # WattTime API configuration
 # ============================================================
