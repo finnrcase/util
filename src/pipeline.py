@@ -53,6 +53,39 @@ def run_util_pipeline(
 ) -> dict[str, Any]:
     """
     Run the full Util backend workflow.
+
+    Parameters
+    ----------
+    workload_input : WorkloadInput
+        Validated user input object.
+    mapping_path : str | Path
+        Path to ZIP-to-region mapping CSV.
+    carbon_path : str | Path | None
+        Path to carbon forecast CSV (required for demo mode).
+    price_path : str | Path | None
+        Path to price forecast CSV (required for demo mode).
+    forecast_mode : str
+        Forecast loading mode.
+        Supported values:
+        - "demo"
+        - "live_carbon"
+    schedule_mode : str
+        Schedule optimization mode.
+        Supported values:
+        - "flexible"
+        - "block"
+
+    Returns
+    -------
+    dict
+        Dictionary containing:
+        - workload_input
+        - region
+        - forecast
+        - baseline
+        - optimized
+        - schedule
+        - metrics
     """
     from src import baseline, metrics, optimizer, scheduler
 
