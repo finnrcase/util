@@ -18,6 +18,20 @@ import pandas as pd
 from services.watttime_service import get_watttime_forecast
 
 
+def _normalize_timestamp_column(df: pd.DataFrame, column: str = "timestamp") -> pd.DataFrame:
+    """
+    Convert a timestamp column to pandas datetime and remove timezone info
+    so the rest of the Util pipeline can work with consistent tz-naive values.
+    """
+    df = df.copy()
+    df[column] = pd.to_datetime(df[column])
+
+    if getattr(df[column].dt, "tz", None) is not None:
+        df[column] = df[column].dt.tz_localize(None)
+
+    return df
+
+
 def load_carbon_forecast(filepath: str | Path) -> pd.DataFrame:
     """
     Load hourly carbon intensity forecast data from CSV.
@@ -34,7 +48,7 @@ def load_carbon_forecast(filepath: str | Path) -> pd.DataFrame:
             f"Carbon forecast file must contain columns: {required_columns}"
         )
 
-    df["timestamp"] = pd.to_datetime(df["timestamp"])
+    df = _normalize_timestamp_column(df, "timestamp")
     return df
 
 
@@ -54,7 +68,7 @@ def load_price_forecast(filepath: str | Path) -> pd.DataFrame:
             f"Price forecast file must contain columns: {required_columns}"
         )
 
-    df["timestamp"] = pd.to_datetime(df["timestamp"])
+    df = _normalize_timestamp_column(df, "timestamp")
     return df
 
 
@@ -85,12 +99,24 @@ def build_live_carbon_forecast_table(
     Build a forecast table using live carbon forecast data from WattTime
     and a placeholder electricity price.
 
+    IMPORTANT PROTOTYPE NOTE:
+    The current ZIP-to-region mapper returns internal prototype regions
+    like "CAISO", but the WattTime forecast endpoint currently needs a
+    WattTime-compatible region such as "CAISO_NORTH".
+
+    For the prototype MVP, we intentionally hardcode the WattTime region
+    to CAISO_NORTH so live carbon mode remains stable while we defer
+    ZIP -> lat/lon -> WattTime region lookup to a later phase.
+
     Returns columns:
     - timestamp
     - carbon_g_per_kwh
     - price_per_kwh
     """
-    carbon_df = get_watttime_forecast(region)
+    _ = region
+    watttime_region = "CAISO_NORTH"
+
+    carbon_df = get_watttime_forecast(watttime_region)
 
     required_columns = {"timestamp", "carbon_g_per_kwh"}
     if not required_columns.issubset(carbon_df.columns):
@@ -98,8 +124,7 @@ def build_live_carbon_forecast_table(
             f"WattTime forecast must contain columns: {required_columns}"
         )
 
-    carbon_df = carbon_df.copy()
-    carbon_df["timestamp"] = pd.to_datetime(carbon_df["timestamp"])
+    carbon_df = _normalize_timestamp_column(carbon_df, "timestamp")
     carbon_df["price_per_kwh"] = placeholder_price_per_kwh
 
     forecast_df = carbon_df[["timestamp", "carbon_g_per_kwh", "price_per_kwh"]]
