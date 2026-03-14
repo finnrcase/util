@@ -11,8 +11,9 @@ This module connects:
 - metrics calculation
 
 Current development status:
-- Uses placeholder forecast CSVs
-- Region is mapped and returned, but placeholder forecasts are not yet region-specific
+- Supports demo forecast mode using placeholder CSVs
+- Supports live carbon mode using WattTime + placeholder price
+- Region is mapped and returned, but live carbon is currently using a prototype flow
 - Designed to make the backend app-ready before Streamlit integration
 """
 
@@ -21,7 +22,7 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any, Callable
 
-from src.data_fetcher import build_forecast_table
+from src.data_fetcher import get_forecast_table
 from src.mapper import load_zip_region_map, map_zip_to_region
 
 
@@ -44,8 +45,9 @@ def _resolve_callable(module: Any, candidate_names: list[str]) -> Callable:
 def run_util_pipeline(
     workload_input: Any,
     mapping_path: str | Path,
-    carbon_path: str | Path,
-    price_path: str | Path,
+    carbon_path: str | Path | None = None,
+    price_path: str | Path | None = None,
+    forecast_mode: str = "demo",
 ) -> dict[str, Any]:
     """
     Run the full Util backend workflow.
@@ -56,10 +58,15 @@ def run_util_pipeline(
         Validated user input object.
     mapping_path : str | Path
         Path to ZIP-to-region mapping CSV.
-    carbon_path : str | Path
-        Path to carbon forecast CSV.
-    price_path : str | Path
-        Path to price forecast CSV.
+    carbon_path : str | Path | None
+        Path to carbon forecast CSV (required for demo mode).
+    price_path : str | Path | None
+        Path to price forecast CSV (required for demo mode).
+    forecast_mode : str
+        Forecast loading mode.
+        Supported values:
+        - "demo"
+        - "live_carbon"
 
     Returns
     -------
@@ -120,8 +127,10 @@ def run_util_pipeline(
     mapping_df = load_zip_region_map(mapping_path)
     region = map_zip_to_region(workload_input.zip_code, mapping_df)
 
-    # 2. Load merged forecast table
-    forecast_df = build_forecast_table(
+    # 2. Load forecast table
+    forecast_df = get_forecast_table(
+        forecast_mode=forecast_mode,
+        region=region,
         carbon_filepath=carbon_path,
         price_filepath=price_path,
     )

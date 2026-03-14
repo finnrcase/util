@@ -15,6 +15,8 @@ from pathlib import Path
 
 import pandas as pd
 
+from services.watttime_service import get_watttime_forecast
+
 
 def load_carbon_forecast(filepath: str | Path) -> pd.DataFrame:
     """
@@ -73,3 +75,69 @@ def build_forecast_table(
         raise ValueError("Merged forecast table is empty. Check timestamp alignment.")
 
     return forecast_df
+
+
+def build_live_carbon_forecast_table(
+    region: str,
+    placeholder_price_per_kwh: float = 0.15,
+) -> pd.DataFrame:
+    """
+    Build a forecast table using live carbon forecast data from WattTime
+    and a placeholder electricity price.
+
+    Returns columns:
+    - timestamp
+    - carbon_g_per_kwh
+    - price_per_kwh
+    """
+    carbon_df = get_watttime_forecast(region)
+
+    required_columns = {"timestamp", "carbon_g_per_kwh"}
+    if not required_columns.issubset(carbon_df.columns):
+        raise ValueError(
+            f"WattTime forecast must contain columns: {required_columns}"
+        )
+
+    carbon_df = carbon_df.copy()
+    carbon_df["timestamp"] = pd.to_datetime(carbon_df["timestamp"])
+    carbon_df["price_per_kwh"] = placeholder_price_per_kwh
+
+    forecast_df = carbon_df[["timestamp", "carbon_g_per_kwh", "price_per_kwh"]]
+    forecast_df = forecast_df.sort_values("timestamp").reset_index(drop=True)
+
+    if forecast_df.empty:
+        raise ValueError("Live carbon forecast table is empty.")
+
+    return forecast_df
+
+
+def get_forecast_table(
+    forecast_mode: str,
+    region: str,
+    carbon_filepath: str | Path | None = None,
+    price_filepath: str | Path | None = None,
+    placeholder_price_per_kwh: float = 0.15,
+) -> pd.DataFrame:
+    """
+    Master forecast loader.
+
+    Supported modes:
+    - demo: load local CSV carbon + price forecast
+    - live_carbon: use live WattTime carbon forecast + placeholder price
+    """
+    if forecast_mode == "demo":
+        if carbon_filepath is None or price_filepath is None:
+            raise ValueError(
+                "Demo mode requires carbon_filepath and price_filepath."
+            )
+        return build_forecast_table(carbon_filepath, price_filepath)
+
+    if forecast_mode == "live_carbon":
+        return build_live_carbon_forecast_table(
+            region=region,
+            placeholder_price_per_kwh=placeholder_price_per_kwh,
+        )
+
+    raise ValueError(
+        "Invalid forecast_mode. Supported values are 'demo' and 'live_carbon'."
+    )
