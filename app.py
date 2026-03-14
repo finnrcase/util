@@ -578,8 +578,16 @@ with tab1:
                 st.session_state["last_schedule_mode_label"] = schedule_mode_label
 
             except Exception as e:
-                st.error("An error occurred while running the pipeline.")
-                st.exception(e)
+                error_message = str(e)
+
+                if forecast_mode == "live_carbon" and "WattTime" in error_message:
+                    st.error(
+                "Live carbon is currently unavailable because WattTime authentication failed. "
+                "Please use Demo mode or update the deployment secrets."
+        )
+                else:
+                    st.error("An error occurred while running the pipeline.")
+                    st.exception(e)
 
         result = st.session_state["result"]
 

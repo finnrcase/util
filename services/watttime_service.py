@@ -10,33 +10,6 @@ except ModuleNotFoundError:
 
 if load_dotenv is not None:
     load_dotenv()
-    
-# ============================================================
-# WattTime API configuration
-# ============================================================
-# CURRENT PROTOTYPE VERSION
-# -------------------------
-# We are integrating live carbon forecast data first.
-#
-# For now, we are intentionally hardcoding:
-#   region = "CAISO_NORTH"
-#
-# Why:
-# - this gets live carbon forecasts working immediately
-# - it avoids getting blocked on full ZIP -> lat/lon -> BA mapping
-# - it keeps the MVP stable while we validate the product
-#
-# FUTURE PAID / FULLER API VERSION
-# --------------------------------
-# Replace the temporary hardcoded region flow with:
-#
-#   ZIP code
-#   -> lat/lon geocoding
-#   -> WattTime region / BA lookup
-#   -> region-specific carbon forecast
-#
-# This file is the main place to upgrade that logic later.
-# ============================================================
 
 USERNAME = os.getenv("WATTTIME_USERNAME")
 PASSWORD = os.getenv("WATTTIME_PASSWORD")
@@ -49,25 +22,36 @@ def get_token():
     """
     Log in to WattTime and return a bearer token.
     """
+    if not USERNAME or not PASSWORD:
+        raise ValueError(
+            "WattTime credentials are missing. "
+            "Set WATTTIME_USERNAME and WATTTIME_PASSWORD in the environment."
+        )
+
     response = requests.get(
         LOGIN_URL,
         auth=HTTPBasicAuth(USERNAME, PASSWORD),
         timeout=30
     )
+
+    if response.status_code == 401:
+        raise ValueError("WattTime authentication failed: unauthorized (401). Check credentials.")
+
+    if response.status_code == 403:
+        raise ValueError("WattTime authentication failed: forbidden (403). Check credentials and account access.")
+
     response.raise_for_status()
-    return response.json()["token"]
+
+    token = response.json().get("token")
+    if not token:
+        raise ValueError("WattTime login succeeded but no token was returned.")
+
+    return token
 
 
 def get_forecast(region="CAISO_NORTH", signal_type="co2_moer"):
     """
     Fetch live carbon forecast data from WattTime.
-
-    Current prototype behavior:
-    - Uses a hardcoded default region of CAISO_NORTH
-    - Uses signal_type='co2_moer'
-
-    Future production behavior:
-    - region should come from ZIP -> lat/lon -> region lookup
     """
     token = get_token()
 
@@ -92,6 +76,12 @@ def get_forecast(region="CAISO_NORTH", signal_type="co2_moer"):
     print("FORECAST URL:", response.url)
     print("FORECAST RESPONSE PREVIEW:", response.text[:500])
 
+    if response.status_code == 401:
+        raise ValueError("WattTime forecast request failed: unauthorized (401).")
+
+    if response.status_code == 403:
+        raise ValueError("WattTime forecast request failed: forbidden (403).")
+
     response.raise_for_status()
 
     if "application/json" not in response.headers.get("content-type", ""):
@@ -108,17 +98,6 @@ def forecast_to_dataframe(forecast_json):
     - timestamp
     - carbon_g_per_kwh
     """
-
-    # WattTime v3 forecast returns:
-    # {
-    #   "data": [
-    #       {"point_time": "...", "value": ...},
-    #       ...
-    #   ]
-    # }
-    #
-    # So we unwrap the "data" list first.
-
     if isinstance(forecast_json, dict):
         if "data" not in forecast_json:
             raise ValueError(
@@ -155,6 +134,7 @@ def forecast_to_dataframe(forecast_json):
     df = df.sort_values("timestamp").reset_index(drop=True)
 
     return df
+
 
 def get_watttime_forecast(region="CAISO_NORTH", signal_type="co2_moer"):
     """
