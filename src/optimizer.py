@@ -156,12 +156,26 @@ def optimize_schedule(
         raise ValueError("Computed slots_required must be positive.")
 
     now_ts = pd.Timestamp.now()
-    df["eligible_flag"] = (df["timestamp"] >= now_ts).astype(int)
+
+    # If all forecast rows are in the past relative to the machine clock
+    # (common in demo CSV testing), fall back to the forecast start time
+    # so demo mode remains usable.
+    if df["timestamp"].max() < now_ts:
+        effective_now_ts = df["timestamp"].min()
+    else:
+        effective_now_ts = now_ts
+
+    df["eligible_flag"] = (df["timestamp"] >= effective_now_ts).astype(int)
 
     if deadline is not None:
         deadline_ts = pd.to_datetime(deadline)
+
+        # Normalize deadline if it came in timezone-aware
+        if getattr(deadline_ts, "tzinfo", None) is not None:
+            deadline_ts = deadline_ts.tz_localize(None)
+
         df["eligible_flag"] = (
-            (df["timestamp"] >= now_ts) & (df["timestamp"] <= deadline_ts)
+            (df["timestamp"] >= effective_now_ts) & (df["timestamp"] <= deadline_ts)
         ).astype(int)
 
     eligible_df = df[df["eligible_flag"] == 1].copy()

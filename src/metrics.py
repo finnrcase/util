@@ -7,6 +7,24 @@ This module compares optimized and baseline schedules.
 import pandas as pd
 
 
+def _infer_interval_minutes(df: pd.DataFrame) -> float:
+    """
+    Infer the time interval in minutes between forecast rows.
+    Assumes timestamp column is sorted.
+    """
+    if len(df) < 2:
+        raise ValueError("schedule_df must contain at least 2 rows to infer interval.")
+
+    ts = pd.to_datetime(df["timestamp"]).sort_values()
+    diffs = ts.diff().dropna()
+    interval_minutes = diffs.dt.total_seconds().median() / 60
+
+    if interval_minutes <= 0:
+        raise ValueError("Could not infer a valid interval length.")
+
+    return interval_minutes
+
+
 def calculate_schedule_totals(
     schedule_df: pd.DataFrame,
     run_flag_column: str,
@@ -19,11 +37,12 @@ def calculate_schedule_totals(
     ----------
     schedule_df : pd.DataFrame
         Must contain:
+        - timestamp
         - carbon_g_per_kwh
         - price_per_kwh
         - run flag column
     run_flag_column : str
-        Column indicating whether the workload runs in each hour.
+        Column indicating whether the workload runs in each interval.
     machine_watts : int
         Machine power draw in watts.
 
@@ -32,20 +51,26 @@ def calculate_schedule_totals(
     dict
         Dictionary with total_cost and total_carbon_kg.
     """
-    if run_flag_column not in schedule_df.columns:
-        raise ValueError(f"{run_flag_column} not found in schedule_df")
+    required_columns = {"timestamp", "carbon_g_per_kwh", "price_per_kwh", run_flag_column}
+    if not required_columns.issubset(schedule_df.columns):
+        raise ValueError(f"schedule_df must contain columns: {required_columns}")
 
     df = schedule_df.copy()
+    df["timestamp"] = pd.to_datetime(df["timestamp"])
 
+    interval_minutes = _infer_interval_minutes(df)
+    interval_hours = interval_minutes / 60.0
     machine_kw = machine_watts / 1000.0
 
-    df["hourly_cost"] = df[run_flag_column] * machine_kw * df["price_per_kwh"]
-    df["hourly_carbon_kg"] = (
-        df[run_flag_column] * machine_kw * df["carbon_g_per_kwh"] / 1000.0
+    df["interval_cost"] = (
+        df[run_flag_column] * machine_kw * interval_hours * df["price_per_kwh"]
+    )
+    df["interval_carbon_kg"] = (
+        df[run_flag_column] * machine_kw * interval_hours * df["carbon_g_per_kwh"] / 1000.0
     )
 
-    total_cost = df["hourly_cost"].sum()
-    total_carbon_kg = df["hourly_carbon_kg"].sum()
+    total_cost = df["interval_cost"].sum()
+    total_carbon_kg = df["interval_carbon_kg"].sum()
 
     return {
         "total_cost": total_cost,
