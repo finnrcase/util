@@ -14,6 +14,7 @@ Current development status:
 - Supports demo forecast mode using placeholder CSVs
 - Supports live carbon mode using WattTime + placeholder price
 - Supports flexible and block schedule optimization modes
+- Supports forecast-only and forecast-extension carbon estimation modes
 - Region is mapped and returned, but live carbon is currently using a prototype flow
 - Designed to make the backend app-ready before Streamlit integration
 """
@@ -50,10 +51,8 @@ def run_util_pipeline(
     price_path: str | Path | None = None,
     forecast_mode: str = "demo",
     schedule_mode: str = "flexible",
-    carbon_estimation_mode: str = "live_only",
+    carbon_estimation_mode: str = "forecast_only",
     historical_days: int = 7,
-    live_weight: float = 0.7,
-    history_weight: float = 0.3,
 ) -> dict[str, Any]:
     """
     Run the full Util backend workflow.
@@ -78,6 +77,14 @@ def run_util_pipeline(
         Supported values:
         - "flexible"
         - "block"
+    carbon_estimation_mode : str
+        Carbon estimate strategy for live mode.
+        Supported values:
+        - "forecast_only"
+        - "forecast_plus_historical_expectation"
+    historical_days : int
+        Number of past days of historical carbon data to use when extending
+        beyond the live forecast horizon.
 
     Returns
     -------
@@ -144,8 +151,7 @@ def run_util_pipeline(
         price_filepath=price_path,
         carbon_estimation_mode=carbon_estimation_mode,
         historical_days=historical_days,
-        live_weight=live_weight,
-        history_weight=history_weight,
+        deadline=workload_input.deadline,
     )
 
     baseline_df = build_baseline_func(

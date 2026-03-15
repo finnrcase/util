@@ -523,7 +523,7 @@ with tab1:
         )
         carbon_estimation_mode_label = st.radio(
             "Carbon Estimate Type",
-            ["Live Only", "Live + Historical"],
+            ["Forecast Only", "Forecast + Historical Expectation"],
             horizontal=True
         )
 
@@ -533,14 +533,6 @@ with tab1:
             max_value=14,
             value=7,
             step=1
-        )
-
-        history_weight = st.slider(
-            "Historical Weight",
-            min_value=0.0,
-            max_value=0.5,
-            value=0.3,
-            step=0.05
         )
         schedule_mode_label = st.radio(
             "Scheduling Strategy",
@@ -570,12 +562,10 @@ with tab1:
             "Tip: use the Power Estimator tab to generate a machine wattage estimate."
         )
         carbon_estimation_mode = (
-                    "live_plus_history"
-                    if carbon_estimation_mode_label == "Live + Historical"
-                    else "live_only"
-        )
-
-        live_weight = 1.0 - history_weight   
+                    "forecast_plus_historical_expectation"
+                    if carbon_estimation_mode_label == "Forecast + Historical Expectation"
+                    else "forecast_only"
+                )  
     with col_output:
         if run_button:
             try:
@@ -599,8 +589,6 @@ with tab1:
                     schedule_mode=schedule_mode,
                     carbon_estimation_mode=carbon_estimation_mode,
                     historical_days=int(historical_days),
-                    live_weight=float(live_weight),
-                    history_weight=float(history_weight),
                 )
 
                 st.session_state["result"] = result

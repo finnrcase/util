@@ -7,7 +7,7 @@ from pathlib import Path
 import pandas as pd
 
 from services.watttime_service import get_watttime_forecast, get_watttime_historical
-from src.forecasting.carbon_blender import blend_live_forecast_with_history
+from src.forecasting.carbon_blender import extend_forecast_with_history
 
 
 def _normalize_timestamp_column(df: pd.DataFrame, column: str = "timestamp") -> pd.DataFrame:
@@ -65,18 +65,17 @@ def build_forecast_table(
 def build_live_carbon_forecast_table(
     region: str,
     placeholder_price_per_kwh: float = 0.15,
-    carbon_estimation_mode: str = "live_only",
+    carbon_estimation_mode: str = "forecast_only",
     historical_days: int = 7,
-    live_weight: float = 0.7,
-    history_weight: float = 0.3,
+    deadline: str | None = None,
 ) -> pd.DataFrame:
     """
     Build a forecast table using live carbon forecast data from WattTime
     and a placeholder electricity price.
 
     carbon_estimation_mode:
-    - live_only
-    - live_plus_history
+    - forecast_only
+    - forecast_plus_historical_expectation
     """
     _ = region
     watttime_region = "CAISO_NORTH"
@@ -91,37 +90,47 @@ def build_live_carbon_forecast_table(
 
     carbon_df = _normalize_timestamp_column(carbon_df, "timestamp")
 
-    if carbon_estimation_mode == "live_plus_history":
+    if carbon_estimation_mode == "forecast_plus_historical_expectation":
+        if deadline is None:
+            raise ValueError(
+                "forecast_plus_historical_expectation mode requires deadline."
+            )
+
         historical_df = get_watttime_historical(
             region=watttime_region,
             days=historical_days,
         )
         historical_df = _normalize_timestamp_column(historical_df, "timestamp")
 
-        carbon_df = blend_live_forecast_with_history(
+        carbon_df = extend_forecast_with_history(
             live_forecast_df=carbon_df,
             historical_df=historical_df,
-            live_weight=live_weight,
-            history_weight=history_weight,
+            deadline=deadline,
         )
 
-    elif carbon_estimation_mode != "live_only":
+    elif carbon_estimation_mode == "forecast_only":
+        carbon_df["carbon_source"] = "live_forecast"
+
+    else:
         raise ValueError(
-            "carbon_estimation_mode must be either 'live_only' or 'live_plus_history'"
+            "carbon_estimation_mode must be either "
+            "'forecast_only' or 'forecast_plus_historical_expectation'"
         )
 
     carbon_df["price_per_kwh"] = placeholder_price_per_kwh
 
-    forecast_columns = ["timestamp", "carbon_g_per_kwh", "price_per_kwh"]
-    extra_columns = [
+    ordered_columns = [
         col for col in [
-            "raw_live_carbon_g_per_kwh",
+            "timestamp",
+            "carbon_g_per_kwh",
+            "price_per_kwh",
             "historical_avg_carbon_g_per_kwh",
+            "carbon_source",
         ]
         if col in carbon_df.columns
     ]
 
-    forecast_df = carbon_df[forecast_columns + extra_columns]
+    forecast_df = carbon_df[ordered_columns].copy()
     forecast_df = forecast_df.sort_values("timestamp").reset_index(drop=True)
 
     if forecast_df.empty:
@@ -136,10 +145,9 @@ def get_forecast_table(
     carbon_filepath: str | Path | None = None,
     price_filepath: str | Path | None = None,
     placeholder_price_per_kwh: float = 0.15,
-    carbon_estimation_mode: str = "live_only",
+    carbon_estimation_mode: str = "forecast_only",
     historical_days: int = 7,
-    live_weight: float = 0.7,
-    history_weight: float = 0.3,
+    deadline: str | None = None,
 ) -> pd.DataFrame:
     """
     Master forecast loader.
@@ -161,8 +169,7 @@ def get_forecast_table(
             placeholder_price_per_kwh=placeholder_price_per_kwh,
             carbon_estimation_mode=carbon_estimation_mode,
             historical_days=historical_days,
-            live_weight=live_weight,
-            history_weight=history_weight,
+            deadline=deadline,
         )
 
     raise ValueError(
