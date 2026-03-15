@@ -542,6 +542,9 @@ with tab1:
             horizontal=True
         )
 
+        if st.session_state["optimizer_machine_watts"] != st.session_state["estimated_power_watts"]:
+            st.session_state["optimizer_machine_watts"] = st.session_state["estimated_power_watts"]
+
         machine_watts = st.number_input(
             "Machine Wattage (Watts)",
             min_value=50,
@@ -976,7 +979,6 @@ with tab5:
 
     if st.button("Use This Estimate in Optimizer"):
         st.session_state["estimated_power_watts"] = estimated_power
-        st.session_state["optimizer_machine_watts"] = estimated_power
         st.success(
             f"Saved {estimated_power:,} W. Go back to the Optimizer tab and it is now loaded."
         )
