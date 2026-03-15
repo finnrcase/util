@@ -977,12 +977,9 @@ with tab5:
     if st.button("Use This Estimate in Optimizer"):
         st.session_state["estimated_power_watts"] = estimated_power
         st.session_state["optimizer_machine_watts"] = estimated_power
-
         st.success(
-            f"Saved {estimated_power:,} W. Go back to the Optimizer tab — it is now loaded automatically."
+            f"Saved {estimated_power:,} W. Go back to the Optimizer tab and it is now loaded."
         )
-
-    st.rerun()
 
     breakdown_df = pd.DataFrame({
         "Component": [
