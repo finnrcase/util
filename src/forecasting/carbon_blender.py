@@ -22,10 +22,11 @@ def extend_forecast_with_history(
       for that HH:MM slot.
     """
     live_df = live_forecast_df.copy()
-    live_df["timestamp"] = pd.to_datetime(live_df["timestamp"])
-
-    if getattr(live_df["timestamp"].dt, "tz", None) is not None:
-        live_df["timestamp"] = live_df["timestamp"].dt.tz_localize(None)
+    live_df["timestamp"] = (
+        pd.to_datetime(live_df["timestamp"], utc=True)
+        .dt.tz_convert("America/Los_Angeles")
+        .dt.tz_localize(None)
+    )
 
     live_df = live_df.sort_values("timestamp").reset_index(drop=True)
 
@@ -34,7 +35,7 @@ def extend_forecast_with_history(
 
     deadline_ts = pd.to_datetime(deadline)
     if getattr(deadline_ts, "tzinfo", None) is not None:
-        deadline_ts = deadline_ts.tz_localize(None)
+        deadline_ts = deadline_ts.tz_convert("America/Los_Angeles").tz_localize(None)
 
     forecast_max = live_df["timestamp"].max()
 

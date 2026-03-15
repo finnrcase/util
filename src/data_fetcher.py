@@ -12,11 +12,7 @@ from src.forecasting.carbon_blender import extend_forecast_with_history
 
 def _normalize_timestamp_column(df: pd.DataFrame, column: str = "timestamp") -> pd.DataFrame:
     df = df.copy()
-    df[column] = pd.to_datetime(df[column])
-
-    if getattr(df[column].dt, "tz", None) is not None:
-        df[column] = df[column].dt.tz_localize(None)
-
+    df[column] = pd.to_datetime(df[column], utc=True).dt.tz_convert("America/Los_Angeles").dt.tz_localize(None)
     return df
 
 
