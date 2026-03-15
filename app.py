@@ -570,6 +570,7 @@ with tab1:
                 )  
     with col_output:
         if run_button:
+            st.session_state["result"] = None
             try:
                 forecast_mode = "live_carbon" if forecast_mode_label == "Live Carbon" else "demo"
                 schedule_mode = "block" if schedule_mode_label == "Continuous Block" else "flexible"
@@ -620,6 +621,11 @@ with tab1:
             forecast = result["forecast"].copy()
             optimized = result["optimized"].copy()
 
+            st.write("Current system time:", datetime.now())
+            st.write("Forecast start:", pd.to_datetime(forecast["timestamp"]).min())
+            st.write("Forecast end:", pd.to_datetime(forecast["timestamp"]).max())
+            st.write("Forecast mode shown:", st.session_state["last_forecast_mode_label"])
+            
             selected_schedule = schedule[schedule["run_flag"] == 1].copy()
             run_window = build_run_window_summary(schedule)
             comparison = build_run_now_comparison(
