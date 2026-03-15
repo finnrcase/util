@@ -70,6 +70,8 @@ def _select_block_schedule(
     """
     Select one contiguous run window with the lowest total score.
     """
+    eligible_df = eligible_df.sort_values("timestamp").reset_index(drop=True)
+
     if slots_required > len(eligible_df):
         raise ValueError(
             "compute_hours_required exceeds the amount of forecast time "
@@ -97,6 +99,7 @@ def optimize_schedule(
     objective: str,
     deadline: str | None = None,
     schedule_mode: str = "flexible",
+    current_time_override: str | None = None,
 ) -> pd.DataFrame:
     """
     Select the best times to run based on the chosen objective,
@@ -155,7 +158,12 @@ def optimize_schedule(
     if slots_required <= 0:
         raise ValueError("Computed slots_required must be positive.")
 
-    now_ts = pd.Timestamp.now()
+        if current_time_override is not None:
+            now_ts = pd.to_datetime(current_time_override)
+        if getattr(now_ts, "tzinfo", None) is not None:
+            now_ts = now_ts.tz_localize(None)
+    else:
+        now_ts = pd.Timestamp.now()
 
     # If all forecast rows are in the past relative to the machine clock
     # (common in demo CSV testing), fall back to the forecast start time

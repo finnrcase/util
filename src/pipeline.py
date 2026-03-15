@@ -53,6 +53,7 @@ def run_util_pipeline(
     schedule_mode: str = "flexible",
     carbon_estimation_mode: str = "forecast_only",
     historical_days: int = 7,
+    current_time_override: str | None = None,
 ) -> dict[str, Any]:
     """
     Run the full Util backend workflow.
@@ -165,6 +166,7 @@ def run_util_pipeline(
         objective=workload_input.objective,
         deadline=workload_input.deadline,
         schedule_mode=schedule_mode,
+        current_time_override=current_time_override,
     )
 
     schedule_df = build_schedule_func(optimized_df)
