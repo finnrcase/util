@@ -158,8 +158,8 @@ def optimize_schedule(
     if slots_required <= 0:
         raise ValueError("Computed slots_required must be positive.")
 
-        if current_time_override is not None:
-            now_ts = pd.to_datetime(current_time_override)
+    if current_time_override is not None:
+        now_ts = pd.to_datetime(current_time_override)
         if getattr(now_ts, "tzinfo", None) is not None:
             now_ts = now_ts.tz_localize(None)
     else:
