@@ -546,8 +546,8 @@ with tab1:
             "Machine Wattage (Watts)",
             min_value=50,
             max_value=500000,
-            value=int(st.session_state["estimated_power_watts"]),
-            step=10
+            step=10,
+            key="optimizer_machine_watts"
         )
 
         default_deadline = datetime.now() + timedelta(hours=24)
@@ -976,9 +976,13 @@ with tab5:
 
     if st.button("Use This Estimate in Optimizer"):
         st.session_state["estimated_power_watts"] = estimated_power
+        st.session_state["optimizer_machine_watts"] = estimated_power
+
         st.success(
-            f"Saved {estimated_power:,} W. Go back to the Optimizer tab and it will appear as the default machine wattage."
+            f"Saved {estimated_power:,} W. Go back to the Optimizer tab — it is now loaded automatically."
         )
+
+    st.rerun()
 
     breakdown_df = pd.DataFrame({
         "Component": [
