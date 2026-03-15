@@ -231,22 +231,24 @@ def infer_interval_minutes(df: pd.DataFrame) -> float:
 
 def build_forecast_display_df(
     forecast_df: pd.DataFrame,
-    schedule_df: pd.DataFrame | None = None
+    optimized_df: pd.DataFrame | None = None
 ) -> pd.DataFrame:
     df = forecast_df.copy()
     df["timestamp"] = pd.to_datetime(df["timestamp"])
     df["hour_label"] = df["timestamp"].dt.strftime("%b %d, %I:%M %p")
 
-    if schedule_df is not None:
-        run_lookup = schedule_df[["timestamp", "run_flag", "recommended_action"]].copy()
+    if optimized_df is not None:
+        run_lookup = optimized_df[["timestamp", "run_flag", "eligible_flag"]].copy()
         run_lookup["timestamp"] = pd.to_datetime(run_lookup["timestamp"])
         df = df.merge(run_lookup, on="timestamp", how="left")
     else:
         df["run_flag"] = 0
-        df["recommended_action"] = "Unknown"
+        df["eligible_flag"] = 0
 
     df["run_flag"] = df["run_flag"].fillna(0).astype(int)
-    df["recommended_action"] = df["recommended_action"].fillna("Unknown")
+    df["eligible_flag"] = df["eligible_flag"].fillna(0).astype(int)
+
+    df["recommended_action"] = df["run_flag"].map({1: "Run", 0: "Wait"})
     return df
 
 
@@ -793,9 +795,9 @@ with tab3:
         st.info("Run the optimizer to view forecast signals.")
     else:
         forecast = result["forecast"]
-        schedule = result["schedule"]
+        optimized = result["optimized"]
 
-        display_df = build_forecast_display_df(forecast, schedule)
+        display_df = build_forecast_display_df(forecast, optimized)
 
         render_status_pills(
             forecast_mode_label=st.session_state["last_forecast_mode_label"],
