@@ -1,28 +1,16 @@
 """
 Data loading utilities for Util.
-
-DEVELOPMENT NOTE:
-This module currently loads placeholder CSV data from the data/raw folder.
-
-TODO:
-Replace placeholder CSV loading with real API/service-based data loading from:
-- electricityMap
-- WattTime
-- ISO market data
 """
 
 from pathlib import Path
 
 import pandas as pd
 
-from services.watttime_service import get_watttime_forecast
+from services.watttime_service import get_watttime_forecast, get_watttime_historical
+from src.forecasting.carbon_blender import blend_live_forecast_with_history
 
 
 def _normalize_timestamp_column(df: pd.DataFrame, column: str = "timestamp") -> pd.DataFrame:
-    """
-    Convert a timestamp column to pandas datetime and remove timezone info
-    so the rest of the Util pipeline can work with consistent tz-naive values.
-    """
     df = df.copy()
     df[column] = pd.to_datetime(df[column])
 
@@ -33,13 +21,6 @@ def _normalize_timestamp_column(df: pd.DataFrame, column: str = "timestamp") -> 
 
 
 def load_carbon_forecast(filepath: str | Path) -> pd.DataFrame:
-    """
-    Load hourly carbon intensity forecast data from CSV.
-
-    Expected columns:
-    - timestamp
-    - carbon_g_per_kwh
-    """
     df = pd.read_csv(filepath)
     required_columns = {"timestamp", "carbon_g_per_kwh"}
 
@@ -53,13 +34,6 @@ def load_carbon_forecast(filepath: str | Path) -> pd.DataFrame:
 
 
 def load_price_forecast(filepath: str | Path) -> pd.DataFrame:
-    """
-    Load hourly electricity price forecast data from CSV.
-
-    Expected columns:
-    - timestamp
-    - price_per_kwh
-    """
     df = pd.read_csv(filepath)
     required_columns = {"timestamp", "price_per_kwh"}
 
@@ -76,9 +50,6 @@ def build_forecast_table(
     carbon_filepath: str | Path,
     price_filepath: str | Path,
 ) -> pd.DataFrame:
-    """
-    Load carbon and price forecast CSVs and merge them into one table.
-    """
     carbon_df = load_carbon_forecast(carbon_filepath)
     price_df = load_price_forecast(price_filepath)
 
@@ -94,24 +65,18 @@ def build_forecast_table(
 def build_live_carbon_forecast_table(
     region: str,
     placeholder_price_per_kwh: float = 0.15,
+    carbon_estimation_mode: str = "live_only",
+    historical_days: int = 7,
+    live_weight: float = 0.7,
+    history_weight: float = 0.3,
 ) -> pd.DataFrame:
     """
     Build a forecast table using live carbon forecast data from WattTime
     and a placeholder electricity price.
 
-    IMPORTANT PROTOTYPE NOTE:
-    The current ZIP-to-region mapper returns internal prototype regions
-    like "CAISO", but the WattTime forecast endpoint currently needs a
-    WattTime-compatible region such as "CAISO_NORTH".
-
-    For the prototype MVP, we intentionally hardcode the WattTime region
-    to CAISO_NORTH so live carbon mode remains stable while we defer
-    ZIP -> lat/lon -> WattTime region lookup to a later phase.
-
-    Returns columns:
-    - timestamp
-    - carbon_g_per_kwh
-    - price_per_kwh
+    carbon_estimation_mode:
+    - live_only
+    - live_plus_history
     """
     _ = region
     watttime_region = "CAISO_NORTH"
@@ -125,9 +90,38 @@ def build_live_carbon_forecast_table(
         )
 
     carbon_df = _normalize_timestamp_column(carbon_df, "timestamp")
+
+    if carbon_estimation_mode == "live_plus_history":
+        historical_df = get_watttime_historical(
+            region=watttime_region,
+            days=historical_days,
+        )
+        historical_df = _normalize_timestamp_column(historical_df, "timestamp")
+
+        carbon_df = blend_live_forecast_with_history(
+            live_forecast_df=carbon_df,
+            historical_df=historical_df,
+            live_weight=live_weight,
+            history_weight=history_weight,
+        )
+
+    elif carbon_estimation_mode != "live_only":
+        raise ValueError(
+            "carbon_estimation_mode must be either 'live_only' or 'live_plus_history'"
+        )
+
     carbon_df["price_per_kwh"] = placeholder_price_per_kwh
 
-    forecast_df = carbon_df[["timestamp", "carbon_g_per_kwh", "price_per_kwh"]]
+    forecast_columns = ["timestamp", "carbon_g_per_kwh", "price_per_kwh"]
+    extra_columns = [
+        col for col in [
+            "raw_live_carbon_g_per_kwh",
+            "historical_avg_carbon_g_per_kwh",
+        ]
+        if col in carbon_df.columns
+    ]
+
+    forecast_df = carbon_df[forecast_columns + extra_columns]
     forecast_df = forecast_df.sort_values("timestamp").reset_index(drop=True)
 
     if forecast_df.empty:
@@ -142,13 +136,17 @@ def get_forecast_table(
     carbon_filepath: str | Path | None = None,
     price_filepath: str | Path | None = None,
     placeholder_price_per_kwh: float = 0.15,
+    carbon_estimation_mode: str = "live_only",
+    historical_days: int = 7,
+    live_weight: float = 0.7,
+    history_weight: float = 0.3,
 ) -> pd.DataFrame:
     """
     Master forecast loader.
 
     Supported modes:
-    - demo: load local CSV carbon + price forecast
-    - live_carbon: use live WattTime carbon forecast + placeholder price
+    - demo
+    - live_carbon
     """
     if forecast_mode == "demo":
         if carbon_filepath is None or price_filepath is None:
@@ -161,6 +159,10 @@ def get_forecast_table(
         return build_live_carbon_forecast_table(
             region=region,
             placeholder_price_per_kwh=placeholder_price_per_kwh,
+            carbon_estimation_mode=carbon_estimation_mode,
+            historical_days=historical_days,
+            live_weight=live_weight,
+            history_weight=history_weight,
         )
 
     raise ValueError(

@@ -1,4 +1,6 @@
 import os
+from datetime import datetime, timedelta, timezone
+
 import pandas as pd
 import requests
 from requests.auth import HTTPBasicAuth
@@ -16,6 +18,7 @@ PASSWORD = os.getenv("WATTTIME_PASSWORD")
 
 LOGIN_URL = "https://api2.watttime.org/v2/login"
 FORECAST_URL = "https://api.watttime.org/v3/forecast"
+HISTORICAL_URL = "https://api.watttime.org/v3/historical"
 
 
 def get_token():
@@ -49,77 +52,66 @@ def get_token():
     return token
 
 
-def get_forecast(region="CAISO_NORTH", signal_type="co2_moer"):
-    """
-    Fetch live carbon forecast data from WattTime.
-    """
+def _fetch_json(url: str, params: dict) -> dict:
     token = get_token()
 
     headers = {
         "Authorization": f"Bearer {token}"
     }
 
-    params = {
-        "region": region,
-        "signal_type": signal_type,
-    }
-
     response = requests.get(
-        FORECAST_URL,
+        url,
         headers=headers,
         params=params,
-        timeout=30
+        timeout=60
     )
 
-    print("FORECAST STATUS:", response.status_code)
-    print("FORECAST CONTENT TYPE:", response.headers.get("content-type"))
-    print("FORECAST URL:", response.url)
-    print("FORECAST RESPONSE PREVIEW:", response.text[:500])
+    print("REQUEST STATUS:", response.status_code)
+    print("REQUEST CONTENT TYPE:", response.headers.get("content-type"))
+    print("REQUEST URL:", response.url)
+    print("REQUEST RESPONSE PREVIEW:", response.text[:500])
 
     if response.status_code == 401:
-        raise ValueError("WattTime forecast request failed: unauthorized (401).")
+        raise ValueError("WattTime request failed: unauthorized (401).")
 
     if response.status_code == 403:
-        raise ValueError("WattTime forecast request failed: forbidden (403).")
+        raise ValueError("WattTime request failed: forbidden (403).")
 
     response.raise_for_status()
 
     if "application/json" not in response.headers.get("content-type", ""):
-        raise ValueError("Forecast endpoint did not return JSON.")
+        raise ValueError("WattTime endpoint did not return JSON.")
 
     return response.json()
 
 
-def forecast_to_dataframe(forecast_json):
+def forecast_to_dataframe(payload: dict | list) -> pd.DataFrame:
     """
-    Convert WattTime forecast JSON into the standard Util dataframe format.
+    Convert WattTime v3 forecast/historical JSON into Util's standard dataframe format.
 
     Expected normalized columns:
     - timestamp
     - carbon_g_per_kwh
     """
-    if isinstance(forecast_json, dict):
-        if "data" not in forecast_json:
+    if isinstance(payload, dict):
+        if "data" not in payload:
             raise ValueError(
-                f"Expected forecast JSON to contain a 'data' key. "
-                f"Keys returned: {list(forecast_json.keys())}"
+                f"Expected payload to contain a 'data' key. Keys returned: {list(payload.keys())}"
             )
-        rows = forecast_json["data"]
-    elif isinstance(forecast_json, list):
-        rows = forecast_json
+        rows = payload["data"]
+    elif isinstance(payload, list):
+        rows = payload
     else:
-        raise ValueError(
-            f"Unexpected forecast_json type: {type(forecast_json)}"
-        )
+        raise ValueError(f"Unexpected payload type: {type(payload)}")
 
     df = pd.DataFrame(rows)
 
     if df.empty:
-        raise ValueError("Forecast response was empty.")
+        raise ValueError("WattTime response was empty.")
 
     if "point_time" not in df.columns or "value" not in df.columns:
         raise ValueError(
-            f"Unexpected forecast columns returned: {list(df.columns)}"
+            f"Unexpected WattTime columns returned: {list(df.columns)}"
         )
 
     df = df.rename(
@@ -136,14 +128,67 @@ def forecast_to_dataframe(forecast_json):
     return df
 
 
+def get_forecast(region="CAISO_NORTH", signal_type="co2_moer"):
+    """
+    Fetch live carbon forecast data from WattTime.
+    """
+    params = {
+        "region": region,
+        "signal_type": signal_type,
+    }
+    return _fetch_json(FORECAST_URL, params)
+
+
+def get_historical(
+    region="CAISO_NORTH",
+    signal_type="co2_moer",
+    start: str | None = None,
+    end: str | None = None,
+    days: int = 7,
+):
+    """
+    Fetch historical carbon data from WattTime v3 historical endpoint.
+    If start/end are not provided, fetch the last `days` days in UTC.
+    """
+    if start is None or end is None:
+        end_dt = datetime.now(timezone.utc)
+        start_dt = end_dt - timedelta(days=days)
+        start = start_dt.isoformat()
+        end = end_dt.isoformat()
+
+    params = {
+        "region": region,
+        "signal_type": signal_type,
+        "start": start,
+        "end": end,
+    }
+
+    return _fetch_json(HISTORICAL_URL, params)
+
+
 def get_watttime_forecast(region="CAISO_NORTH", signal_type="co2_moer"):
     """
-    Fetch live WattTime forecast data and return it in Util's
-    standardized dataframe format.
-
-    Returned columns:
-    - timestamp
-    - carbon_g_per_kwh
+    Fetch live WattTime forecast data and return it in Util's standardized dataframe format.
     """
     forecast_json = get_forecast(region=region, signal_type=signal_type)
     return forecast_to_dataframe(forecast_json)
+
+
+def get_watttime_historical(
+    region="CAISO_NORTH",
+    signal_type="co2_moer",
+    start: str | None = None,
+    end: str | None = None,
+    days: int = 7,
+):
+    """
+    Fetch historical WattTime data and return it in Util's standardized dataframe format.
+    """
+    historical_json = get_historical(
+        region=region,
+        signal_type=signal_type,
+        start=start,
+        end=end,
+        days=days,
+    )
+    return forecast_to_dataframe(historical_json)

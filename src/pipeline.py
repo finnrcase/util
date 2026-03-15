@@ -50,6 +50,10 @@ def run_util_pipeline(
     price_path: str | Path | None = None,
     forecast_mode: str = "demo",
     schedule_mode: str = "flexible",
+    carbon_estimation_mode: str = "live_only",
+    historical_days: int = 7,
+    live_weight: float = 0.7,
+    history_weight: float = 0.3,
 ) -> dict[str, Any]:
     """
     Run the full Util backend workflow.
@@ -138,6 +142,10 @@ def run_util_pipeline(
         region=region,
         carbon_filepath=carbon_path,
         price_filepath=price_path,
+        carbon_estimation_mode=carbon_estimation_mode,
+        historical_days=historical_days,
+        live_weight=live_weight,
+        history_weight=history_weight,
     )
 
     baseline_df = build_baseline_func(
