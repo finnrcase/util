@@ -12,7 +12,15 @@ from src.forecasting.carbon_blender import extend_forecast_with_history
 
 def _normalize_timestamp_column(df: pd.DataFrame, column: str = "timestamp") -> pd.DataFrame:
     df = df.copy()
-    df[column] = pd.to_datetime(df[column], utc=True).dt.tz_convert("America/Los_Angeles").dt.tz_localize(None)
+
+    parsed = pd.to_datetime(df[column], errors="coerce")
+
+    # If timezone-aware (common for WattTime), convert to Pacific time first,
+    # then drop timezone info so the rest of the app uses consistent local naive timestamps.
+    if getattr(parsed.dt, "tz", None) is not None:
+        parsed = parsed.dt.tz_convert("America/Los_Angeles").dt.tz_localize(None)
+
+    df[column] = parsed
     return df
 
 
