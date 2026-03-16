@@ -12,7 +12,11 @@ from src.forecasting.carbon_blender import extend_forecast_with_history
 
 def _normalize_timestamp_column(df: pd.DataFrame, column: str = "timestamp") -> pd.DataFrame:
     df = df.copy()
-    df[column] = pd.to_datetime(df[column], utc=True).dt.tz_convert("America/Los_Angeles").dt.tz_localize(None)
+    df[column] = (
+        pd.to_datetime(df[column], utc=True)
+        .dt.tz_convert("America/Los_Angeles")
+        .dt.tz_localize(None)
+    )
     return df
 
 
@@ -58,6 +62,63 @@ def build_forecast_table(
     return forecast_df
 
 
+def _fetch_live_forecast_with_fallback(region: str):
+    """
+    Attempt to fetch WattTime forecast for requested region.
+    If WattTime plan does not allow it, fall back to CAISO_NORTH.
+    """
+    try:
+        carbon_df = get_watttime_forecast(region)
+        region_used = region
+        access_mode = "direct_region"
+
+    except ValueError as exc:
+        error_text = str(exc)
+
+        if "forbidden (403)" in error_text or "INVALID_SCOPE" in error_text:
+
+            fallback_region = "CAISO_NORTH"
+
+            carbon_df = get_watttime_forecast(fallback_region)
+
+            region_used = fallback_region
+            access_mode = "preview_fallback"
+
+        else:
+            raise
+
+    return carbon_df, region_used, access_mode
+
+
+def _fetch_live_historical_with_fallback(region: str, days: int):
+    """
+    Attempt to fetch WattTime historical data for requested region.
+    Falls back to CAISO_NORTH if needed.
+    """
+    try:
+        historical_df = get_watttime_historical(region=region, days=days)
+        region_used = region
+
+    except ValueError as exc:
+        error_text = str(exc)
+
+        if "forbidden (403)" in error_text or "INVALID_SCOPE" in error_text:
+
+            fallback_region = "CAISO_NORTH"
+
+            historical_df = get_watttime_historical(
+                region=fallback_region,
+                days=days,
+            )
+
+            region_used = fallback_region
+
+        else:
+            raise
+
+    return historical_df, region_used
+
+
 def build_live_carbon_forecast_table(
     region: str,
     placeholder_price_per_kwh: float = 0.15,
@@ -74,10 +135,11 @@ def build_live_carbon_forecast_table(
     - forecast_plus_historical_expectation
     """
 
-    # THIS IS THE FIX: use the region passed from the pipeline
-    watttime_region = region
+    requested_region = region
 
-    carbon_df = get_watttime_forecast(watttime_region)
+    carbon_df, forecast_region_used, forecast_access_mode = _fetch_live_forecast_with_fallback(
+        requested_region
+    )
 
     required_columns = {"timestamp", "carbon_g_per_kwh"}
     if not required_columns.issubset(carbon_df.columns):
@@ -94,9 +156,9 @@ def build_live_carbon_forecast_table(
                 "forecast_plus_historical_expectation mode requires deadline."
             )
 
-        historical_df = get_watttime_historical(
-            region=watttime_region,
-            days=historical_days,
+        historical_df, historical_region_used = _fetch_live_historical_with_fallback(
+            requested_region,
+            historical_days,
         )
 
         historical_df = _normalize_timestamp_column(historical_df, "timestamp")
@@ -106,6 +168,8 @@ def build_live_carbon_forecast_table(
             historical_df=historical_df,
             deadline=deadline,
         )
+
+        carbon_df["historical_region_used"] = historical_region_used
 
     elif carbon_estimation_mode == "forecast_only":
 
@@ -120,14 +184,22 @@ def build_live_carbon_forecast_table(
 
     carbon_df["price_per_kwh"] = placeholder_price_per_kwh
 
+    # metadata columns for transparency
+    carbon_df["forecast_region_requested"] = requested_region
+    carbon_df["forecast_region_used"] = forecast_region_used
+    carbon_df["forecast_access_mode"] = forecast_access_mode
+
     ordered_columns = [
-        col
-        for col in [
+        col for col in [
             "timestamp",
             "carbon_g_per_kwh",
             "price_per_kwh",
             "historical_avg_carbon_g_per_kwh",
             "carbon_source",
+            "forecast_region_requested",
+            "forecast_region_used",
+            "forecast_access_mode",
+            "historical_region_used",
         ]
         if col in carbon_df.columns
     ]
