@@ -19,7 +19,7 @@ PASSWORD = os.getenv("WATTTIME_PASSWORD")
 LOGIN_URL = "https://api2.watttime.org/v2/login"
 FORECAST_URL = "https://api.watttime.org/v3/forecast"
 HISTORICAL_URL = "https://api.watttime.org/v3/historical"
-
+BA_FROM_LOC_URL = "https://api2.watttime.org/v2/ba-from-loc"
 
 def get_token():
     """
@@ -192,3 +192,26 @@ def get_watttime_historical(
         days=days,
     )
     return forecast_to_dataframe(historical_json)
+
+def get_ba_from_loc(latitude: float, longitude: float) -> dict:
+    """
+    Resolve latitude/longitude to a WattTime balancing authority / region.
+
+    Parameters
+    ----------
+    latitude : float
+        Latitude coordinate.
+    longitude : float
+        Longitude coordinate.
+
+    Returns
+    -------
+    dict
+        Raw JSON response from WattTime's ba-from-loc endpoint.
+    """
+    params = {
+        "latitude": latitude,
+        "longitude": longitude,
+    }
+
+    return _fetch_json(BA_FROM_LOC_URL, params)

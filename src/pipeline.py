@@ -25,6 +25,7 @@ from pathlib import Path
 from typing import Any, Callable
 
 from src.data_fetcher import get_forecast_table
+from src.location.location_service import resolve_zip_to_watttime_region
 from src.mapper import load_zip_region_map, map_zip_to_region
 
 
@@ -142,8 +143,27 @@ def run_util_pipeline(
         ],
     )
 
-    mapping_df = load_zip_region_map(mapping_path)
-    region = map_zip_to_region(workload_input.zip_code, mapping_df)
+    if forecast_mode == "demo":
+        mapping_df = load_zip_region_map(mapping_path)
+        region = map_zip_to_region(workload_input.zip_code, mapping_df)
+        location_info = {
+            "zip_code": workload_input.zip_code,
+            "latitude": None,
+            "longitude": None,
+            "watttime_region": region,
+            "watttime_name": None,
+            "watttime_id": None,
+        }
+
+    elif forecast_mode == "live_carbon":
+        location_info = resolve_zip_to_watttime_region(workload_input.zip_code)
+        region = location_info["watttime_region"]
+
+    else:
+        raise ValueError(
+            f"Unsupported forecast_mode: {forecast_mode}. "
+            f"Expected 'demo' or 'live_carbon'."
+        )
 
     forecast_df = get_forecast_table(
         forecast_mode=forecast_mode,
@@ -180,6 +200,7 @@ def run_util_pipeline(
     return {
         "workload_input": workload_input,
         "region": region,
+        "location_info": location_info,
         "forecast": forecast_df,
         "baseline": baseline_df,
         "optimized": optimized_df,
