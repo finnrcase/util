@@ -645,25 +645,24 @@ with tab1:
                 forecast_df=forecast
             )
 
-            sst.markdown(f"""
-                <div class="summary-card">
+            st.markdown(f"""
+<div class="summary-card">
 
-                <h4 style="margin-top:0;">Recommended Schedule</h4>
+<h4 style="margin-top:0;">Recommended Schedule</h4>
 
-                <p style="font-size:17px;">
-                Run your workload from <strong>{start_str}</strong> to <strong>{end_str}</strong>
-                to minimize <strong>{objective.lower()}</strong>.
-                </p>
+<p style="font-size:17px;">
+Run your workload from <strong>{start_str}</strong> to <strong>{end_str}</strong>
+to minimize <strong>{objective.lower()}</strong>.
+</p>
 
-                <hr style="opacity:0.2">
+<hr style="opacity:0.2">
 
-                <strong>Region:</strong> {region}<br>
-                <strong>Machine Wattage:</strong> {machine_watts} W<br>
-                <strong>Selected Time Slots:</strong> {interval_count}
+<strong>Region:</strong> {region}<br>
+<strong>Machine Wattage:</strong> {machine_watts} W<br>
+<strong>Selected Time Slots:</strong> {interval_count}
 
-                </div>
-                """, unsafe_allow_html=True)
-                        
+</div>
+""", unsafe_allow_html=True)
 
             k1, k2, k3, k4 = st.columns(4)
             with k1:
