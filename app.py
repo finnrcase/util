@@ -659,51 +659,44 @@ with tab1:
                 unsafe_allow_html=True
             )
 
-            m1, m2, m3, m4 = st.columns(4)
-            with m1:
-                render_metric_card("Baseline Cost", f"${metrics['baseline_cost']:.2f}")
-            with m2:
-                render_metric_card(
-                    "Optimized Cost",
-                    f"${metrics['optimized_cost']:.2f}",
-                    f"Savings: ${metrics['cost_savings']:.2f}"
-                )
-            with m3:
-                render_metric_card(
-                    "Baseline Carbon",
-                    f"{metrics['baseline_carbon_kg']:.2f} kg"
-                )
-            with m4:
+            k1, k2, k3, k4 = st.columns(4)
+            with k1:
                 render_metric_card(
                     "Optimized Carbon",
-                    f"{metrics['optimized_carbon_kg']:.2f} kg",
-                    f"Reduction: {metrics['carbon_reduction_pct']:.1f}%"
+                    f"{metrics['optimized_carbon_kg']:.2f} kg"
+                )
+            with k2:
+                render_metric_card(
+                    "Carbon Reduction vs Baseline",
+                    f"{metrics['carbon_reduction_pct']:.1f}%",
+                    f"Saved: {metrics['carbon_savings_kg']:.2f} kg"
+                )
+            with k3:
+                render_metric_card(
+                    "Optimized Cost",
+                    f"${metrics['optimized_cost']:.2f}"
+                )
+            with k4:
+                render_metric_card(
+                    "Cost Savings vs Baseline",
+                    f"${metrics['cost_savings']:.2f}",
+                    f"{metrics['cost_reduction_pct']:.1f}% lower"
                 )
 
-            st.subheader("Run Now vs Optimized")
+            st.subheader("Compared with Running Immediately")
 
-            rn1, rn2, rn3, rn4 = st.columns(4)
+            rn1, rn2 = st.columns(2)
             with rn1:
                 render_metric_card(
-                    "Run Now Carbon",
-                    f"{comparison['run_now_carbon_kg']:.2f} kg"
+                    "Carbon Saved vs Run Now",
+                    f"{comparison['carbon_saved_vs_now_kg']:.2f} kg",
+                    f"Run now: {comparison['run_now_carbon_kg']:.2f} kg"
                 )
             with rn2:
                 render_metric_card(
-                    "Optimized Carbon",
-                    f"{comparison['optimized_carbon_kg']:.2f} kg",
-                    f"Saved vs now: {comparison['carbon_saved_vs_now_kg']:.2f} kg"
-                )
-            with rn3:
-                render_metric_card(
-                    "Run Now Cost",
-                    f"${comparison['run_now_cost']:.2f}"
-                )
-            with rn4:
-                render_metric_card(
-                    "Optimized Cost",
-                    f"${comparison['optimized_cost']:.2f}",
-                    f"Saved vs now: ${comparison['cost_saved_vs_now']:.2f}"
+                    "Cost Saved vs Run Now",
+                    f"${comparison['cost_saved_vs_now']:.2f}",
+                    f"Run now: ${comparison['run_now_cost']:.2f}"
                 )
 
             st.subheader("Recommended Schedule")
@@ -723,7 +716,7 @@ with tab2:
     result = st.session_state["result"]
 
     if result is None:
-        st.info("Run the optimizer first.")
+        st.info("Run the optimizer to view savings analysis.")
     else:
         metrics = result["metrics"]
         workload = result["workload_input"]
@@ -861,7 +854,7 @@ with tab4:
     result = st.session_state["result"]
 
     if result is None:
-        st.info("Run the optimizer first.")
+        st.info("Run the optimizer to view timeline.")
     else:
         schedule = result["schedule"]
         timeline_df = build_timeline_df(schedule)
