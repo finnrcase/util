@@ -6,7 +6,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from services.watttime_service import get_ba_from_loc
+from services.watttime_service import get_region_from_loc
 
 
 def coordinates_to_watttime_region(
@@ -14,7 +14,7 @@ def coordinates_to_watttime_region(
     longitude: float,
 ) -> dict[str, Any]:
     """
-    Resolve latitude/longitude to a WattTime balancing authority / region.
+    Resolve latitude/longitude to a WattTime region.
 
     Parameters
     ----------
@@ -30,19 +30,20 @@ def coordinates_to_watttime_region(
         - latitude
         - longitude
         - watttime_region
-        - watttime_name
-        - watttime_id
+        - watttime_region_full_name
+        - signal_type
+        - raw_response
 
     Raises
     ------
     ValueError
         If WattTime region lookup fails or returns incomplete data.
     """
-    response = get_ba_from_loc(latitude=latitude, longitude=longitude)
+    response = get_region_from_loc(latitude=latitude, longitude=longitude)
 
-    region = response.get("abbrev")
-    name = response.get("name")
-    region_id = response.get("id")
+    region = response.get("region")
+    region_full_name = response.get("region_full_name")
+    signal_type = response.get("signal_type")
 
     if not region:
         raise ValueError(
@@ -53,7 +54,7 @@ def coordinates_to_watttime_region(
         "latitude": latitude,
         "longitude": longitude,
         "watttime_region": region,
-        "watttime_name": name,
-        "watttime_id": region_id,
+        "watttime_region_full_name": region_full_name,
+        "signal_type": signal_type,
         "raw_response": response,
     }

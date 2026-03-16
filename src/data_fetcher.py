@@ -73,8 +73,9 @@ def build_live_carbon_forecast_table(
     - forecast_only
     - forecast_plus_historical_expectation
     """
-    _ = region
-    watttime_region = "CAISO_NORTH"
+
+    # THIS IS THE FIX: use the region passed from the pipeline
+    watttime_region = region
 
     carbon_df = get_watttime_forecast(watttime_region)
 
@@ -87,6 +88,7 @@ def build_live_carbon_forecast_table(
     carbon_df = _normalize_timestamp_column(carbon_df, "timestamp")
 
     if carbon_estimation_mode == "forecast_plus_historical_expectation":
+
         if deadline is None:
             raise ValueError(
                 "forecast_plus_historical_expectation mode requires deadline."
@@ -96,6 +98,7 @@ def build_live_carbon_forecast_table(
             region=watttime_region,
             days=historical_days,
         )
+
         historical_df = _normalize_timestamp_column(historical_df, "timestamp")
 
         carbon_df = extend_forecast_with_history(
@@ -105,9 +108,11 @@ def build_live_carbon_forecast_table(
         )
 
     elif carbon_estimation_mode == "forecast_only":
+
         carbon_df["carbon_source"] = "live_forecast"
 
     else:
+
         raise ValueError(
             "carbon_estimation_mode must be either "
             "'forecast_only' or 'forecast_plus_historical_expectation'"
@@ -116,7 +121,8 @@ def build_live_carbon_forecast_table(
     carbon_df["price_per_kwh"] = placeholder_price_per_kwh
 
     ordered_columns = [
-        col for col in [
+        col
+        for col in [
             "timestamp",
             "carbon_g_per_kwh",
             "price_per_kwh",
@@ -152,14 +158,18 @@ def get_forecast_table(
     - demo
     - live_carbon
     """
+
     if forecast_mode == "demo":
+
         if carbon_filepath is None or price_filepath is None:
             raise ValueError(
                 "Demo mode requires carbon_filepath and price_filepath."
             )
+
         return build_forecast_table(carbon_filepath, price_filepath)
 
     if forecast_mode == "live_carbon":
+
         return build_live_carbon_forecast_table(
             region=region,
             placeholder_price_per_kwh=placeholder_price_per_kwh,

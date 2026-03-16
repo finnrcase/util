@@ -6,6 +6,7 @@ from __future__ import annotations
 
 from typing import Any
 
+import pandas as pd
 import pgeocode
 
 
@@ -41,11 +42,7 @@ def zip_to_coordinates(zip_code: str, country_code: str = "US") -> dict[str, Any
     latitude = result.latitude
     longitude = result.longitude
 
-    if latitude is None or longitude is None:
-        raise ValueError(f"Could not determine coordinates for ZIP code: {zip_code}")
-
-    # pgeocode sometimes returns NaN instead of None
-    if str(latitude) == "nan" or str(longitude) == "nan":
+    if pd.isna(latitude) or pd.isna(longitude):
         raise ValueError(f"Could not determine coordinates for ZIP code: {zip_code}")
 
     return {

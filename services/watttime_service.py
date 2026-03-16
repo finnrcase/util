@@ -1,5 +1,20 @@
+"""
+WattTime service helpers for Util.
+
+This module handles:
+- authentication
+- generic authenticated JSON requests
+- live forecast fetches
+- historical fetches
+- location -> region lookup
+- conversion of WattTime JSON into Util dataframe format
+"""
+
+from __future__ import annotations
+
 import os
 from datetime import datetime, timedelta, timezone
+from typing import Any
 
 import pandas as pd
 import requests
@@ -13,15 +28,17 @@ except ModuleNotFoundError:
 if load_dotenv is not None:
     load_dotenv()
 
+
 USERNAME = os.getenv("WATTTIME_USERNAME")
 PASSWORD = os.getenv("WATTTIME_PASSWORD")
 
 LOGIN_URL = "https://api2.watttime.org/v2/login"
 FORECAST_URL = "https://api.watttime.org/v3/forecast"
 HISTORICAL_URL = "https://api.watttime.org/v3/historical"
-BA_FROM_LOC_URL = "https://api2.watttime.org/v2/ba-from-loc"
+REGION_FROM_LOC_URL = "https://api.watttime.org/v3/region-from-loc"
 
-def get_token():
+
+def get_token() -> str:
     """
     Log in to WattTime and return a bearer token.
     """
@@ -34,14 +51,19 @@ def get_token():
     response = requests.get(
         LOGIN_URL,
         auth=HTTPBasicAuth(USERNAME, PASSWORD),
-        timeout=30
+        timeout=30,
     )
 
     if response.status_code == 401:
-        raise ValueError("WattTime authentication failed: unauthorized (401). Check credentials.")
+        raise ValueError(
+            "WattTime authentication failed: unauthorized (401). Check credentials."
+        )
 
     if response.status_code == 403:
-        raise ValueError("WattTime authentication failed: forbidden (403). Check credentials and account access.")
+        raise ValueError(
+            "WattTime authentication failed: forbidden (403). "
+            "Check credentials and account access."
+        )
 
     response.raise_for_status()
 
@@ -52,23 +74,27 @@ def get_token():
     return token
 
 
-def _fetch_json(url: str, params: dict) -> dict:
+def _fetch_json(url: str, params: dict[str, Any]) -> dict[str, Any]:
+    """
+    Make an authenticated GET request to a WattTime endpoint and return JSON.
+    """
     token = get_token()
 
     headers = {
-        "Authorization": f"Bearer {token}"
+        "Authorization": f"Bearer {token}",
     }
 
     response = requests.get(
         url,
         headers=headers,
         params=params,
-        timeout=60
+        timeout=60,
     )
 
     print("REQUEST STATUS:", response.status_code)
     print("REQUEST CONTENT TYPE:", response.headers.get("content-type"))
     print("REQUEST URL:", response.url)
+    print("REQUEST HISTORY:", response.history)
     print("REQUEST RESPONSE PREVIEW:", response.text[:500])
 
     if response.status_code == 401:
@@ -79,28 +105,37 @@ def _fetch_json(url: str, params: dict) -> dict:
 
     response.raise_for_status()
 
-    if "application/json" not in response.headers.get("content-type", ""):
-        raise ValueError("WattTime endpoint did not return JSON.")
+    content_type = response.headers.get("content-type", "")
+    if "application/json" not in content_type:
+        raise ValueError(
+            f"WattTime endpoint did not return JSON. "
+            f"URL={response.url} | content-type={content_type}"
+        )
 
     return response.json()
 
 
-def forecast_to_dataframe(payload: dict | list) -> pd.DataFrame:
+def forecast_to_dataframe(
+    payload: dict[str, Any] | list[dict[str, Any]]
+) -> pd.DataFrame:
     """
     Convert WattTime v3 forecast/historical JSON into Util's standard dataframe format.
 
-    Expected normalized columns:
+    Expected output columns:
     - timestamp
     - carbon_g_per_kwh
     """
     if isinstance(payload, dict):
         if "data" not in payload:
             raise ValueError(
-                f"Expected payload to contain a 'data' key. Keys returned: {list(payload.keys())}"
+                f"Expected payload to contain a 'data' key. "
+                f"Keys returned: {list(payload.keys())}"
             )
         rows = payload["data"]
+
     elif isinstance(payload, list):
         rows = payload
+
     else:
         raise ValueError(f"Unexpected payload type: {type(payload)}")
 
@@ -109,7 +144,8 @@ def forecast_to_dataframe(payload: dict | list) -> pd.DataFrame:
     if df.empty:
         raise ValueError("WattTime response was empty.")
 
-    if "point_time" not in df.columns or "value" not in df.columns:
+    required_columns = {"point_time", "value"}
+    if not required_columns.issubset(df.columns):
         raise ValueError(
             f"Unexpected WattTime columns returned: {list(df.columns)}"
         )
@@ -117,7 +153,7 @@ def forecast_to_dataframe(payload: dict | list) -> pd.DataFrame:
     df = df.rename(
         columns={
             "point_time": "timestamp",
-            "value": "carbon_g_per_kwh"
+            "value": "carbon_g_per_kwh",
         }
     )
 
@@ -128,9 +164,12 @@ def forecast_to_dataframe(payload: dict | list) -> pd.DataFrame:
     return df
 
 
-def get_forecast(region="CAISO_NORTH", signal_type="co2_moer"):
+def get_forecast(
+    region: str = "CAISO_NORTH",
+    signal_type: str = "co2_moer",
+) -> dict[str, Any]:
     """
-    Fetch live carbon forecast data from WattTime.
+    Fetch live carbon forecast JSON from WattTime.
     """
     params = {
         "region": region,
@@ -140,14 +179,15 @@ def get_forecast(region="CAISO_NORTH", signal_type="co2_moer"):
 
 
 def get_historical(
-    region="CAISO_NORTH",
-    signal_type="co2_moer",
+    region: str = "CAISO_NORTH",
+    signal_type: str = "co2_moer",
     start: str | None = None,
     end: str | None = None,
     days: int = 7,
-):
+) -> dict[str, Any]:
     """
-    Fetch historical carbon data from WattTime v3 historical endpoint.
+    Fetch historical carbon JSON from WattTime v3 historical endpoint.
+
     If start/end are not provided, fetch the last `days` days in UTC.
     """
     if start is None or end is None:
@@ -166,7 +206,45 @@ def get_historical(
     return _fetch_json(HISTORICAL_URL, params)
 
 
-def get_watttime_forecast(region="CAISO_NORTH", signal_type="co2_moer"):
+def get_region_from_loc(
+    latitude: float,
+    longitude: float,
+    signal_type: str = "co2_moer",
+) -> dict[str, Any]:
+    """
+    Resolve latitude/longitude to a WattTime region.
+
+    Returns the raw JSON response from the region-from-loc endpoint.
+    """
+    params = {
+        "latitude": latitude,
+        "longitude": longitude,
+        "signal_type": signal_type,
+    }
+    return _fetch_json(REGION_FROM_LOC_URL, params)
+
+
+def get_ba_from_loc(
+    latitude: float,
+    longitude: float,
+    signal_type: str = "co2_moer",
+) -> dict[str, Any]:
+    """
+    Backward-compatible alias for older code that still imports get_ba_from_loc().
+
+    Internally this now uses WattTime's region-from-loc endpoint.
+    """
+    return get_region_from_loc(
+        latitude=latitude,
+        longitude=longitude,
+        signal_type=signal_type,
+    )
+
+
+def get_watttime_forecast(
+    region: str = "CAISO_NORTH",
+    signal_type: str = "co2_moer",
+) -> pd.DataFrame:
     """
     Fetch live WattTime forecast data and return it in Util's standardized dataframe format.
     """
@@ -175,12 +253,12 @@ def get_watttime_forecast(region="CAISO_NORTH", signal_type="co2_moer"):
 
 
 def get_watttime_historical(
-    region="CAISO_NORTH",
-    signal_type="co2_moer",
+    region: str = "CAISO_NORTH",
+    signal_type: str = "co2_moer",
     start: str | None = None,
     end: str | None = None,
     days: int = 7,
-):
+) -> pd.DataFrame:
     """
     Fetch historical WattTime data and return it in Util's standardized dataframe format.
     """
@@ -192,26 +270,3 @@ def get_watttime_historical(
         days=days,
     )
     return forecast_to_dataframe(historical_json)
-
-def get_ba_from_loc(latitude: float, longitude: float) -> dict:
-    """
-    Resolve latitude/longitude to a WattTime balancing authority / region.
-
-    Parameters
-    ----------
-    latitude : float
-        Latitude coordinate.
-    longitude : float
-        Longitude coordinate.
-
-    Returns
-    -------
-    dict
-        Raw JSON response from WattTime's ba-from-loc endpoint.
-    """
-    params = {
-        "latitude": latitude,
-        "longitude": longitude,
-    }
-
-    return _fetch_json(BA_FROM_LOC_URL, params)

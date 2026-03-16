@@ -15,23 +15,7 @@ def resolve_zip_to_watttime_region(zip_code: str) -> dict[str, Any]:
     Resolve a ZIP code all the way to a WattTime region.
 
     Flow:
-    ZIP code -> latitude/longitude -> WattTime balancing authority
-
-    Parameters
-    ----------
-    zip_code : str
-        User ZIP code.
-
-    Returns
-    -------
-    dict
-        Dictionary containing:
-        - zip_code
-        - latitude
-        - longitude
-        - watttime_region
-        - watttime_name
-        - watttime_id
+    ZIP code -> latitude/longitude -> WattTime region
     """
     coordinate_info = zip_to_coordinates(zip_code)
     region_info = coordinates_to_watttime_region(
@@ -44,7 +28,7 @@ def resolve_zip_to_watttime_region(zip_code: str) -> dict[str, Any]:
         "latitude": coordinate_info["latitude"],
         "longitude": coordinate_info["longitude"],
         "watttime_region": region_info["watttime_region"],
-        "watttime_name": region_info["watttime_name"],
-        "watttime_id": region_info["watttime_id"],
+        "watttime_region_full_name": region_info["watttime_region_full_name"],
+        "signal_type": region_info["signal_type"],
         "raw_response": region_info["raw_response"],
     }

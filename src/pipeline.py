@@ -3,7 +3,7 @@ End-to-end pipeline for Util.
 
 This module connects:
 - validated user input
-- ZIP-to-region mapping
+- location / region resolution
 - forecast loading
 - baseline construction
 - optimization
@@ -15,7 +15,8 @@ Current development status:
 - Supports live carbon mode using WattTime + placeholder price
 - Supports flexible and block schedule optimization modes
 - Supports forecast-only and forecast-extension carbon estimation modes
-- Region is mapped and returned, but live carbon is currently using a prototype flow
+- Uses CSV ZIP-to-region mapping in demo mode
+- Uses live ZIP -> coordinates -> WattTime region lookup in live carbon mode
 - Designed to make the backend app-ready before Streamlit integration
 """
 
@@ -87,6 +88,8 @@ def run_util_pipeline(
     historical_days : int
         Number of past days of historical carbon data to use when extending
         beyond the live forecast horizon.
+    current_time_override : str | None
+        Optional override for optimizer "now" timestamp, used for testing.
 
     Returns
     -------
@@ -94,6 +97,7 @@ def run_util_pipeline(
         Dictionary containing:
         - workload_input
         - region
+        - location_info
         - forecast
         - baseline
         - optimized
@@ -146,13 +150,15 @@ def run_util_pipeline(
     if forecast_mode == "demo":
         mapping_df = load_zip_region_map(mapping_path)
         region = map_zip_to_region(workload_input.zip_code, mapping_df)
+
         location_info = {
             "zip_code": workload_input.zip_code,
             "latitude": None,
             "longitude": None,
             "watttime_region": region,
-            "watttime_name": None,
-            "watttime_id": None,
+            "watttime_region_full_name": None,
+            "signal_type": None,
+            "raw_response": None,
         }
 
     elif forecast_mode == "live_carbon":
