@@ -645,19 +645,25 @@ with tab1:
                 forecast_df=forecast
             )
 
-            st.markdown(
-                f"""
-                <div class="util-card">
-                    <strong>Mapped Region:</strong> {region}<br>
-                    <strong>Selected Objective:</strong> {result["workload_input"].objective.title()}<br>
-                    <strong>Machine Wattage:</strong> {int(result["workload_input"].machine_watts):,} W<br>
-                    <strong>Recommended Window Start:</strong> {run_window["start"]}<br>
-                    <strong>Recommended Window End:</strong> {run_window["end"]}<br>
-                    <strong>Selected Intervals:</strong> {run_window["intervals"]}
+            sst.markdown(f"""
+                <div class="summary-card">
+
+                <h4 style="margin-top:0;">Recommended Schedule</h4>
+
+                <p style="font-size:17px;">
+                Run your workload from <strong>{start_str}</strong> to <strong>{end_str}</strong>
+                to minimize <strong>{objective.lower()}</strong>.
+                </p>
+
+                <hr style="opacity:0.2">
+
+                <strong>Region:</strong> {region}<br>
+                <strong>Machine Wattage:</strong> {machine_watts} W<br>
+                <strong>Selected Time Slots:</strong> {interval_count}
+
                 </div>
-                """,
-                unsafe_allow_html=True
-            )
+                """, unsafe_allow_html=True)
+                        
 
             k1, k2, k3, k4 = st.columns(4)
             with k1:
