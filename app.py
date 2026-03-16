@@ -398,14 +398,37 @@ def render_status_pills(
     source_label = "WattTime API" if forecast_mode_label == "Live Carbon" else "Sample CSV Data"
     source_css = "util-good-pill" if forecast_mode_label == "Live Carbon" else "util-warning-pill"
 
+    forecast_region_used = None
+    forecast_access_mode = None
+
+    if "forecast_region_used" in forecast_df.columns:
+        non_null_used = forecast_df["forecast_region_used"].dropna()
+        if not non_null_used.empty:
+            forecast_region_used = non_null_used.iloc[0]
+
+    if "forecast_access_mode" in forecast_df.columns:
+        non_null_mode = forecast_df["forecast_access_mode"].dropna()
+        if not non_null_mode.empty:
+            forecast_access_mode = non_null_mode.iloc[0]
+
+    extra_pills = ""
+    if forecast_region_used:
+        extra_pills += f'<span class="util-pill">Forecast Region Used: {forecast_region_used}</span>'
+
+    if forecast_access_mode == "preview_fallback":
+        extra_pills += '<span class="util-warning-pill">Access Mode: Preview Fallback</span>'
+    elif forecast_access_mode == "direct_region":
+        extra_pills += '<span class="util-good-pill">Access Mode: Direct Region</span>'
+
     st.markdown(
         f"""
         <span class="{source_css}">Source: {source_label}</span>
-        <span class="util-pill">Region: {region}</span>
+        <span class="util-pill">Resolved Region: {region}</span>
         <span class="util-pill">Forecast Mode: {forecast_mode_label}</span>
         <span class="util-pill">Schedule Mode: {schedule_mode_label}</span>
         <span class="util-pill">Granularity: {interval_minutes:.0f} min</span>
         <span class="util-pill">Forecast Window: {forecast_min.strftime("%b %d %I:%M %p")} → {forecast_max.strftime("%b %d %I:%M %p")}</span>
+        {extra_pills}
         """,
         unsafe_allow_html=True
     )
@@ -606,9 +629,9 @@ with tab1:
 
                 if forecast_mode == "live_carbon" and "WattTime" in error_message:
                     st.error(
-                "Live carbon is currently unavailable because WattTime authentication failed. "
-                "Please use Demo mode or update the deployment secrets."
-        )
+                        "Live carbon is currently unavailable because WattTime authentication "
+                        "or API access failed. Please use Demo mode or update deployment secrets/API plan."
+                    )
                 else:
                     st.error("An error occurred while running the pipeline.")
                     st.exception(e)
@@ -623,11 +646,6 @@ with tab1:
             metrics = result["metrics"]
             forecast = result["forecast"].copy()
             optimized = result["optimized"].copy()
-
-            st.write("Current system time:", datetime.now())
-            st.write("Forecast start:", pd.to_datetime(forecast["timestamp"]).min())
-            st.write("Forecast end:", pd.to_datetime(forecast["timestamp"]).max())
-            st.write("Forecast mode shown:", st.session_state["last_forecast_mode_label"])
             
             selected_schedule = schedule[schedule["run_flag"] == 1].copy()
             run_window = build_run_window_summary(schedule)
@@ -806,6 +824,115 @@ with tab3:
             schedule_mode_label=st.session_state["last_schedule_mode_label"],
             region=result["region"],
             forecast_df=forecast
+        )
+
+def build_location_display_info(result: dict) -> dict:
+    location_info = result.get("location_info", {}) or {}
+    forecast_df = result.get("forecast", pd.DataFrame()).copy()
+
+    requested_region = location_info.get("watttime_region")
+    requested_region_full_name = location_info.get("watttime_region_full_name")
+    latitude = location_info.get("latitude")
+    longitude = location_info.get("longitude")
+
+    forecast_region_used = None
+    forecast_access_mode = None
+
+    if not forecast_df.empty:
+        if "forecast_region_used" in forecast_df.columns:
+            non_null_used = forecast_df["forecast_region_used"].dropna()
+            if not non_null_used.empty:
+                forecast_region_used = non_null_used.iloc[0]
+
+        if "forecast_access_mode" in forecast_df.columns:
+            non_null_mode = forecast_df["forecast_access_mode"].dropna()
+            if not non_null_mode.empty:
+                forecast_access_mode = non_null_mode.iloc[0]
+
+    return {
+        "requested_region": requested_region,
+        "requested_region_full_name": requested_region_full_name,
+        "forecast_region_used": forecast_region_used,
+        "forecast_access_mode": forecast_access_mode,
+        "latitude": latitude,
+        "longitude": longitude,
+    }
+
+
+def render_location_access_card(result: dict):
+    info = build_location_display_info(result)
+
+    requested_region = info["requested_region"] or result.get("region", "N/A")
+    requested_region_full_name = info["requested_region_full_name"]
+    forecast_region_used = info["forecast_region_used"]
+    forecast_access_mode = info["forecast_access_mode"]
+    latitude = info["latitude"]
+    longitude = info["longitude"]
+
+    coord_text = ""
+    if latitude is not None and longitude is not None:
+        coord_text = f"<br><strong>Resolved Coordinates:</strong> {latitude:.4f}, {longitude:.4f}"
+
+    fallback_note = ""
+    if forecast_access_mode == "preview_fallback":
+        fallback_note = (
+            "<br><br>"
+            "<span class='util-warning-pill'>Preview Fallback Active</span>"
+            "<br>"
+            "Your ZIP code was mapped to a real WattTime region, but the current API plan "
+            "does not allow live forecast access for that region. Util is using "
+            "<strong>CAISO_NORTH</strong> preview forecast data so the app still works."
+        )
+
+    elif forecast_access_mode == "direct_region":
+        fallback_note = (
+            "<br><br>"
+            "<span class='util-good-pill'>Direct Region Forecast Active</span>"
+        )
+
+    forecast_region_used_text = ""
+    if forecast_region_used:
+        forecast_region_used_text = (
+            f"<br><strong>Forecast Region Used:</strong> {forecast_region_used}"
+        )
+
+    full_name_text = ""
+    if requested_region_full_name:
+        full_name_text = f"<br><strong>Resolved Region Name:</strong> {requested_region_full_name}"
+
+    st.markdown(
+        f"""
+        <div class="util-card">
+            <strong>Resolved Grid Region:</strong> {requested_region}
+            {full_name_text}
+            {forecast_region_used_text}
+            {coord_text}
+            {fallback_note}
+        </div>
+        """,
+        unsafe_allow_html=True
+    )
+
+
+    def render_recommendation_card(result: dict, schedule_df: pd.DataFrame):
+        workload = result["workload_input"]
+        run_window = build_run_window_summary(schedule_df)
+
+        objective_label = "carbon emissions" if workload.objective == "carbon" else "electricity cost"
+
+        st.markdown(
+            f"""
+            <div class="util-card">
+                <strong>Recommendation:</strong> Run your workload from
+                <strong>{run_window["start"]}</strong> to <strong>{run_window["end"]}</strong>
+                to minimize <strong>{objective_label}</strong>.
+                <br><br>
+                <strong>Selected Intervals:</strong> {run_window["intervals"]}<br>
+                <strong>Machine Wattage:</strong> {int(workload.machine_watts):,} W<br>
+                <strong>Compute Hours Required:</strong> {int(workload.compute_hours_required)} hours
+            </div>
+            """,
+            unsafe_allow_html=True
         )
 
         st.subheader("Carbon Forecast with Recommended Intervals")

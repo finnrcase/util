@@ -19,3 +19,7 @@ build/
 outputs/figures/*
 outputs/tables/*
 outputs/schedules/*
+
+.env
+register_watttime.py
+login_watttime.py
