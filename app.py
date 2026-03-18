@@ -53,7 +53,7 @@ st.markdown(
         --util-accent: #8b5cf6;
         --util-accent-strong: #6d28d9;
         --util-good: #4ade80;
-        --util-warn: #fbbf24;
+        --util-warn: #8b5cf6;
         --util-shadow: 0 24px 70px rgba(0, 0, 0, 0.34);
     }
 
@@ -301,6 +301,18 @@ st.markdown(
         box-shadow: var(--util-shadow);
     }
 
+    div[data-testid="stAlert"] {
+        background: rgba(139, 92, 246, 0.1);
+        border: 1px solid rgba(139, 92, 246, 0.2);
+        color: var(--util-text);
+        box-shadow: var(--util-shadow);
+    }
+
+    div[data-testid="stAlert"] svg {
+        fill: #8b5cf6;
+        color: #8b5cf6;
+    }
+
     .util-pill {
         display: inline-block;
         padding: 0.45rem 0.72rem;
@@ -329,10 +341,10 @@ st.markdown(
         display: inline-block;
         padding: 0.35rem 0.7rem;
         border-radius: 999px;
-        background: rgba(251, 191, 36, 0.12);
-        color: #ffe0a5;
+        background: rgba(139, 92, 246, 0.12);
+        color: #ddd6fe;
         font-size: 0.82rem;
-        border: 1px solid rgba(251, 191, 36, 0.22);
+        border: 1px solid rgba(139, 92, 246, 0.22);
         margin-right: 0.4rem;
         margin-bottom: 0.4rem;
     }
