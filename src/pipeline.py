@@ -28,6 +28,7 @@ from typing import Any, Callable
 from src.data_fetcher import get_forecast_table
 from src.location.location_service import resolve_zip_to_watttime_region
 from src.mapper import load_zip_region_map, map_zip_to_region
+from src.scheduling_window import get_current_reference_time
 
 
 def _resolve_callable(module: Any, candidate_names: list[str]) -> Callable:
@@ -171,6 +172,8 @@ def run_util_pipeline(
             f"Expected 'demo' or 'live_carbon'."
         )
 
+    reference_now = get_current_reference_time(current_time_override)
+
     forecast_df = get_forecast_table(
         forecast_mode=forecast_mode,
         region=region,
@@ -185,7 +188,7 @@ def run_util_pipeline(
         forecast_df=forecast_df,
         compute_hours_required=workload_input.compute_hours_required,
         deadline=workload_input.deadline,
-        current_time_override=current_time_override,
+        current_time_override=reference_now,
     )
 
     optimized_df = optimize_func(
@@ -194,7 +197,7 @@ def run_util_pipeline(
         objective=workload_input.objective,
         deadline=workload_input.deadline,
         schedule_mode=schedule_mode,
-        current_time_override=current_time_override,
+        current_time_override=reference_now,
     )
 
     schedule_df = build_schedule_func(optimized_df)

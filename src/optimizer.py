@@ -13,9 +13,13 @@ Later replace/extend with more advanced constrained optimization,
 partial-load scheduling, and finer time intervals.
 """
 
-import math
-
 import pandas as pd
+
+from src.scheduling_window import (
+    build_eligibility_mask,
+    calculate_required_slots,
+    ensure_window_feasibility,
+)
 
 
 def _infer_interval_minutes(df: pd.DataFrame) -> float:
@@ -74,11 +78,7 @@ def _select_block_schedule(
     """
     eligible_df = eligible_df.sort_values("timestamp").reset_index(drop=True)
 
-    if slots_required > len(eligible_df):
-        raise ValueError(
-            "compute_hours_required exceeds the amount of forecast time "
-            "available between now and the deadline"
-        )
+    ensure_window_feasibility(slots_required, len(eligible_df))
 
     block_scores = eligible_df["score"].rolling(window=slots_required).sum()
 
@@ -154,47 +154,21 @@ def optimize_schedule(
     df["timestamp"] = pd.to_datetime(df["timestamp"])
 
     interval_minutes = _infer_interval_minutes(df)
-    rows_per_hour = 60 / interval_minutes
-    slots_required = math.ceil(compute_hours_required * rows_per_hour)
+    slots_required = calculate_required_slots(compute_hours_required, interval_minutes)
 
     if slots_required <= 0:
         raise ValueError("Computed slots_required must be positive.")
 
-    if current_time_override is not None:
-        now_ts = pd.to_datetime(current_time_override)
-        if getattr(now_ts, "tzinfo", None) is not None:
-            now_ts = now_ts.tz_localize(None)
-    else:
-        now_ts = pd.Timestamp.now()
-
-    # If all forecast rows are in the past relative to the machine clock
-    # (common in demo CSV testing), fall back to the forecast start time
-    # so demo mode remains usable.
-    if df["timestamp"].max() < now_ts:
-        effective_now_ts = df["timestamp"].min()
-    else:
-        effective_now_ts = now_ts
-
-    df["eligible_flag"] = (df["timestamp"] >= effective_now_ts).astype(int)
-
-    if deadline is not None:
-        deadline_ts = pd.to_datetime(deadline)
-
-        # Normalize deadline if it came in timezone-aware
-        if getattr(deadline_ts, "tzinfo", None) is not None:
-            deadline_ts = deadline_ts.tz_localize(None)
-
-        df["eligible_flag"] = (
-            (df["timestamp"] >= effective_now_ts) & (df["timestamp"] <= deadline_ts)
-        ).astype(int)
+    eligible_mask, _, _ = build_eligibility_mask(
+        timestamps=df["timestamp"],
+        deadline=deadline,
+        current_time_override=current_time_override,
+    )
+    df["eligible_flag"] = eligible_mask.astype(int)
 
     eligible_df = df[df["eligible_flag"] == 1].copy()
 
-    if slots_required > len(eligible_df):
-        raise ValueError(
-            "compute_hours_required exceeds the amount of forecast time "
-            "available between now and the deadline"
-        )
+    ensure_window_feasibility(slots_required, len(eligible_df))
 
     eligible_df = _build_score_column(eligible_df, objective)
 

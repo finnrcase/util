@@ -9,6 +9,7 @@ from PIL import Image
 from src.inputs import WorkloadInput
 from src.analysis.multi_location import run_multi_location_analysis
 from src.pipeline import run_util_pipeline
+from src.scheduling_window import InfeasibleScheduleError, INFEASIBLE_WORKLOAD_MESSAGE
 
 # ---------------------------------------------------
 # Paths
@@ -129,7 +130,7 @@ st.markdown(
 
     .util-hero-grid {
         display: grid;
-        grid-template-columns: minmax(0, 1.7fr) minmax(280px, 0.9fr);
+        grid-template-columns: minmax(0, 1fr);
         gap: 1.1rem;
         align-items: start;
     }
@@ -175,29 +176,6 @@ st.markdown(
         border: 1px solid rgba(168, 132, 255, 0.18);
         color: #e4defc;
         font-size: 0.88rem;
-    }
-
-    .util-side-panel {
-        background: linear-gradient(180deg, rgba(49, 51, 56, 0.9), rgba(32, 34, 37, 0.92));
-        border: 1px solid var(--util-border);
-        border-radius: 22px;
-        padding: 1.15rem;
-        min-height: 100%;
-    }
-
-    .util-side-label {
-        font-size: 0.75rem;
-        text-transform: uppercase;
-        letter-spacing: 0.14em;
-        color: #b8a9e8;
-        margin-bottom: 0.5rem;
-    }
-
-    .util-side-value {
-        font-family: 'Space Grotesk', sans-serif;
-        font-size: 1.08rem;
-        color: var(--util-text);
-        margin-bottom: 1rem;
     }
 
     .util-card {
@@ -920,14 +898,6 @@ st.markdown(
                     <span class="util-header-pill">Forecast-driven recommendations</span>
                 </div>
             </div>
-            <div class="util-side-panel">
-                <div class="util-side-label">How it feels</div>
-                <div class="util-side-value">Modern control room for energy-aware compute</div>
-                <div class="util-side-label">Built for next</div>
-                <div class="util-subtext">
-                    Clear surfaces, mobile-friendly spacing, and reusable components that translate well to app design systems.
-                </div>
-            </div>
         </div>
     </div>
     """
@@ -1068,6 +1038,8 @@ with tab1:
                         "Live carbon is currently unavailable because WattTime authentication "
                         "or API access failed. Please use Demo mode or update deployment secrets/API plan."
                     )
+                elif isinstance(e, InfeasibleScheduleError):
+                    st.error(INFEASIBLE_WORKLOAD_MESSAGE)
                 else:
                     st.error("An error occurred while running the pipeline.")
                     st.exception(e)
@@ -1518,6 +1490,8 @@ with tab6:
                         "Live carbon is currently unavailable because WattTime authentication "
                         "or API access failed. Please use Demo mode or update deployment secrets/API plan."
                     )
+                elif isinstance(e, InfeasibleScheduleError):
+                    st.error(INFEASIBLE_WORKLOAD_MESSAGE)
                 else:
                     st.error("An error occurred while comparing locations.")
                     st.exception(e)
