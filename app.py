@@ -954,8 +954,14 @@ with tab1:
         )
         carbon_estimation_mode_label = st.radio(
             "Carbon Estimate Type",
-            ["Forecast Only", "Forecast + Historical Expectation"],
+            [
+                "Short-Term (Live Data - 24 hour access)",
+                "Extended (Estimated Forecast)",
+            ],
             horizontal=True
+        )
+        st.caption(
+            "Extended mode uses historical data to estimate beyond the live forecast window."
         )
 
         historical_days = st.slider(
@@ -997,7 +1003,7 @@ with tab1:
         )
         carbon_estimation_mode = (
                     "forecast_plus_historical_expectation"
-                    if carbon_estimation_mode_label == "Forecast + Historical Expectation"
+                    if carbon_estimation_mode_label == "Extended (Estimated Forecast)"
                     else "forecast_only"
                 )  
     with col_output:

@@ -5,10 +5,14 @@ import pandas as pd
 from src.forecasting.historical_loader import build_time_of_day_profile
 
 
+DEFAULT_TOTAL_HORIZON_DAYS = 7
+
+
 def extend_forecast_with_history(
     live_forecast_df: pd.DataFrame,
     historical_df: pd.DataFrame,
     deadline: str | pd.Timestamp,
+    total_horizon_days: int = DEFAULT_TOTAL_HORIZON_DAYS,
 ) -> pd.DataFrame:
     """
     Extend the live forecast beyond its available horizon using historical
@@ -16,8 +20,8 @@ def extend_forecast_with_history(
 
     Rules:
     - Keep all live forecast rows exactly as-is.
-    - If deadline exceeds the live forecast max timestamp, create extra rows
-      at the same interval length.
+    - If the live forecast does not reach the target horizon, create extra rows
+      at the same interval length after the live forecast ends.
     - For each extra timestamp, assign carbon using the historical average
       for that HH:MM slot.
     """
@@ -37,10 +41,13 @@ def extend_forecast_with_history(
     if getattr(deadline_ts, "tzinfo", None) is not None:
         deadline_ts = deadline_ts.tz_convert("America/Los_Angeles").tz_localize(None)
 
+    forecast_min = live_df["timestamp"].min()
     forecast_max = live_df["timestamp"].max()
+    target_horizon_ts = forecast_min + pd.Timedelta(days=total_horizon_days)
+    extension_end_ts = max(deadline_ts, target_horizon_ts)
 
     # No extension needed
-    if deadline_ts <= forecast_max:
+    if extension_end_ts <= forecast_max:
         live_df["carbon_source"] = "live_forecast"
         return live_df
 
@@ -56,7 +63,7 @@ def extend_forecast_with_history(
     extension_timestamps = []
     next_ts = forecast_max + interval
 
-    while next_ts <= deadline_ts:
+    while next_ts <= extension_end_ts:
         extension_timestamps.append(next_ts)
         next_ts += interval
 
