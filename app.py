@@ -1,3 +1,4 @@
+import base64
 import streamlit as st
 from datetime import datetime, timedelta
 from pathlib import Path
@@ -18,6 +19,7 @@ DATA_DIR = PROJECT_ROOT / "data" / "raw"
 
 LOGO_PATH = PROJECT_ROOT / "assets" / "logo" / "util_logo.png"
 logo = Image.open(LOGO_PATH)
+logo_base64 = base64.b64encode(LOGO_PATH.read_bytes()).decode("utf-8")
 
 ZIP_PATH = DATA_DIR / "zip_to_region_sample.csv"
 CARBON_PATH = DATA_DIR / "sample_carbon_forecast.csv"
@@ -36,137 +38,299 @@ st.set_page_config(
 st.markdown(
     """
     <style>
+    @import url('https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=Space+Grotesk:wght@500;700&display=swap');
 
-    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&display=swap');
-
-    html, body, [class*="css"]  {
-        font-family: 'Inter', sans-serif;
+    :root {
+        --util-bg: #17181c;
+        --util-bg-accent: #23252b;
+        --util-surface: rgba(35, 39, 47, 0.84);
+        --util-surface-strong: rgba(43, 47, 56, 0.94);
+        --util-border: rgba(166, 176, 255, 0.14);
+        --util-border-strong: rgba(168, 132, 255, 0.34);
+        --util-text: #f2f3f5;
+        --util-muted: #b5bac1;
+        --util-accent: #8b5cf6;
+        --util-accent-strong: #6d28d9;
+        --util-good: #4ade80;
+        --util-warn: #fbbf24;
+        --util-shadow: 0 24px 70px rgba(0, 0, 0, 0.34);
     }
 
-    h1, h2, h3 {
-        font-weight: 600;
-        letter-spacing: -0.02em;
-    }
-
-    .stTabs [data-baseweb="tab"] {
-        font-weight: 500;
-        font-size: 15px;
-    }
-
-    </style>
-    """,
-    unsafe_allow_html=True
-)
-
-# ---------------------------------------------------
-# Custom Styling
-# ---------------------------------------------------
-
-st.markdown(
-    """
-    <style>
     .stApp {
-        background: linear-gradient(180deg, #0a0a0f 0%, #111118 100%);
-        color: #f3f3f7;
+        background:
+            radial-gradient(circle at top left, rgba(139, 92, 246, 0.18), transparent 28%),
+            radial-gradient(circle at top right, rgba(88, 101, 242, 0.1), transparent 24%),
+            linear-gradient(180deg, var(--util-bg) 0%, #101114 100%);
+        color: var(--util-text);
+        font-family: 'Manrope', sans-serif;
     }
 
     .block-container {
-        padding-top: 2rem;
-        padding-bottom: 2rem;
-        max-width: 1300px;
+        padding-top: 1.35rem;
+        padding-bottom: 2.5rem;
+        max-width: 1320px;
     }
 
-    h1, h2, h3 {
-        color: #f7f5ff;
-        letter-spacing: 0.2px;
+    html, body, [class*="css"], [data-testid="stAppViewContainer"] {
+        font-family: 'Manrope', sans-serif;
+    }
+
+    h1, h2, h3, .util-brand-title {
+        color: var(--util-text);
+        font-family: 'Space Grotesk', sans-serif;
+        letter-spacing: -0.03em;
+    }
+
+    h1 {
+        font-size: clamp(2.2rem, 4vw, 3.8rem);
+        line-height: 0.95;
+        margin-bottom: 0.4rem;
+    }
+
+    h2 {
+        font-size: 1.35rem;
+        margin-bottom: 0.8rem;
+    }
+
+    h3 {
+        font-size: 1.02rem;
     }
 
     .util-subtext {
-        color: #b8b8c7;
-        font-size: 1rem;
+        color: var(--util-muted);
+        font-size: 1.02rem;
+        line-height: 1.7;
+        margin-bottom: 0;
+    }
+
+    .util-hero {
+        position: relative;
+        overflow: hidden;
+        background:
+            linear-gradient(135deg, rgba(43, 47, 56, 0.94), rgba(28, 30, 34, 0.96)),
+            radial-gradient(circle at 20% 20%, rgba(139, 92, 246, 0.16), transparent 30%);
+        border: 1px solid var(--util-border);
+        border-radius: 28px;
+        padding: 1.55rem 1.6rem;
+        box-shadow: var(--util-shadow);
+        margin-bottom: 1.25rem;
+    }
+
+    .util-hero::after {
+        content: "";
+        position: absolute;
+        inset: auto -8% -35% auto;
+        width: 260px;
+        height: 260px;
+        border-radius: 50%;
+        background: radial-gradient(circle, rgba(139, 92, 246, 0.22), transparent 70%);
+        pointer-events: none;
+    }
+
+    .util-hero-grid {
+        display: grid;
+        grid-template-columns: minmax(0, 1.7fr) minmax(280px, 0.9fr);
+        gap: 1.1rem;
+        align-items: start;
+    }
+
+    .util-brand-row {
+        display: flex;
+        align-items: center;
+        gap: 0.95rem;
+        margin-bottom: 0.75rem;
+    }
+
+    .util-logo-shell {
+        width: 72px;
+        height: 72px;
+        border-radius: 20px;
+        background: linear-gradient(180deg, rgba(139, 92, 246, 0.18), rgba(109, 40, 217, 0.08));
+        border: 1px solid rgba(168, 132, 255, 0.24);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        box-shadow: inset 0 1px 0 rgba(255,255,255,0.04);
+    }
+
+    .util-brand-kicker {
+        color: #c9b8ff;
+        text-transform: uppercase;
+        letter-spacing: 0.18em;
+        font-size: 0.75rem;
+        margin-bottom: 0.35rem;
+    }
+
+    .util-header-pills {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.6rem;
+        margin-top: 1rem;
+    }
+
+    .util-header-pill {
+        padding: 0.55rem 0.8rem;
+        border-radius: 999px;
+        background: rgba(255, 255, 255, 0.04);
+        border: 1px solid rgba(168, 132, 255, 0.18);
+        color: #e4defc;
+        font-size: 0.88rem;
+    }
+
+    .util-side-panel {
+        background: linear-gradient(180deg, rgba(49, 51, 56, 0.9), rgba(32, 34, 37, 0.92));
+        border: 1px solid var(--util-border);
+        border-radius: 22px;
+        padding: 1.15rem;
+        min-height: 100%;
+    }
+
+    .util-side-label {
+        font-size: 0.75rem;
+        text-transform: uppercase;
+        letter-spacing: 0.14em;
+        color: #b8a9e8;
+        margin-bottom: 0.5rem;
+    }
+
+    .util-side-value {
+        font-family: 'Space Grotesk', sans-serif;
+        font-size: 1.08rem;
+        color: var(--util-text);
         margin-bottom: 1rem;
     }
 
     .util-card {
-        background: rgba(24, 24, 34, 0.92);
-        border: 1px solid rgba(141, 95, 255, 0.20);
-        border-radius: 18px;
-        padding: 1.1rem 1.2rem;
-        box-shadow: 0 0 0 1px rgba(255,255,255,0.02);
+        background: var(--util-surface);
+        border: 1px solid var(--util-border);
+        border-radius: 22px;
+        padding: 1.15rem 1.2rem;
+        box-shadow: var(--util-shadow);
+        backdrop-filter: blur(14px);
         margin-bottom: 1rem;
     }
 
     .util-metric-label {
-        color: #b7b7c9;
-        font-size: 0.9rem;
-        margin-bottom: 0.25rem;
+        color: var(--util-muted);
+        font-size: 0.83rem;
+        text-transform: uppercase;
+        letter-spacing: 0.12em;
+        margin-bottom: 0.45rem;
     }
 
     .util-metric-value {
-        color: #ffffff;
-        font-size: 1.8rem;
+        color: var(--util-text);
+        font-size: 2rem;
+        font-family: 'Space Grotesk', sans-serif;
         font-weight: 700;
         line-height: 1.1;
     }
 
     .util-metric-delta {
-        color: #a78bfa;
-        font-size: 0.95rem;
-        margin-top: 0.35rem;
+        color: #c4b2ff;
+        font-size: 0.92rem;
+        margin-top: 0.5rem;
     }
 
     div[data-baseweb="tab-list"] {
-        gap: 0.5rem;
+        gap: 0.65rem;
+        background: rgba(32, 34, 37, 0.72);
+        border: 1px solid rgba(168, 132, 255, 0.1);
+        padding: 0.45rem;
+        border-radius: 20px;
+        backdrop-filter: blur(14px);
     }
 
     button[data-baseweb="tab"] {
-        background: #12121a !important;
-        color: #bdbdd3 !important;
-        border-radius: 10px;
-        padding: 0.55rem 1rem;
-        border: 1px solid rgba(141, 95, 255, 0.18);
+        background: transparent !important;
+        color: #b8bcc5 !important;
+        border-radius: 14px;
+        padding: 0.68rem 1.05rem;
+        border: 1px solid transparent;
+        font-size: 0.96rem;
+        transition: all 0.2s ease;
     }
 
     button[data-baseweb="tab"][aria-selected="true"] {
-        background: #8b5cf6 !important;
-        color: #ffffff !important;
-        border: none !important;
+        background: linear-gradient(180deg, rgba(139, 92, 246, 0.22), rgba(109, 40, 217, 0.28)) !important;
+        color: #f4f9ff !important;
+        border: 1px solid var(--util-border-strong) !important;
+        box-shadow: inset 0 1px 0 rgba(255,255,255,0.05);
     }
 
     div.stButton > button {
-        background: linear-gradient(90deg, #7c3aed 0%, #8b5cf6 100%);
-        color: white;
-        border: none;
-        border-radius: 12px;
+        background: linear-gradient(135deg, var(--util-accent) 0%, var(--util-accent-strong) 100%);
+        color: white !important;
+        border: 1px solid rgba(168, 132, 255, 0.22);
+        border-radius: 14px;
         font-weight: 600;
-        padding: 0.6rem 1rem;
+        padding: 0.7rem 1rem;
+        min-height: 2.85rem;
+        box-shadow: 0 16px 32px rgba(69, 39, 120, 0.3);
+        transition: transform 0.2s ease, box-shadow 0.2s ease;
     }
 
     div.stButton > button:hover {
-        background: linear-gradient(90deg, #6d28d9 0%, #7c3aed 100%);
-        color: white;
+        transform: translateY(-1px);
+        box-shadow: 0 18px 34px rgba(69, 39, 120, 0.36);
+    }
+
+    div.stDownloadButton > button {
+        background: rgba(255, 255, 255, 0.03);
+        color: #ddd6fe !important;
+        border: 1px solid rgba(139, 92, 246, 0.22);
+        border-radius: 14px;
+        font-weight: 600;
+        padding: 0.68rem 0.95rem;
+        min-height: 2.75rem;
+        box-shadow: none;
+        backdrop-filter: blur(10px);
+        transition: transform 0.2s ease, border-color 0.2s ease, background 0.2s ease;
+    }
+
+    div.stDownloadButton > button:hover {
+        transform: translateY(-1px);
+        background: rgba(139, 92, 246, 0.1);
+        border-color: rgba(139, 92, 246, 0.36);
+        box-shadow: none;
+    }
+
+    div.stButton,
+    div.stDownloadButton {
+        margin-top: 0.3rem;
+        margin-bottom: 0.35rem;
+    }
+
+    div[data-testid="stMetric"],
+    div[data-testid="stDataFrame"],
+    div[data-testid="stAlert"],
+    div[data-testid="stMarkdownContainer"] > div.util-card {
+        border-radius: 20px;
     }
 
     div[data-testid="stMetric"] {
-        background: rgba(24, 24, 34, 0.92);
-        border: 1px solid rgba(141, 95, 255, 0.20);
+        background: var(--util-surface-strong);
+        border: 1px solid var(--util-border);
         padding: 1rem;
-        border-radius: 18px;
+        box-shadow: var(--util-shadow);
     }
 
     div[data-testid="stDataFrame"] {
-        border-radius: 16px;
+        border: 1px solid var(--util-border);
+        background: var(--util-surface-strong);
+        border-radius: 20px;
         overflow: hidden;
+        box-shadow: var(--util-shadow);
     }
 
     .util-pill {
         display: inline-block;
-        padding: 0.35rem 0.7rem;
+        padding: 0.45rem 0.72rem;
         border-radius: 999px;
-        background: rgba(141, 95, 255, 0.15);
-        color: #d7c7ff;
-        font-size: 0.85rem;
-        border: 1px solid rgba(141, 95, 255, 0.25);
+        background: rgba(139, 92, 246, 0.12);
+        color: #ddd6fe;
+        font-size: 0.82rem;
+        border: 1px solid rgba(139, 92, 246, 0.18);
         margin-right: 0.4rem;
         margin-bottom: 0.4rem;
     }
@@ -175,10 +339,10 @@ st.markdown(
         display: inline-block;
         padding: 0.35rem 0.7rem;
         border-radius: 999px;
-        background: rgba(34, 197, 94, 0.12);
-        color: #bbf7d0;
-        font-size: 0.85rem;
-        border: 1px solid rgba(34, 197, 94, 0.25);
+        background: rgba(61, 213, 152, 0.14);
+        color: #c8ffe8;
+        font-size: 0.82rem;
+        border: 1px solid rgba(61, 213, 152, 0.22);
         margin-right: 0.4rem;
         margin-bottom: 0.4rem;
     }
@@ -187,12 +351,61 @@ st.markdown(
         display: inline-block;
         padding: 0.35rem 0.7rem;
         border-radius: 999px;
-        background: rgba(245, 158, 11, 0.12);
-        color: #fde68a;
-        font-size: 0.85rem;
-        border: 1px solid rgba(245, 158, 11, 0.25);
+        background: rgba(251, 191, 36, 0.12);
+        color: #ffe0a5;
+        font-size: 0.82rem;
+        border: 1px solid rgba(251, 191, 36, 0.22);
         margin-right: 0.4rem;
         margin-bottom: 0.4rem;
+    }
+
+    label, .stMarkdown, .stCaption, .stTextInput label, .stNumberInput label {
+        color: var(--util-text) !important;
+    }
+
+    [data-testid="stToolbar"] {
+        visibility: hidden;
+        height: 0;
+        position: fixed;
+    }
+
+    div[data-baseweb="select"] > div,
+    div[data-baseweb="input"] > div,
+    .stDateInput > div > div,
+    .stNumberInput > div > div,
+    .stTextInput > div > div,
+    .stTextArea textarea {
+        background: rgba(30, 31, 34, 0.9) !important;
+        border: 1px solid rgba(168, 132, 255, 0.18) !important;
+        color: var(--util-text) !important;
+        border-radius: 16px !important;
+    }
+
+    .stRadio [role="radiogroup"] {
+        gap: 0.5rem;
+        background: rgba(32, 34, 37, 0.58);
+        padding: 0.35rem;
+        border: 1px solid rgba(168, 132, 255, 0.12);
+        border-radius: 16px;
+    }
+
+    .stSlider [data-baseweb="slider"] {
+        padding-top: 0.7rem;
+        padding-bottom: 0.35rem;
+    }
+
+    .stTabs {
+        margin-top: 0.5rem;
+    }
+
+    @media (max-width: 900px) {
+        .util-hero-grid {
+            grid-template-columns: 1fr;
+        }
+
+        .util-hero {
+            padding: 1.2rem;
+        }
     }
     </style>
     """,
@@ -445,7 +658,7 @@ def build_carbon_chart(display_df: pd.DataFrame) -> alt.Chart:
         y=alt.Y("carbon_g_per_kwh:Q", title="Carbon Intensity (g/kWh)")
     )
 
-    line = base.mark_line(color="#8b5cf6", strokeWidth=2).encode(
+    line = base.mark_line(color="#a78bfa", strokeWidth=3).encode(
         tooltip=[
             alt.Tooltip("timestamp:T", title="Time"),
             alt.Tooltip("carbon_g_per_kwh:Q", title="Carbon (g/kWh)", format=".1f"),
@@ -462,6 +675,55 @@ def build_carbon_chart(display_df: pd.DataFrame) -> alt.Chart:
     )
 
     return (line + selected_points).properties(height=350)
+
+
+def build_metric_comparison_chart(comparison_df: pd.DataFrame) -> alt.Chart:
+    chart_df = comparison_df.melt(
+        id_vars="Metric",
+        value_vars=["Baseline", "Optimized"],
+        var_name="Scenario",
+        value_name="Value"
+    )
+
+    return alt.Chart(chart_df).mark_bar(
+        cornerRadiusTopLeft=8,
+        cornerRadiusTopRight=8
+    ).encode(
+        x=alt.X("Metric:N", title=None, axis=alt.Axis(labelColor="#b5bac1")),
+        xOffset="Scenario:N",
+        y=alt.Y(
+            "Value:Q",
+            title=None,
+            axis=alt.Axis(labelColor="#b5bac1", gridColor="rgba(255,255,255,0.08)")
+        ),
+        color=alt.Color(
+            "Scenario:N",
+            scale=alt.Scale(
+                domain=["Baseline", "Optimized"],
+                range=["#6b7280", "#8b5cf6"]
+            ),
+            legend=alt.Legend(title=None, labelColor="#d1d5db")
+        ),
+        tooltip=[
+            alt.Tooltip("Metric:N"),
+            alt.Tooltip("Scenario:N"),
+            alt.Tooltip("Value:Q", format=".3f")
+        ]
+    ).properties(height=320)
+
+
+def build_price_chart(display_df: pd.DataFrame) -> alt.Chart:
+    chart_df = display_df.copy()
+    chart_df["timestamp"] = pd.to_datetime(chart_df["timestamp"])
+
+    return alt.Chart(chart_df).mark_line(color="#8b5cf6", strokeWidth=3).encode(
+        x=alt.X("timestamp:T", title="Time"),
+        y=alt.Y("price_per_kwh:Q", title="Price ($/kWh)"),
+        tooltip=[
+            alt.Tooltip("timestamp:T", title="Time"),
+            alt.Tooltip("price_per_kwh:Q", title="Price ($/kWh)", format=".3f")
+        ]
+    ).properties(height=300)
 
 
 def build_location_display_info(result: dict) -> dict:
@@ -608,10 +870,7 @@ def render_recommendation_card(
     st.dataframe(selected_rows, use_container_width=True)
 
     st.subheader("Electricity Price Forecast")
-    st.line_chart(
-        display_df.set_index("timestamp")[["price_per_kwh"]],
-        use_container_width=True
-    )
+    st.altair_chart(build_price_chart(display_df), use_container_width=True)
 
 
 # ---------------------------------------------------
@@ -637,18 +896,43 @@ if "last_schedule_mode_label" not in st.session_state:
 # Header
 # ---------------------------------------------------
 
-col_logo, col_title = st.columns([1, 6])
-
-with col_logo:
-    st.image(logo, width=80)
-
-with col_title:
-    st.markdown("# Util")
-
 st.markdown(
     """
-    Compute scheduling software that minimizes **electricity cost** or **carbon emissions** by choosing the best times to run workloads.
+    <div class="util-hero">
+        <div class="util-hero-grid">
+            <div>
+                <div class="util-brand-row">
+                    <div class="util-logo-shell">
+                        <img src="data:image/png;base64,{}" width="42" />
+                    </div>
+                    <div>
+                        <div class="util-brand-kicker">Intelligent Compute Scheduling</div>
+                        <h1 class="util-brand-title">Util</h1>
+                    </div>
+                </div>
+                <div class="util-subtext">
+                    Schedule compute workloads at cleaner and cheaper times without changing your workflow.
+                    The current experience is designed like a product dashboard so the same structure can carry cleanly into a future native app.
+                </div>
+                <div class="util-header-pills">
+                    <span class="util-header-pill">Cost-aware optimization</span>
+                    <span class="util-header-pill">Carbon-aware scheduling</span>
+                    <span class="util-header-pill">Forecast-driven recommendations</span>
+                </div>
+            </div>
+            <div class="util-side-panel">
+                <div class="util-side-label">How it feels</div>
+                <div class="util-side-value">Modern control room for energy-aware compute</div>
+                <div class="util-side-label">Built for next</div>
+                <div class="util-subtext">
+                    Clear surfaces, mobile-friendly spacing, and reusable components that translate well to app design systems.
+                </div>
+            </div>
+        </div>
+    </div>
     """
+    .format(logo_base64),
+    unsafe_allow_html=True
 )
 
 # ---------------------------------------------------
@@ -934,7 +1218,7 @@ with tab2:
             ]
         })
 
-        st.bar_chart(comparison_df.set_index("Metric"), use_container_width=True)
+        st.altair_chart(build_metric_comparison_chart(comparison_df), use_container_width=True)
 
         savings_export_df = pd.DataFrame([
             {
@@ -1006,154 +1290,6 @@ with tab3:
 
         render_location_access_card(result)
         render_recommendation_card(result, result["schedule"], display_df)
-
-def build_location_display_info(result: dict) -> dict:
-    location_info = result.get("location_info", {}) or {}
-    forecast_df = result.get("forecast", pd.DataFrame()).copy()
-
-    requested_region = location_info.get("watttime_region")
-    requested_region_full_name = location_info.get("watttime_region_full_name")
-    latitude = location_info.get("latitude")
-    longitude = location_info.get("longitude")
-
-    forecast_region_used = None
-    forecast_access_mode = None
-
-    if not forecast_df.empty:
-        if "forecast_region_used" in forecast_df.columns:
-            non_null_used = forecast_df["forecast_region_used"].dropna()
-            if not non_null_used.empty:
-                forecast_region_used = non_null_used.iloc[0]
-
-        if "forecast_access_mode" in forecast_df.columns:
-            non_null_mode = forecast_df["forecast_access_mode"].dropna()
-            if not non_null_mode.empty:
-                forecast_access_mode = non_null_mode.iloc[0]
-
-    return {
-        "requested_region": requested_region,
-        "requested_region_full_name": requested_region_full_name,
-        "forecast_region_used": forecast_region_used,
-        "forecast_access_mode": forecast_access_mode,
-        "latitude": latitude,
-        "longitude": longitude,
-    }
-
-
-def render_location_access_card(result: dict):
-    info = build_location_display_info(result)
-
-    requested_region = info["requested_region"] or result.get("region", "N/A")
-    requested_region_full_name = info["requested_region_full_name"]
-    forecast_region_used = info["forecast_region_used"]
-    forecast_access_mode = info["forecast_access_mode"]
-    latitude = info["latitude"]
-    longitude = info["longitude"]
-
-    coord_text = ""
-    if latitude is not None and longitude is not None:
-        coord_text = f"<br><strong>Resolved Coordinates:</strong> {latitude:.4f}, {longitude:.4f}"
-
-    fallback_note = ""
-    if forecast_access_mode == "preview_fallback":
-        fallback_note = (
-            "<br><br>"
-            "<span class='util-warning-pill'>Preview Fallback Active</span>"
-            "<br>"
-            "Your ZIP code was mapped to a real WattTime region, but the current API plan "
-            "does not allow live forecast access for that region. Util is using "
-            "<strong>CAISO_NORTH</strong> preview forecast data so the app still works."
-        )
-
-    elif forecast_access_mode == "direct_region":
-        fallback_note = (
-            "<br><br>"
-            "<span class='util-good-pill'>Direct Region Forecast Active</span>"
-        )
-
-    forecast_region_used_text = ""
-    if forecast_region_used:
-        forecast_region_used_text = (
-            f"<br><strong>Forecast Region Used:</strong> {forecast_region_used}"
-        )
-
-    full_name_text = ""
-    if requested_region_full_name:
-        full_name_text = f"<br><strong>Resolved Region Name:</strong> {requested_region_full_name}"
-
-    st.markdown(
-        f"""
-        <div class="util-card">
-            <strong>Resolved Grid Region:</strong> {requested_region}
-            {full_name_text}
-            {forecast_region_used_text}
-            {coord_text}
-            {fallback_note}
-        </div>
-        """,
-        unsafe_allow_html=True
-    )
-
-def render_recommendation_card(
-    result: dict,
-    schedule_df: pd.DataFrame,
-    display_df: pd.DataFrame
-):
-    workload = result["workload_input"]
-    run_window = build_run_window_summary(schedule_df)
-
-    objective_label = "carbon emissions" if workload.objective == "carbon" else "electricity cost"
-
-    st.markdown(
-        f"""
-        <div class="util-card">
-            <strong>Recommendation:</strong> Run your workload from
-            <strong>{run_window["start"]}</strong> to <strong>{run_window["end"]}</strong>
-            to minimize <strong>{objective_label}</strong>.
-            <br><br>
-            <strong>Selected Intervals:</strong> {run_window["intervals"]}<br>
-            <strong>Machine Wattage:</strong> {int(workload.machine_watts):,} W<br>
-            <strong>Compute Hours Required:</strong> {int(workload.compute_hours_required)} hours
-        </div>
-        """,
-        unsafe_allow_html=True
-    )
-
-    st.subheader("Carbon Forecast with Recommended Intervals")
-    st.altair_chart(build_carbon_chart(display_df), use_container_width=True)
-
-    st.subheader("Forecast Table")
-
-    forecast_table = display_df[[
-        "hour_label",
-        "carbon_g_per_kwh",
-        "price_per_kwh",
-        "recommended_action"
-    ]].rename(columns={
-        "hour_label": "Time",
-        "carbon_g_per_kwh": "Carbon (g/kWh)",
-        "price_per_kwh": "Price ($/kWh)",
-        "recommended_action": "Recommended Action"
-    })
-
-    st.dataframe(forecast_table, use_container_width=True)
-
-    selected_rows = display_df[display_df["run_flag"] == 1][[
-        "hour_label", "carbon_g_per_kwh", "price_per_kwh"
-    ]].rename(columns={
-        "hour_label": "Selected Run Time",
-        "carbon_g_per_kwh": "Carbon (g/kWh)",
-        "price_per_kwh": "Price ($/kWh)"
-    })
-
-    st.subheader("Selected Intervals")
-    st.dataframe(selected_rows, use_container_width=True)
-
-    st.subheader("Electricity Price Forecast")
-    st.line_chart(
-        display_df.set_index("timestamp")[["price_per_kwh"]],
-        use_container_width=True
-    )
 
 # ====================================================
 # TAB 4 — RUN TIMELINE
