@@ -6,6 +6,7 @@ import altair as alt
 from PIL import Image
 
 from src.inputs import WorkloadInput
+from src.analysis.multi_location import run_multi_location_analysis
 from src.pipeline import run_util_pipeline
 
 # ---------------------------------------------------
@@ -463,6 +464,156 @@ def build_carbon_chart(display_df: pd.DataFrame) -> alt.Chart:
     return (line + selected_points).properties(height=350)
 
 
+def build_location_display_info(result: dict) -> dict:
+    location_info = result.get("location_info", {}) or {}
+    forecast_df = result.get("forecast", pd.DataFrame()).copy()
+
+    requested_region = location_info.get("watttime_region")
+    requested_region_full_name = location_info.get("watttime_region_full_name")
+    latitude = location_info.get("latitude")
+    longitude = location_info.get("longitude")
+
+    forecast_region_used = None
+    forecast_access_mode = None
+
+    if not forecast_df.empty:
+        if "forecast_region_used" in forecast_df.columns:
+            non_null_used = forecast_df["forecast_region_used"].dropna()
+            if not non_null_used.empty:
+                forecast_region_used = non_null_used.iloc[0]
+
+        if "forecast_access_mode" in forecast_df.columns:
+            non_null_mode = forecast_df["forecast_access_mode"].dropna()
+            if not non_null_mode.empty:
+                forecast_access_mode = non_null_mode.iloc[0]
+
+    return {
+        "requested_region": requested_region,
+        "requested_region_full_name": requested_region_full_name,
+        "forecast_region_used": forecast_region_used,
+        "forecast_access_mode": forecast_access_mode,
+        "latitude": latitude,
+        "longitude": longitude,
+    }
+
+
+def render_location_access_card(result: dict):
+    info = build_location_display_info(result)
+
+    requested_region = info["requested_region"] or result.get("region", "N/A")
+    requested_region_full_name = info["requested_region_full_name"]
+    forecast_region_used = info["forecast_region_used"]
+    forecast_access_mode = info["forecast_access_mode"]
+    latitude = info["latitude"]
+    longitude = info["longitude"]
+
+    coord_text = ""
+    if latitude is not None and longitude is not None:
+        coord_text = f"<br><strong>Resolved Coordinates:</strong> {latitude:.4f}, {longitude:.4f}"
+
+    fallback_note = ""
+    if forecast_access_mode == "preview_fallback":
+        fallback_note = (
+            "<br><br>"
+            "<span class='util-warning-pill'>Preview Fallback Active</span>"
+            "<br>"
+            "Your ZIP code was mapped to a real WattTime region, but the current API plan "
+            "does not allow live forecast access for that region. Util is using "
+            "<strong>CAISO_NORTH</strong> preview forecast data so the app still works."
+        )
+
+    elif forecast_access_mode == "direct_region":
+        fallback_note = (
+            "<br><br>"
+            "<span class='util-good-pill'>Direct Region Forecast Active</span>"
+        )
+
+    forecast_region_used_text = ""
+    if forecast_region_used:
+        forecast_region_used_text = (
+            f"<br><strong>Forecast Region Used:</strong> {forecast_region_used}"
+        )
+
+    full_name_text = ""
+    if requested_region_full_name:
+        full_name_text = f"<br><strong>Resolved Region Name:</strong> {requested_region_full_name}"
+
+    st.markdown(
+        f"""
+        <div class="util-card">
+            <strong>Resolved Grid Region:</strong> {requested_region}
+            {full_name_text}
+            {forecast_region_used_text}
+            {coord_text}
+            {fallback_note}
+        </div>
+        """,
+        unsafe_allow_html=True
+    )
+
+
+def render_recommendation_card(
+    result: dict,
+    schedule_df: pd.DataFrame,
+    display_df: pd.DataFrame
+):
+    workload = result["workload_input"]
+    run_window = build_run_window_summary(schedule_df)
+
+    objective_label = "carbon emissions" if workload.objective == "carbon" else "electricity cost"
+
+    st.markdown(
+        f"""
+        <div class="util-card">
+            <strong>Recommendation:</strong> Run your workload from
+            <strong>{run_window["start"]}</strong> to <strong>{run_window["end"]}</strong>
+            to minimize <strong>{objective_label}</strong>.
+            <br><br>
+            <strong>Selected Intervals:</strong> {run_window["intervals"]}<br>
+            <strong>Machine Wattage:</strong> {int(workload.machine_watts):,} W<br>
+            <strong>Compute Hours Required:</strong> {int(workload.compute_hours_required)} hours
+        </div>
+        """,
+        unsafe_allow_html=True
+    )
+
+    st.subheader("Carbon Forecast with Recommended Intervals")
+    st.altair_chart(build_carbon_chart(display_df), use_container_width=True)
+
+    st.subheader("Forecast Table")
+
+    forecast_table = display_df[[
+        "hour_label",
+        "carbon_g_per_kwh",
+        "price_per_kwh",
+        "recommended_action"
+    ]].rename(columns={
+        "hour_label": "Time",
+        "carbon_g_per_kwh": "Carbon (g/kWh)",
+        "price_per_kwh": "Price ($/kWh)",
+        "recommended_action": "Recommended Action"
+    })
+
+    st.dataframe(forecast_table, use_container_width=True)
+
+    selected_rows = display_df[display_df["run_flag"] == 1][[
+        "hour_label", "carbon_g_per_kwh", "price_per_kwh"
+    ]].rename(columns={
+        "hour_label": "Selected Run Time",
+        "carbon_g_per_kwh": "Carbon (g/kWh)",
+        "price_per_kwh": "Price ($/kWh)"
+    })
+
+    st.subheader("Selected Intervals")
+    st.dataframe(selected_rows, use_container_width=True)
+
+    st.subheader("Electricity Price Forecast")
+    st.line_chart(
+        display_df.set_index("timestamp")[["price_per_kwh"]],
+        use_container_width=True
+    )
+
+
 # ---------------------------------------------------
 # Session State Defaults
 # ---------------------------------------------------
@@ -504,12 +655,13 @@ st.markdown(
 # Tabs
 # ---------------------------------------------------
 
-tab1, tab2, tab3, tab4, tab5, tab6 = st.tabs([
+tab1, tab2, tab3, tab4, tab5, tab6, tab7 = st.tabs([
     "Optimizer",
     "Savings Analysis",
     "Forecast Signals",
     "Run Timeline",
     "Power Estimator",
+    "Multi-Location",
     "About Util"
 ])
 
@@ -784,6 +936,32 @@ with tab2:
 
         st.bar_chart(comparison_df.set_index("Metric"), use_container_width=True)
 
+        savings_export_df = pd.DataFrame([
+            {
+                "zip_code": workload.zip_code,
+                "region": result["region"],
+                "objective": workload.objective,
+                "compute_hours_required": workload.compute_hours_required,
+                "deadline": workload.deadline,
+                "machine_watts": workload.machine_watts,
+                "optimized_cost": metrics["optimized_cost"],
+                "baseline_cost": metrics["baseline_cost"],
+                "cost_savings": metrics["cost_savings"],
+                "cost_reduction_pct": metrics["cost_reduction_pct"],
+                "optimized_carbon_kg": metrics["optimized_carbon_kg"],
+                "baseline_carbon_kg": metrics["baseline_carbon_kg"],
+                "carbon_savings_kg": metrics["carbon_savings_kg"],
+                "carbon_reduction_pct": metrics["carbon_reduction_pct"],
+            }
+        ])
+        savings_csv = savings_export_df.to_csv(index=False).encode("utf-8")
+        st.download_button(
+            "Download Savings CSV",
+            data=savings_csv,
+            file_name="util_savings_analysis.csv",
+            mime="text/csv",
+        )
+
         st.subheader("Interpretation")
 
         st.markdown(
@@ -825,6 +1003,9 @@ with tab3:
             region=result["region"],
             forecast_df=forecast
         )
+
+        render_location_access_card(result)
+        render_recommendation_card(result, result["schedule"], display_df)
 
 def build_location_display_info(result: dict) -> dict:
     location_info = result.get("location_info", {}) or {}
@@ -913,63 +1094,66 @@ def render_location_access_card(result: dict):
         unsafe_allow_html=True
     )
 
+def render_recommendation_card(
+    result: dict,
+    schedule_df: pd.DataFrame,
+    display_df: pd.DataFrame
+):
+    workload = result["workload_input"]
+    run_window = build_run_window_summary(schedule_df)
 
-    def render_recommendation_card(result: dict, schedule_df: pd.DataFrame):
-        workload = result["workload_input"]
-        run_window = build_run_window_summary(schedule_df)
+    objective_label = "carbon emissions" if workload.objective == "carbon" else "electricity cost"
 
-        objective_label = "carbon emissions" if workload.objective == "carbon" else "electricity cost"
+    st.markdown(
+        f"""
+        <div class="util-card">
+            <strong>Recommendation:</strong> Run your workload from
+            <strong>{run_window["start"]}</strong> to <strong>{run_window["end"]}</strong>
+            to minimize <strong>{objective_label}</strong>.
+            <br><br>
+            <strong>Selected Intervals:</strong> {run_window["intervals"]}<br>
+            <strong>Machine Wattage:</strong> {int(workload.machine_watts):,} W<br>
+            <strong>Compute Hours Required:</strong> {int(workload.compute_hours_required)} hours
+        </div>
+        """,
+        unsafe_allow_html=True
+    )
 
-        st.markdown(
-            f"""
-            <div class="util-card">
-                <strong>Recommendation:</strong> Run your workload from
-                <strong>{run_window["start"]}</strong> to <strong>{run_window["end"]}</strong>
-                to minimize <strong>{objective_label}</strong>.
-                <br><br>
-                <strong>Selected Intervals:</strong> {run_window["intervals"]}<br>
-                <strong>Machine Wattage:</strong> {int(workload.machine_watts):,} W<br>
-                <strong>Compute Hours Required:</strong> {int(workload.compute_hours_required)} hours
-            </div>
-            """,
-            unsafe_allow_html=True
-        )
+    st.subheader("Carbon Forecast with Recommended Intervals")
+    st.altair_chart(build_carbon_chart(display_df), use_container_width=True)
 
-        st.subheader("Carbon Forecast with Recommended Intervals")
-        st.altair_chart(build_carbon_chart(display_df), use_container_width=True)
+    st.subheader("Forecast Table")
 
-        st.subheader("Forecast Table")
+    forecast_table = display_df[[
+        "hour_label",
+        "carbon_g_per_kwh",
+        "price_per_kwh",
+        "recommended_action"
+    ]].rename(columns={
+        "hour_label": "Time",
+        "carbon_g_per_kwh": "Carbon (g/kWh)",
+        "price_per_kwh": "Price ($/kWh)",
+        "recommended_action": "Recommended Action"
+    })
 
-        forecast_table = display_df[[
-            "hour_label",
-            "carbon_g_per_kwh",
-            "price_per_kwh",
-            "recommended_action"
-        ]].rename(columns={
-            "hour_label": "Time",
-            "carbon_g_per_kwh": "Carbon (g/kWh)",
-            "price_per_kwh": "Price ($/kWh)",
-            "recommended_action": "Recommended Action"
-        })
+    st.dataframe(forecast_table, use_container_width=True)
 
-        st.dataframe(forecast_table, use_container_width=True)
+    selected_rows = display_df[display_df["run_flag"] == 1][[
+        "hour_label", "carbon_g_per_kwh", "price_per_kwh"
+    ]].rename(columns={
+        "hour_label": "Selected Run Time",
+        "carbon_g_per_kwh": "Carbon (g/kWh)",
+        "price_per_kwh": "Price ($/kWh)"
+    })
 
-        selected_rows = display_df[display_df["run_flag"] == 1][[
-            "hour_label", "carbon_g_per_kwh", "price_per_kwh"
-        ]].rename(columns={
-            "hour_label": "Selected Run Time",
-            "carbon_g_per_kwh": "Carbon (g/kWh)",
-            "price_per_kwh": "Price ($/kWh)"
-        })
+    st.subheader("Selected Intervals")
+    st.dataframe(selected_rows, use_container_width=True)
 
-        st.subheader("Selected Intervals")
-        st.dataframe(selected_rows, use_container_width=True)
-
-        st.subheader("Electricity Price Forecast")
-        st.line_chart(
-            display_df.set_index("timestamp")[["price_per_kwh"]],
-            use_container_width=True
-        )
+    st.subheader("Electricity Price Forecast")
+    st.line_chart(
+        display_df.set_index("timestamp")[["price_per_kwh"]],
+        use_container_width=True
+    )
 
 # ====================================================
 # TAB 4 — RUN TIMELINE
@@ -1130,10 +1314,83 @@ with tab5:
     st.dataframe(breakdown_df, use_container_width=True)
 
 # ====================================================
-# TAB 6 — ABOUT
+# TAB 6 — MULTI-LOCATION
 # ====================================================
 
 with tab6:
+    st.header("Multi-Location")
+
+    st.markdown(
+        '<div class="util-card">Compare the same workload across multiple ZIP codes.</div>',
+        unsafe_allow_html=True
+    )
+
+    multi_location_input = st.text_input(
+        "Enter ZIP codes (comma separated)",
+        "93106, 10001, 60601"
+    )
+    zip_codes = [z.strip() for z in multi_location_input.split(",") if z.strip()]
+
+    compare_locations_button = st.button("Compare Locations")
+
+    if compare_locations_button:
+        if not zip_codes:
+            st.warning("Enter at least one ZIP code to compare.")
+        else:
+            try:
+                forecast_mode = "live_carbon" if forecast_mode_label == "Live Carbon" else "demo"
+                schedule_mode = "block" if schedule_mode_label == "Continuous Block" else "flexible"
+
+                multi_location_results = run_multi_location_analysis(
+                    zip_codes=zip_codes,
+                    compute_hours_required=int(compute_hours),
+                    deadline=deadline,
+                    objective=objective,
+                    machine_watts=int(machine_watts),
+                    mapping_path=ZIP_PATH,
+                    forecast_mode=forecast_mode,
+                    schedule_mode=schedule_mode,
+                )
+
+                if multi_location_results.empty:
+                    st.info("No location results were returned.")
+                else:
+                    st.dataframe(multi_location_results, use_container_width=True)
+                    multi_location_csv = multi_location_results.to_csv(index=False).encode("utf-8")
+                    st.download_button(
+                        "Download CSV",
+                        data=multi_location_csv,
+                        file_name="util_multi_location_results.csv",
+                        mime="text/csv",
+                    )
+
+                    lowest_cost_row = multi_location_results.loc[
+                        multi_location_results["optimized_cost"].idxmin()
+                    ]
+                    lowest_carbon_row = multi_location_results.loc[
+                        multi_location_results["optimized_carbon_kg"].idxmin()
+                    ]
+
+                    st.write(f"Lowest Cost Location: ZIP {lowest_cost_row['zip_code']}")
+                    st.write(f"Lowest Carbon Location: ZIP {lowest_carbon_row['zip_code']}")
+
+            except Exception as e:
+                error_message = str(e)
+
+                if forecast_mode == "live_carbon" and "WattTime" in error_message:
+                    st.error(
+                        "Live carbon is currently unavailable because WattTime authentication "
+                        "or API access failed. Please use Demo mode or update deployment secrets/API plan."
+                    )
+                else:
+                    st.error("An error occurred while comparing locations.")
+                    st.exception(e)
+
+# ====================================================
+# TAB 7 — ABOUT
+# ====================================================
+
+with tab7:
     st.header("About Util")
 
     st.markdown(

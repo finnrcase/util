@@ -184,6 +184,8 @@ def run_util_pipeline(
     baseline_df = build_baseline_func(
         forecast_df=forecast_df,
         compute_hours_required=workload_input.compute_hours_required,
+        deadline=workload_input.deadline,
+        current_time_override=current_time_override,
     )
 
     optimized_df = optimize_func(

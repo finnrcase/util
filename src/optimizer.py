@@ -13,6 +13,8 @@ Later replace/extend with more advanced constrained optimization,
 partial-load scheduling, and finer time intervals.
 """
 
+import math
+
 import pandas as pd
 
 
@@ -153,7 +155,7 @@ def optimize_schedule(
 
     interval_minutes = _infer_interval_minutes(df)
     rows_per_hour = 60 / interval_minutes
-    slots_required = int(round(compute_hours_required * rows_per_hour))
+    slots_required = math.ceil(compute_hours_required * rows_per_hour)
 
     if slots_required <= 0:
         raise ValueError("Computed slots_required must be positive.")
