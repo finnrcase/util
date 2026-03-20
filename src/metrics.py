@@ -25,6 +25,56 @@ def _infer_interval_minutes(df: pd.DataFrame) -> float:
     return interval_minutes
 
 
+def add_interval_impact_columns(
+    schedule_df: pd.DataFrame,
+    machine_watts: int,
+    run_flag_column: str | None = None,
+) -> pd.DataFrame:
+    """
+    Add interval-level energy, cost, and carbon columns using Util's
+    existing schedule math.
+
+    Parameters
+    ----------
+    schedule_df : pd.DataFrame
+        Must contain timestamp, carbon_g_per_kwh, and price_per_kwh.
+    machine_watts : int
+        Machine power draw in watts.
+    run_flag_column : str | None
+        Optional run flag column. When provided, actual interval_cost and
+        interval_carbon_kg columns are multiplied by that flag.
+    """
+    required_columns = {"timestamp", "carbon_g_per_kwh", "price_per_kwh"}
+    if run_flag_column is not None:
+        required_columns.add(run_flag_column)
+
+    if not required_columns.issubset(schedule_df.columns):
+        raise ValueError(f"schedule_df must contain columns: {required_columns}")
+
+    df = schedule_df.copy()
+    df["timestamp"] = pd.to_datetime(df["timestamp"])
+
+    interval_minutes = _infer_interval_minutes(df)
+    interval_hours = interval_minutes / 60.0
+    machine_kw = machine_watts / 1000.0
+
+    df["interval_hours"] = interval_hours
+    df["machine_kw"] = machine_kw
+    df["interval_energy_kwh"] = machine_kw * interval_hours
+    df["interval_cost_if_run"] = df["interval_energy_kwh"] * df["price_per_kwh"]
+    df["interval_carbon_kg_if_run"] = (
+        df["interval_energy_kwh"] * df["carbon_g_per_kwh"] / 1000.0
+    )
+
+    if run_flag_column is not None:
+        df["interval_cost"] = df[run_flag_column] * df["interval_cost_if_run"]
+        df["interval_carbon_kg"] = (
+            df[run_flag_column] * df["interval_carbon_kg_if_run"]
+        )
+
+    return df
+
+
 def calculate_schedule_totals(
     schedule_df: pd.DataFrame,
     run_flag_column: str,
@@ -51,22 +101,10 @@ def calculate_schedule_totals(
     dict
         Dictionary with total_cost and total_carbon_kg.
     """
-    required_columns = {"timestamp", "carbon_g_per_kwh", "price_per_kwh", run_flag_column}
-    if not required_columns.issubset(schedule_df.columns):
-        raise ValueError(f"schedule_df must contain columns: {required_columns}")
-
-    df = schedule_df.copy()
-    df["timestamp"] = pd.to_datetime(df["timestamp"])
-
-    interval_minutes = _infer_interval_minutes(df)
-    interval_hours = interval_minutes / 60.0
-    machine_kw = machine_watts / 1000.0
-
-    df["interval_cost"] = (
-        df[run_flag_column] * machine_kw * interval_hours * df["price_per_kwh"]
-    )
-    df["interval_carbon_kg"] = (
-        df[run_flag_column] * machine_kw * interval_hours * df["carbon_g_per_kwh"] / 1000.0
+    df = add_interval_impact_columns(
+        schedule_df=schedule_df,
+        machine_watts=machine_watts,
+        run_flag_column=run_flag_column,
     )
 
     total_cost = df["interval_cost"].sum()

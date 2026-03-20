@@ -7,9 +7,14 @@ import altair as alt
 from PIL import Image
 
 from src.inputs import WorkloadInput
+from src.metrics import add_interval_impact_columns
 from src.analysis.multi_location import run_multi_location_analysis
 from src.pipeline import run_util_pipeline
-from src.scheduling_window import InfeasibleScheduleError, INFEASIBLE_WORKLOAD_MESSAGE
+from src.scheduling_window import (
+    APP_TIMEZONE,
+    InfeasibleScheduleError,
+    INFEASIBLE_WORKLOAD_MESSAGE,
+)
 
 # ---------------------------------------------------
 # Paths
@@ -431,6 +436,85 @@ def infer_interval_minutes(df: pd.DataFrame) -> float:
         return 60.0
 
     return diffs.dt.total_seconds().median() / 60
+
+
+def format_local_timestamp(value) -> str:
+    ts = pd.to_datetime(value)
+    if getattr(ts, "tzinfo", None) is not None:
+        ts = ts.tz_convert(APP_TIMEZONE)
+    return ts.strftime("%b %d, %Y %I:%M %p")
+
+
+def build_interval_transparency_df(
+    optimized_df: pd.DataFrame,
+    machine_watts: int,
+) -> pd.DataFrame:
+    df = add_interval_impact_columns(
+        schedule_df=optimized_df,
+        machine_watts=machine_watts,
+        run_flag_column="run_flag",
+    ).copy()
+    df["timestamp"] = pd.to_datetime(df["timestamp"])
+    df = df.sort_values("timestamp").reset_index(drop=True)
+    df["local_time"] = df["timestamp"].apply(format_local_timestamp)
+    df["interval_end_time"] = (
+        df["timestamp"] + pd.to_timedelta(df["interval_hours"], unit="h")
+    ).apply(format_local_timestamp)
+    df["selected_by_optimizer"] = df["run_flag"].map({1: "Yes", 0: "No"})
+    df["cleanest_rank"] = (
+        df["interval_carbon_kg_if_run"].rank(method="dense", ascending=True).astype(int)
+    )
+    return df
+
+
+def build_optimal_run_times_df(
+    optimized_df: pd.DataFrame,
+    machine_watts: int,
+) -> pd.DataFrame:
+    df = build_interval_transparency_df(optimized_df, machine_watts)
+    df = df[df["run_flag"] == 1].copy()
+    return df[
+        [
+            "local_time",
+            "interval_end_time",
+            "carbon_g_per_kwh",
+            "interval_carbon_kg_if_run",
+            "selected_by_optimizer",
+        ]
+    ].rename(
+        columns={
+            "local_time": "Local Time",
+            "interval_end_time": "Interval End",
+            "carbon_g_per_kwh": "Carbon Signal (g/kWh)",
+            "interval_carbon_kg_if_run": "Estimated Carbon (kg)",
+            "selected_by_optimizer": "Run Selected",
+        }
+    )
+
+
+def build_eligible_intervals_export_df(
+    optimized_df: pd.DataFrame,
+    machine_watts: int,
+) -> pd.DataFrame:
+    df = build_interval_transparency_df(optimized_df, machine_watts)
+    df = df[df["eligible_flag"] == 1].copy()
+    return df[
+        [
+            "local_time",
+            "carbon_g_per_kwh",
+            "interval_carbon_kg_if_run",
+            "selected_by_optimizer",
+            "cleanest_rank",
+        ]
+    ].rename(
+        columns={
+            "local_time": "Local Time",
+            "carbon_g_per_kwh": "Carbon Signal (g/kWh)",
+            "interval_carbon_kg_if_run": "Estimated Carbon (kg)",
+            "selected_by_optimizer": "Selected by Optimizer",
+            "cleanest_rank": "Cleanest Rank",
+        }
+    )
 
 
 def build_forecast_display_df(
@@ -1228,13 +1312,40 @@ with tab2:
                 "carbon_reduction_pct": metrics["carbon_reduction_pct"],
             }
         ])
-        savings_csv = savings_export_df.to_csv(index=False).encode("utf-8")
-        st.download_button(
-            "Download Savings CSV",
-            data=savings_csv,
-            file_name="util_savings_analysis.csv",
-            mime="text/csv",
+        optimal_run_times_export_df = build_optimal_run_times_df(
+            optimized_df=optimized,
+            machine_watts=int(workload.machine_watts),
         )
+        eligible_intervals_export_df = build_eligible_intervals_export_df(
+            optimized_df=optimized,
+            machine_watts=int(workload.machine_watts),
+        )
+        savings_csv = savings_export_df.to_csv(index=False).encode("utf-8")
+        optimal_run_times_csv = optimal_run_times_export_df.to_csv(index=False).encode("utf-8")
+        eligible_intervals_csv = eligible_intervals_export_df.to_csv(index=False).encode("utf-8")
+
+        export_col1, export_col2, export_col3 = st.columns(3)
+        with export_col1:
+            st.download_button(
+                "Download Savings Summary CSV",
+                data=savings_csv,
+                file_name="util_savings_analysis.csv",
+                mime="text/csv",
+            )
+        with export_col2:
+            st.download_button(
+                "Download Optimal Run Times CSV",
+                data=optimal_run_times_csv,
+                file_name="util_optimal_run_times.csv",
+                mime="text/csv",
+            )
+        with export_col3:
+            st.download_button(
+                "Download Eligible Intervals CSV",
+                data=eligible_intervals_csv,
+                file_name="util_eligible_intervals.csv",
+                mime="text/csv",
+            )
 
         st.subheader("Interpretation")
 
