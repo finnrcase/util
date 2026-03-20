@@ -119,6 +119,23 @@ def _fetch_live_historical_with_fallback(region: str, days: int):
     return historical_df, region_used
 
 
+def build_live_historical_export_table(
+    region: str,
+    days: int = 14,
+) -> pd.DataFrame:
+    """
+    Fetch historical WattTime data for CSV export and normalize it to
+    Util's local display timezone.
+    """
+    historical_df, historical_region_used = _fetch_live_historical_with_fallback(
+        region,
+        days,
+    )
+    historical_df = _normalize_timestamp_column(historical_df, "timestamp")
+    historical_df["historical_region_used"] = historical_region_used
+    return historical_df.sort_values("timestamp").reset_index(drop=True)
+
+
 def build_live_carbon_forecast_table(
     region: str,
     placeholder_price_per_kwh: float = 0.15,

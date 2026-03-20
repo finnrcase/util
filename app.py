@@ -9,6 +9,7 @@ from PIL import Image
 from src.inputs import WorkloadInput
 from src.metrics import add_interval_impact_columns
 from src.analysis.multi_location import run_multi_location_analysis
+from src.data_fetcher import build_live_historical_export_table
 from src.pipeline import run_util_pipeline
 from src.scheduling_window import (
     APP_TIMEZONE,
@@ -515,6 +516,25 @@ def build_eligible_intervals_export_df(
             "cleanest_rank": "Cleanest Rank",
         }
     )
+
+
+@st.cache_data(show_spinner=False)
+def build_historical_emissions_export_df(
+    region: str,
+    days: int = 14,
+) -> pd.DataFrame:
+    historical_df = build_live_historical_export_table(region=region, days=days).copy()
+    historical_df = historical_df.sort_values("timestamp").reset_index(drop=True)
+    historical_df["Local Time"] = historical_df["timestamp"].apply(format_local_timestamp)
+    export_df = historical_df[
+        ["Local Time", "carbon_g_per_kwh", "historical_region_used"]
+    ].rename(
+        columns={
+            "carbon_g_per_kwh": "Carbon Signal (g/kWh)",
+            "historical_region_used": "Historical Region Used",
+        }
+    )
+    return export_df
 
 
 def build_forecast_display_df(
@@ -1323,8 +1343,20 @@ with tab2:
         savings_csv = savings_export_df.to_csv(index=False).encode("utf-8")
         optimal_run_times_csv = optimal_run_times_export_df.to_csv(index=False).encode("utf-8")
         eligible_intervals_csv = eligible_intervals_export_df.to_csv(index=False).encode("utf-8")
+        historical_emissions_csv = None
+        historical_export_error = None
 
-        export_col1, export_col2, export_col3 = st.columns(3)
+        if st.session_state.get("last_forecast_mode_label") == "Live Carbon":
+            try:
+                historical_emissions_export_df = build_historical_emissions_export_df(
+                    region=result["region"],
+                    days=14,
+                )
+                historical_emissions_csv = historical_emissions_export_df.to_csv(index=False).encode("utf-8")
+            except Exception as exc:
+                historical_export_error = str(exc)
+
+        export_col1, export_col2, export_col3, export_col4 = st.columns(4)
         with export_col1:
             st.download_button(
                 "Download Savings Summary CSV",
@@ -1346,6 +1378,21 @@ with tab2:
                 file_name="util_eligible_intervals.csv",
                 mime="text/csv",
             )
+        with export_col4:
+            if historical_emissions_csv is not None:
+                st.download_button(
+                    "Download 2-Week Historical CSV",
+                    data=historical_emissions_csv,
+                    file_name="util_historical_emissions_14_days.csv",
+                    mime="text/csv",
+                )
+            elif st.session_state.get("last_forecast_mode_label") == "Live Carbon":
+                st.caption("2-week historical CSV unavailable for this region/API access.")
+            else:
+                st.caption("2-week historical CSV is available in Live Carbon mode.")
+
+        if historical_export_error:
+            st.caption(f"Historical export note: {historical_export_error}")
 
         st.subheader("Interpretation")
 
