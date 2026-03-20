@@ -1525,9 +1525,9 @@ with tab7:
         """
         <div class="util-card">
             <strong>Util</strong> is a compute scheduling and optimization product designed to help users run
-            workloads at the best possible times to minimize electricity cost or carbon emissions.
+            workloads at the best possible times and locations in order to minimize electricity costs and carbon emissions.
             <br><br>
-            The current MVP is recommendation-only. It does not yet automatically control workloads.
+            The current MVP is recommendation-only. It does not yet automatically control workloads or locations.
             Instead, it shows users:
             <ul>
                 <li>when to run</li>
@@ -1537,12 +1537,13 @@ with tab7:
             </ul>
             Future versions can add:
             <ul>
-                <li>live carbon APIs ✅</li>
+                <li>live carbon APIs (complete)</li>
                 <li>electricity pricing APIs</li>
                 <li>system auto-detection</li>
                 <li>live telemetry</li>
                 <li>automated workload control</li>
                 <li>multi-region scheduling</li>
+                <li>work with electricity providers to solve the issue from a supply side</li>
             </ul>
         </div>
         """,
