@@ -1,4 +1,5 @@
 import base64
+import os
 import streamlit as st
 from datetime import datetime, timedelta
 from pathlib import Path
@@ -6,6 +7,8 @@ import pandas as pd
 import altair as alt
 from PIL import Image
 
+from src.admin_dashboard import build_run_analytics_record
+from src.analytics import append_run
 from src.inputs import WorkloadInput
 from src.metrics import add_interval_impact_columns
 from src.analysis.multi_location import run_multi_location_analysis
@@ -31,6 +34,14 @@ logo_base64 = base64.b64encode(LOGO_PATH.read_bytes()).decode("utf-8")
 ZIP_PATH = DATA_DIR / "zip_to_region_sample.csv"
 CARBON_PATH = DATA_DIR / "sample_carbon_forecast.csv"
 PRICE_PATH = DATA_DIR / "sample_price_forecast.csv"
+ANALYTICS_PATH = PROJECT_ROOT / "data" / "analytics" / "util_admin_analytics.csv"
+ANALYTICS_LOGGING_ENABLED = os.getenv("UTIL_ANALYTICS_ENABLED", "true").strip().lower() in {
+    "1",
+    "true",
+    "yes",
+    "on",
+}
+DEFAULT_ANALYTICS_RUN_TYPE = os.getenv("UTIL_ANALYTICS_RUN_TYPE", "Real").strip() or "Real"
 
 # ---------------------------------------------------
 # Page Setup
@@ -42,371 +53,630 @@ st.set_page_config(
     layout="wide"
 )
 
-st.markdown(
-    """
+THEME_TOKENS = {
+    "bg": "#090b13",
+    "bg_top": "#140f26",
+    "surface": "rgba(22, 16, 38, 0.76)",
+    "surface_strong": "rgba(20, 14, 34, 0.9)",
+    "surface_soft": "rgba(255, 255, 255, 0.045)",
+    "surface_elevated": "rgba(28, 19, 45, 0.92)",
+    "border": "rgba(184, 145, 255, 0.2)",
+    "border_strong": "rgba(184, 145, 255, 0.38)",
+    "border_inner": "rgba(255, 255, 255, 0.08)",
+    "text": "#fbf8ff",
+    "text_muted": "#b3a8cf",
+    "text_soft": "#e2daf3",
+    "accent_blue": "#7b6dff",
+    "accent_blue_soft": "rgba(123, 109, 255, 0.22)",
+    "accent_violet": "#a77bff",
+    "accent_violet_soft": "rgba(167, 123, 255, 0.26)",
+    "accent_silver": "#efe7ff",
+    "success": "#6ee7b7",
+    "success_soft": "rgba(110, 231, 183, 0.18)",
+    "shadow": "0 28px 80px rgba(0, 0, 0, 0.42)",
+    "shadow_soft": "0 18px 48px rgba(2, 6, 23, 0.28)",
+    "radius_lg": "28px",
+    "radius_md": "22px",
+    "radius_sm": "16px",
+}
+
+
+def build_theme_css(tokens: dict[str, str]) -> str:
+    return """
     <style>
     @import url('https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=Space+Grotesk:wght@500;700&display=swap');
 
-    :root {
-        --util-bg: #17181c;
-        --util-bg-accent: #23252b;
-        --util-surface: rgba(35, 39, 47, 0.84);
-        --util-surface-strong: rgba(43, 47, 56, 0.94);
-        --util-border: rgba(166, 176, 255, 0.14);
-        --util-border-strong: rgba(168, 132, 255, 0.34);
-        --util-text: #f2f3f5;
-        --util-muted: #b5bac1;
-        --util-accent: #8b5cf6;
-        --util-accent-strong: #6d28d9;
-        --util-good: #4ade80;
-        --util-warn: #8b5cf6;
-        --util-shadow: 0 24px 70px rgba(0, 0, 0, 0.34);
-    }
+    :root {{
+        --util-bg: {bg};
+        --util-bg-top: {bg_top};
+        --util-surface: {surface};
+        --util-surface-strong: {surface_strong};
+        --util-surface-soft: {surface_soft};
+        --util-surface-elevated: {surface_elevated};
+        --util-border: {border};
+        --util-border-strong: {border_strong};
+        --util-border-inner: {border_inner};
+        --util-text: {text};
+        --util-muted: {text_muted};
+        --util-text-soft: {text_soft};
+        --util-accent-blue: {accent_blue};
+        --util-accent-blue-soft: {accent_blue_soft};
+        --util-accent-violet: {accent_violet};
+        --util-accent-violet-soft: {accent_violet_soft};
+        --util-accent-silver: {accent_silver};
+        --util-good: {success};
+        --util-good-soft: {success_soft};
+        --util-shadow: {shadow};
+        --util-shadow-soft: {shadow_soft};
+        --util-radius-lg: {radius_lg};
+        --util-radius-md: {radius_md};
+        --util-radius-sm: {radius_sm};
+    }}
 
-    .stApp {
+    .stApp {{
         background:
-            radial-gradient(circle at top left, rgba(139, 92, 246, 0.18), transparent 28%),
-            radial-gradient(circle at top right, rgba(88, 101, 242, 0.1), transparent 24%),
-            linear-gradient(180deg, var(--util-bg) 0%, #101114 100%);
+            radial-gradient(circle at top left, rgba(167, 123, 255, 0.22), transparent 28%),
+            radial-gradient(circle at 78% 10%, rgba(123, 109, 255, 0.16), transparent 24%),
+            radial-gradient(circle at 50% 32%, rgba(255, 255, 255, 0.035), transparent 22%),
+            linear-gradient(180deg, var(--util-bg-top) 0%, var(--util-bg) 58%, #05070d 100%);
         color: var(--util-text);
         font-family: 'Manrope', sans-serif;
-    }
+    }}
 
-    .block-container {
-        padding-top: 1.35rem;
-        padding-bottom: 2.5rem;
-        max-width: 1320px;
-    }
+    .stApp::before {{
+        content: "";
+        position: fixed;
+        inset: 0;
+        pointer-events: none;
+        background:
+            radial-gradient(circle at 16% 22%, rgba(167, 123, 255, 0.18), transparent 20%),
+            radial-gradient(circle at 82% 18%, rgba(123, 109, 255, 0.12), transparent 16%),
+            radial-gradient(circle at 50% 60%, rgba(255, 255, 255, 0.04), transparent 28%);
+        filter: blur(18px);
+        opacity: 0.9;
+    }}
 
-    html, body, [class*="css"], [data-testid="stAppViewContainer"] {
+    .block-container {{
+        padding-top: 1.4rem;
+        padding-bottom: 2.8rem;
+        max-width: 1360px;
+    }}
+
+    html, body, [class*="css"], [data-testid="stAppViewContainer"] {{
         font-family: 'Manrope', sans-serif;
-    }
+    }}
 
-    h1, h2, h3, .util-brand-title {
+    h1, h2, h3, .util-brand-title, .util-section-title {{
         color: var(--util-text);
         font-family: 'Space Grotesk', sans-serif;
-        letter-spacing: -0.03em;
-    }
+        letter-spacing: -0.04em;
+    }}
 
-    h1 {
-        font-size: clamp(2.2rem, 4vw, 3.8rem);
-        line-height: 0.95;
+    h1 {{
+        font-size: clamp(2.65rem, 5vw, 4.65rem);
+        line-height: 0.92;
         margin-bottom: 0.4rem;
-    }
+    }}
 
-    h2 {
+    h2 {{
         font-size: 1.35rem;
-        margin-bottom: 0.8rem;
-    }
+        margin-bottom: 0.5rem;
+    }}
 
-    h3 {
+    h3 {{
         font-size: 1.02rem;
-    }
+        margin-bottom: 0.45rem;
+    }}
 
-    .util-subtext {
-        color: var(--util-muted);
-        font-size: 1.02rem;
-        line-height: 1.7;
-        margin-bottom: 0;
-    }
+    p, label, .stMarkdown, .stCaption, .stTextInput label, .stNumberInput label {{
+        color: var(--util-text) !important;
+    }}
 
-    .util-hero {
+    [data-testid="stToolbar"] {{
+        visibility: hidden;
+        height: 0;
+        position: fixed;
+    }}
+
+    .util-hero {{
         position: relative;
         overflow: hidden;
         background:
-            linear-gradient(135deg, rgba(43, 47, 56, 0.94), rgba(28, 30, 34, 0.96)),
-            radial-gradient(circle at 20% 20%, rgba(139, 92, 246, 0.16), transparent 30%);
+            linear-gradient(140deg, rgba(25, 18, 42, 0.94), rgba(12, 9, 24, 0.86)),
+            radial-gradient(circle at 18% 18%, rgba(167, 123, 255, 0.26), transparent 30%),
+            radial-gradient(circle at 82% 22%, rgba(123, 109, 255, 0.12), transparent 26%);
         border: 1px solid var(--util-border);
-        border-radius: 28px;
-        padding: 1.55rem 1.6rem;
+        border-radius: 30px;
+        padding: 1rem 1.25rem;
         box-shadow: var(--util-shadow);
-        margin-bottom: 1.25rem;
-    }
+        backdrop-filter: blur(22px);
+        margin-bottom: 0.9rem;
+        isolation: isolate;
+    }}
 
-    .util-hero::after {
+    .util-hero::before {{
         content: "";
         position: absolute;
-        inset: auto -8% -35% auto;
-        width: 260px;
-        height: 260px;
-        border-radius: 50%;
-        background: radial-gradient(circle, rgba(139, 92, 246, 0.22), transparent 70%);
+        inset: 1px;
+        border-radius: inherit;
+        border: 1px solid rgba(255, 255, 255, 0.06);
         pointer-events: none;
-    }
+        mask: linear-gradient(180deg, rgba(255,255,255,0.8), transparent 46%);
+    }}
 
-    .util-hero-grid {
-        display: grid;
-        grid-template-columns: minmax(0, 1fr);
-        gap: 1.1rem;
-        align-items: start;
-    }
+    .util-hero::after {{
+        content: "";
+        position: absolute;
+        inset: auto -8% -60% auto;
+        width: 240px;
+        height: 240px;
+        border-radius: 50%;
+        background: radial-gradient(circle, rgba(167, 123, 255, 0.24), transparent 70%);
+        pointer-events: none;
+        filter: blur(12px);
+        opacity: 0.9;
+    }}
 
-    .util-brand-row {
+    .util-hero-grid {{
+        display: flex;
+        align-items: center;
+        justify-content: flex-start;
+        gap: 0.95rem;
+        position: relative;
+        z-index: 1;
+    }}
+
+    .util-brand-row {{
         display: flex;
         align-items: center;
         gap: 0.95rem;
-        margin-bottom: 0.75rem;
-    }
+        margin-bottom: 0;
+    }}
 
-    .util-logo-shell {
-        width: 72px;
-        height: 72px;
-        border-radius: 20px;
-        background: linear-gradient(180deg, rgba(139, 92, 246, 0.18), rgba(109, 40, 217, 0.08));
-        border: 1px solid rgba(168, 132, 255, 0.24);
+    .util-logo-shell {{
+        width: 62px;
+        height: 62px;
+        border-radius: 18px;
+        background:
+            linear-gradient(180deg, rgba(255, 255, 255, 0.08), rgba(255,255,255,0.02)),
+            linear-gradient(135deg, rgba(167, 123, 255, 0.24), rgba(123, 109, 255, 0.12));
+        border: 1px solid rgba(184, 145, 255, 0.28);
         display: flex;
         align-items: center;
         justify-content: center;
-        box-shadow: inset 0 1px 0 rgba(255,255,255,0.04);
-    }
+        box-shadow:
+            inset 0 1px 0 rgba(255,255,255,0.1),
+            0 18px 38px rgba(11, 16, 35, 0.45);
+        backdrop-filter: blur(16px);
+    }}
 
-    .util-brand-kicker {
-        color: #c9b8ff;
+    .util-brand-kicker,
+    .util-section-kicker {{
+        color: #d9c8ff;
         text-transform: uppercase;
         letter-spacing: 0.18em;
         font-size: 0.75rem;
+        font-weight: 700;
         margin-bottom: 0.35rem;
-    }
+    }}
 
-    .util-header-pills {
+    .util-brand-title {{
+        margin: 0;
+        font-size: clamp(2rem, 4vw, 3rem);
+        line-height: 1;
+    }}
+
+    .util-header-pills,
+    .util-pill-row {{
         display: flex;
         flex-wrap: wrap;
         gap: 0.6rem;
         margin-top: 1rem;
-    }
+    }}
 
-    .util-header-pill {
-        padding: 0.55rem 0.8rem;
+    .util-header-pill,
+    .util-pill,
+    .util-good-pill,
+    .util-warning-pill {{
+        display: inline-flex;
+        align-items: center;
+        gap: 0.38rem;
+        padding: 0.5rem 0.78rem;
         border-radius: 999px;
-        background: rgba(255, 255, 255, 0.04);
-        border: 1px solid rgba(168, 132, 255, 0.18);
-        color: #e4defc;
-        font-size: 0.88rem;
-    }
+        font-size: 0.82rem;
+        font-weight: 600;
+        letter-spacing: 0.01em;
+        backdrop-filter: blur(12px);
+        box-shadow: inset 0 1px 0 rgba(255,255,255,0.05);
+    }}
 
-    .util-card {
-        background: var(--util-surface);
+    .util-header-pill,
+    .util-pill,
+    .util-warning-pill {{
+        background: rgba(255, 255, 255, 0.05);
+        color: var(--util-text-soft);
+        border: 1px solid rgba(157, 180, 255, 0.16);
+    }}
+
+    .util-good-pill {{
+        background: var(--util-good-soft);
+        color: #dcfff0;
+        border: 1px solid rgba(110, 231, 183, 0.26);
+    }}
+
+    .util-glass-card,
+    .util-card {{
+        position: relative;
+        overflow: hidden;
+        background:
+            linear-gradient(180deg, rgba(255,255,255,0.05), rgba(255,255,255,0.015)),
+            linear-gradient(140deg, rgba(18, 23, 38, 0.86), rgba(10, 13, 22, 0.76));
         border: 1px solid var(--util-border);
-        border-radius: 22px;
-        padding: 1.15rem 1.2rem;
-        box-shadow: var(--util-shadow);
-        backdrop-filter: blur(14px);
+        border-radius: var(--util-radius-md);
+        padding: 1.2rem 1.2rem;
+        box-shadow: var(--util-shadow-soft);
+        backdrop-filter: blur(18px);
         margin-bottom: 1rem;
-    }
+    }}
 
-    .util-metric-label {
+    .util-glass-card::before,
+    .util-card::before {{
+        content: "";
+        position: absolute;
+        inset: 0;
+        border-radius: inherit;
+        border: 1px solid rgba(255, 255, 255, 0.05);
+        pointer-events: none;
+        mask: linear-gradient(180deg, rgba(255,255,255,0.75), transparent 48%);
+    }}
+
+    .util-section-shell {{
+        position: relative;
+        overflow: hidden;
+        background:
+            linear-gradient(180deg, rgba(255,255,255,0.035), rgba(255,255,255,0.01)),
+            linear-gradient(145deg, rgba(12, 16, 28, 0.94), rgba(9, 12, 22, 0.86));
+        border: 1px solid rgba(157, 180, 255, 0.16);
+        border-radius: 30px;
+        padding: 1.15rem 1.15rem 1.25rem;
+        margin-top: 0.35rem;
+        margin-bottom: 1rem;
+        box-shadow: var(--util-shadow);
+        backdrop-filter: blur(20px);
+    }}
+
+    .util-section-shell::after {{
+        content: "";
+        position: absolute;
+        inset: auto 10% -55% auto;
+        width: 240px;
+        height: 240px;
+        border-radius: 50%;
+        background: radial-gradient(circle, rgba(139, 92, 246, 0.14), transparent 72%);
+        filter: blur(8px);
+        pointer-events: none;
+    }}
+
+    .util-section-heading {{
+        position: relative;
+        z-index: 1;
+        display: flex;
+        justify-content: space-between;
+        gap: 1rem;
+        align-items: end;
+        margin-bottom: 1rem;
+    }}
+
+    .util-section-copy {{
+        max-width: 48rem;
+    }}
+
+    .util-section-description {{
         color: var(--util-muted);
-        font-size: 0.83rem;
-        text-transform: uppercase;
-        letter-spacing: 0.12em;
-        margin-bottom: 0.45rem;
-    }
+        font-size: 0.98rem;
+        line-height: 1.7;
+    }}
 
-    .util-metric-value {
+    .util-side-note {{
+        min-width: 220px;
+        padding: 0.85rem 1rem;
+        border-radius: 20px;
+        background: linear-gradient(180deg, rgba(88, 166, 255, 0.14), rgba(255,255,255,0.02));
+        border: 1px solid rgba(120, 164, 255, 0.2);
+        color: var(--util-text-soft);
+        font-size: 0.9rem;
+        line-height: 1.55;
+        box-shadow: inset 0 1px 0 rgba(255,255,255,0.06);
+    }}
+
+    .util-callout-grid {{
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 1rem;
+    }}
+
+    .util-callout {{
+        padding: 1rem 1.05rem;
+        border-radius: 22px;
+        background:
+            linear-gradient(180deg, rgba(255,255,255,0.05), rgba(255,255,255,0.015)),
+            linear-gradient(140deg, rgba(14, 18, 30, 0.9), rgba(10, 12, 22, 0.76));
+        border: 1px solid rgba(157, 180, 255, 0.16);
+        box-shadow: var(--util-shadow-soft);
+        min-height: 106px;
+        margin-bottom: 0.9rem;
+        display: flex;
+        flex-direction: column;
+        justify-content: space-between;
+        gap: 0.5rem;
+    }}
+
+    .util-callout-label {{
+        color: var(--util-muted);
+        text-transform: uppercase;
+        letter-spacing: 0.14em;
+        font-size: 0.76rem;
+        margin-bottom: 0.35rem;
+        line-height: 1.35;
+        overflow-wrap: anywhere;
+    }}
+
+    .util-callout-value {{
+        color: var(--util-text);
+        font-size: 1.1rem;
+        font-weight: 700;
+        font-family: 'Space Grotesk', sans-serif;
+        line-height: 1.15;
+        overflow-wrap: anywhere;
+        word-break: break-word;
+    }}
+
+    .util-card-title,
+    .util-metric-label {{
+        color: var(--util-muted);
+        font-size: 0.79rem;
+        text-transform: uppercase;
+        letter-spacing: 0.14em;
+        margin-bottom: 0.5rem;
+    }}
+
+    .util-card-copy,
+    .util-metric-delta {{
+        color: #c8d3eb;
+        font-size: 0.93rem;
+        line-height: 1.6;
+    }}
+
+    .util-spacer-sm {{
+        height: 0.85rem;
+    }}
+
+    .util-spacer-xs {{
+        height: 0.45rem;
+    }}
+
+    .util-spacer-md {{
+        height: 1.2rem;
+    }}
+
+    .util-summary-divider {{
+        height: 1px;
+        margin: 0.35rem 0 1rem 0;
+        background: linear-gradient(90deg, rgba(157, 180, 255, 0.22), rgba(157, 180, 255, 0.05));
+        border-radius: 999px;
+    }}
+
+    .util-metric-value {{
         color: var(--util-text);
         font-size: 2rem;
         font-family: 'Space Grotesk', sans-serif;
         font-weight: 700;
-        line-height: 1.1;
-    }
+        line-height: 1.05;
+    }}
 
-    .util-metric-delta {
-        color: #c4b2ff;
-        font-size: 0.92rem;
-        margin-top: 0.5rem;
-    }
-
-    div[data-baseweb="tab-list"] {
+    div[data-baseweb="tab-list"] {{
         gap: 0.65rem;
-        background: rgba(32, 34, 37, 0.72);
-        border: 1px solid rgba(168, 132, 255, 0.1);
-        padding: 0.45rem;
-        border-radius: 20px;
-        backdrop-filter: blur(14px);
-    }
+        background:
+            linear-gradient(180deg, rgba(255,255,255,0.04), rgba(255,255,255,0.012)),
+            rgba(10, 14, 25, 0.76);
+        border: 1px solid rgba(157, 180, 255, 0.14);
+        padding: 0.48rem;
+        border-radius: 24px;
+        backdrop-filter: blur(18px);
+        box-shadow: var(--util-shadow-soft);
+    }}
 
-    button[data-baseweb="tab"] {
+    button[data-baseweb="tab"] {{
         background: transparent !important;
-        color: #b8bcc5 !important;
-        border-radius: 14px;
-        padding: 0.68rem 1.05rem;
+        color: var(--util-muted) !important;
+        border-radius: 16px;
+        padding: 0.72rem 1.08rem;
         border: 1px solid transparent;
-        font-size: 0.96rem;
-        transition: all 0.2s ease;
-    }
+        font-size: 0.95rem;
+        transition: all 0.25s ease;
+    }}
 
-    button[data-baseweb="tab"][aria-selected="true"] {
-        background: linear-gradient(180deg, rgba(139, 92, 246, 0.22), rgba(109, 40, 217, 0.28)) !important;
-        color: #f4f9ff !important;
+    button[data-baseweb="tab"]:hover {{
+        color: var(--util-text) !important;
+        background: rgba(255, 255, 255, 0.04) !important;
+    }}
+
+    button[data-baseweb="tab"][aria-selected="true"] {{
+        background:
+            linear-gradient(180deg, rgba(255,255,255,0.08), rgba(255,255,255,0.02)),
+            linear-gradient(135deg, rgba(139, 92, 246, 0.26), rgba(88, 166, 255, 0.16)) !important;
+        color: #f8fbff !important;
         border: 1px solid var(--util-border-strong) !important;
-        box-shadow: inset 0 1px 0 rgba(255,255,255,0.05);
-    }
+        box-shadow:
+            inset 0 1px 0 rgba(255,255,255,0.07),
+            0 12px 28px rgba(18, 24, 42, 0.34);
+    }}
 
-    div.stButton > button {
-        background: linear-gradient(135deg, var(--util-accent) 0%, var(--util-accent-strong) 100%);
+    div.stButton > button,
+    div.stDownloadButton > button {{
+        border-radius: 16px;
+        font-weight: 700;
+        padding: 0.72rem 1rem;
+        min-height: 2.9rem;
+        transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease, background 0.2s ease;
+    }}
+
+    div.stButton > button {{
+        background:
+            linear-gradient(180deg, rgba(255,255,255,0.08), rgba(255,255,255,0.02)),
+            linear-gradient(135deg, var(--util-accent-violet) 0%, var(--util-accent-blue) 100%);
         color: white !important;
-        border: 1px solid rgba(168, 132, 255, 0.22);
-        border-radius: 14px;
-        font-weight: 600;
-        padding: 0.7rem 1rem;
-        min-height: 2.85rem;
-        box-shadow: 0 16px 32px rgba(69, 39, 120, 0.3);
-        transition: transform 0.2s ease, box-shadow 0.2s ease;
-    }
+        border: 1px solid rgba(157, 180, 255, 0.28);
+        box-shadow: 0 20px 38px rgba(34, 50, 95, 0.34);
+    }}
 
-    div.stButton > button:hover {
+    div.stButton > button:hover,
+    div.stDownloadButton > button:hover {{
         transform: translateY(-1px);
-        box-shadow: 0 18px 34px rgba(69, 39, 120, 0.36);
-    }
+    }}
 
-    div.stDownloadButton > button {
-        background: rgba(255, 255, 255, 0.03);
-        color: #ddd6fe !important;
-        border: 1px solid rgba(139, 92, 246, 0.22);
-        border-radius: 14px;
-        font-weight: 600;
-        padding: 0.68rem 0.95rem;
-        min-height: 2.75rem;
-        box-shadow: none;
-        backdrop-filter: blur(10px);
-        transition: transform 0.2s ease, border-color 0.2s ease, background 0.2s ease;
-    }
+    div.stButton > button:hover {{
+        box-shadow: 0 24px 42px rgba(34, 50, 95, 0.4);
+    }}
 
-    div.stDownloadButton > button:hover {
-        transform: translateY(-1px);
-        background: rgba(139, 92, 246, 0.1);
-        border-color: rgba(139, 92, 246, 0.36);
-        box-shadow: none;
-    }
+    div.stDownloadButton > button {{
+        background:
+            linear-gradient(180deg, rgba(255,255,255,0.04), rgba(255,255,255,0.01)),
+            rgba(12, 16, 28, 0.86);
+        color: var(--util-text-soft) !important;
+        border: 1px solid rgba(157, 180, 255, 0.18);
+        box-shadow: inset 0 1px 0 rgba(255,255,255,0.05);
+        backdrop-filter: blur(12px);
+    }}
+
+    div.stDownloadButton > button:hover {{
+        background:
+            linear-gradient(180deg, rgba(255,255,255,0.06), rgba(255,255,255,0.02)),
+            rgba(16, 20, 34, 0.94);
+        border-color: rgba(157, 180, 255, 0.3);
+    }}
 
     div.stButton,
-    div.stDownloadButton {
-        margin-top: 0.3rem;
-        margin-bottom: 0.35rem;
-    }
+    div.stDownloadButton {{
+        margin-top: 0.32rem;
+        margin-bottom: 0.38rem;
+    }}
 
-    div[data-testid="stMetric"],
     div[data-testid="stDataFrame"],
-    div[data-testid="stAlert"],
-    div[data-testid="stMarkdownContainer"] > div.util-card {
-        border-radius: 20px;
-    }
-
-    div[data-testid="stMetric"] {
-        background: var(--util-surface-strong);
-        border: 1px solid var(--util-border);
-        padding: 1rem;
-        box-shadow: var(--util-shadow);
-    }
-
-    div[data-testid="stDataFrame"] {
-        border: 1px solid var(--util-border);
-        background: var(--util-surface-strong);
-        border-radius: 20px;
+    div[data-testid="stAlert"] {{
+        border-radius: 22px;
         overflow: hidden;
-        box-shadow: var(--util-shadow);
-    }
+        box-shadow: var(--util-shadow-soft);
+    }}
 
-    div[data-testid="stAlert"] {
-        background: rgba(139, 92, 246, 0.1);
-        border: 1px solid rgba(139, 92, 246, 0.2);
+    div[data-testid="stDataFrame"] {{
+        border: 1px solid rgba(157, 180, 255, 0.16);
+        background:
+            linear-gradient(180deg, rgba(255,255,255,0.03), rgba(255,255,255,0.01)),
+            rgba(10, 13, 23, 0.9);
+    }}
+
+    div[data-testid="stDataFrame"] [role="grid"] {{
+        background: transparent !important;
+    }}
+
+    div[data-testid="stAlert"] {{
+        background:
+            linear-gradient(180deg, rgba(255,255,255,0.04), rgba(255,255,255,0.01)),
+            rgba(22, 15, 40, 0.86);
+        border: 1px solid rgba(139, 92, 246, 0.24);
         color: var(--util-text);
-        box-shadow: var(--util-shadow);
-    }
+    }}
 
-    div[data-testid="stAlert"] svg {
-        fill: #8b5cf6;
-        color: #8b5cf6;
-    }
-
-    .util-pill {
-        display: inline-block;
-        padding: 0.45rem 0.72rem;
-        border-radius: 999px;
-        background: rgba(139, 92, 246, 0.12);
-        color: #ddd6fe;
-        font-size: 0.82rem;
-        border: 1px solid rgba(139, 92, 246, 0.18);
-        margin-right: 0.4rem;
-        margin-bottom: 0.4rem;
-    }
-
-    .util-good-pill {
-        display: inline-block;
-        padding: 0.35rem 0.7rem;
-        border-radius: 999px;
-        background: rgba(61, 213, 152, 0.14);
-        color: #c8ffe8;
-        font-size: 0.82rem;
-        border: 1px solid rgba(61, 213, 152, 0.22);
-        margin-right: 0.4rem;
-        margin-bottom: 0.4rem;
-    }
-
-    .util-warning-pill {
-        display: inline-block;
-        padding: 0.35rem 0.7rem;
-        border-radius: 999px;
-        background: rgba(139, 92, 246, 0.12);
-        color: #ddd6fe;
-        font-size: 0.82rem;
-        border: 1px solid rgba(139, 92, 246, 0.22);
-        margin-right: 0.4rem;
-        margin-bottom: 0.4rem;
-    }
-
-    label, .stMarkdown, .stCaption, .stTextInput label, .stNumberInput label {
-        color: var(--util-text) !important;
-    }
-
-    [data-testid="stToolbar"] {
-        visibility: hidden;
-        height: 0;
-        position: fixed;
-    }
+    div[data-testid="stAlert"] svg {{
+        fill: var(--util-accent-violet);
+        color: var(--util-accent-violet);
+    }}
 
     div[data-baseweb="select"] > div,
     div[data-baseweb="input"] > div,
     .stDateInput > div > div,
     .stNumberInput > div > div,
     .stTextInput > div > div,
-    .stTextArea textarea {
-        background: rgba(30, 31, 34, 0.9) !important;
-        border: 1px solid rgba(168, 132, 255, 0.18) !important;
+    .stTextArea textarea {{
+        background:
+            linear-gradient(180deg, rgba(255,255,255,0.045), rgba(255,255,255,0.015)),
+            rgba(11, 15, 26, 0.9) !important;
+        border: 1px solid rgba(157, 180, 255, 0.18) !important;
         color: var(--util-text) !important;
         border-radius: 16px !important;
-    }
+        box-shadow: inset 0 1px 0 rgba(255,255,255,0.04);
+    }}
 
-    .stRadio [role="radiogroup"] {
+    div[data-baseweb="select"] > div:hover,
+    div[data-baseweb="input"] > div:hover,
+    .stDateInput > div > div:hover,
+    .stNumberInput > div > div:hover,
+    .stTextInput > div > div:hover,
+    .stTextArea textarea:hover {{
+        border-color: rgba(157, 180, 255, 0.28) !important;
+    }}
+
+    .stRadio [role="radiogroup"] {{
         gap: 0.5rem;
-        background: rgba(32, 34, 37, 0.58);
-        padding: 0.35rem;
-        border: 1px solid rgba(168, 132, 255, 0.12);
-        border-radius: 16px;
-    }
+        background:
+            linear-gradient(180deg, rgba(255,255,255,0.035), rgba(255,255,255,0.01)),
+            rgba(9, 13, 22, 0.76);
+        padding: 0.4rem;
+        border: 1px solid rgba(157, 180, 255, 0.12);
+        border-radius: 18px;
+        backdrop-filter: blur(16px);
+    }}
 
-    .stSlider [data-baseweb="slider"] {
-        padding-top: 0.7rem;
-        padding-bottom: 0.35rem;
-    }
+    .stRadio [role="radiogroup"] label {{
+        background: rgba(255,255,255,0.02);
+        border: 1px solid transparent;
+        border-radius: 14px;
+        padding: 0.45rem 0.7rem;
+    }}
 
-    .stTabs {
-        margin-top: 0.5rem;
-    }
+    .stSlider [data-baseweb="slider"] {{
+        padding-top: 0.8rem;
+        padding-bottom: 0.45rem;
+    }}
 
-    @media (max-width: 900px) {
-        .util-hero-grid {
+    .stSlider [data-baseweb="thumb"] {{
+        background: linear-gradient(135deg, var(--util-accent-violet), var(--util-accent-blue)) !important;
+        box-shadow: 0 0 0 6px rgba(139, 92, 246, 0.14);
+    }}
+
+    .stTabs {{
+        margin-top: 0.55rem;
+    }}
+
+    [data-testid="stExpander"] {{
+        background: rgba(10, 13, 23, 0.82);
+        border-radius: 18px;
+        border: 1px solid rgba(157, 180, 255, 0.12);
+    }}
+
+    @media (max-width: 1050px) {{
+        .util-hero-grid,
+        .util-callout-grid {{
             grid-template-columns: 1fr;
-        }
+        }}
 
-        .util-hero {
+        .util-section-heading {{
+            flex-direction: column;
+            align-items: flex-start;
+        }}
+    }}
+
+    @media (max-width: 900px) {{
+        .util-hero {{
             padding: 1.2rem;
-        }
-    }
+        }}
+    }}
     </style>
-    """,
-    unsafe_allow_html=True
-)
+    """.format(**tokens)
+
+
+st.markdown(build_theme_css(THEME_TOKENS), unsafe_allow_html=True)
 
 # ---------------------------------------------------
 # Helpers
@@ -424,6 +694,63 @@ def render_metric_card(label: str, value: str, delta: str | None = None):
         """,
         unsafe_allow_html=True
     )
+
+
+def render_section_shell_start(
+    kicker: str,
+    title: str,
+    description: str,
+    side_note: str | None = None,
+):
+    st.markdown(f'<div class="util-section-kicker">{kicker}</div>', unsafe_allow_html=True)
+    st.markdown(f'<h2 class="util-section-title">{title}</h2>', unsafe_allow_html=True)
+    st.markdown(f'<div class="util-section-description">{description}</div>', unsafe_allow_html=True)
+    if side_note:
+        st.markdown(f'<div class="util-side-note">{side_note}</div>', unsafe_allow_html=True)
+
+
+def render_section_shell_end():
+    return None
+
+
+def render_info_card(title: str, body: str):
+    st.markdown(
+        f"""
+        <div class="util-card">
+            <div class="util-card-title">{title}</div>
+            <div class="util-card-copy">{body}</div>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+
+
+def render_callout_grid(items: list[tuple[str, str]], gap: str = "large"):
+    if not items:
+        return
+
+    num_columns = 2 if len(items) > 1 else 1
+    rows = [items[i:i + num_columns] for i in range(0, len(items), num_columns)]
+
+    for row in rows:
+        columns = st.columns(len(row), gap=gap)
+        for column, (label, value) in zip(columns, row):
+            with column:
+                st.markdown(
+                    f"""
+                    <div class="util-callout">
+                        <div class="util-callout-label">{label}</div>
+                        <div class="util-callout-value">{value}</div>
+                    </div>
+                    """,
+                    unsafe_allow_html=True,
+                )
+
+
+def apply_estimator_value_to_optimizer():
+    estimated_machine_watts = st.session_state.get("estimated_machine_watts")
+    if estimated_machine_watts is not None:
+        st.session_state["optimizer_machine_watts"] = int(estimated_machine_watts)
 
 
 def infer_interval_minutes(df: pd.DataFrame) -> float:
@@ -730,13 +1057,15 @@ def render_status_pills(
 
     st.markdown(
         f"""
-        <span class="{source_css}">Source: {source_label}</span>
-        <span class="util-pill">Resolved Region: {region}</span>
-        <span class="util-pill">Forecast Mode: {forecast_mode_label}</span>
-        <span class="util-pill">Schedule Mode: {schedule_mode_label}</span>
-        <span class="util-pill">Granularity: {interval_minutes:.0f} min</span>
-        <span class="util-pill">Forecast Window: {forecast_min.strftime("%b %d %I:%M %p")} → {forecast_max.strftime("%b %d %I:%M %p")}</span>
-        {extra_pills}
+        <div class="util-pill-row">
+            <span class="{source_css}">Source: {source_label}</span>
+            <span class="util-pill">Resolved Region: {region}</span>
+            <span class="util-pill">Forecast Mode: {forecast_mode_label}</span>
+            <span class="util-pill">Schedule Mode: {schedule_mode_label}</span>
+            <span class="util-pill">Granularity: {interval_minutes:.0f} min</span>
+            <span class="util-pill">Forecast Window: {forecast_min.strftime("%b %d %I:%M %p")} → {forecast_max.strftime("%b %d %I:%M %p")}</span>
+            {extra_pills}
+        </div>
         """,
         unsafe_allow_html=True
     )
@@ -747,9 +1076,17 @@ def build_carbon_chart(display_df: pd.DataFrame) -> alt.Chart:
     chart_df["timestamp"] = pd.to_datetime(chart_df["timestamp"])
     chart_df["Selected"] = chart_df["run_flag"].apply(lambda x: "Selected" if x == 1 else "Not Selected")
 
+    axis = alt.Axis(
+        titleColor="#dbe7ff",
+        labelColor="#a7b1c7",
+        gridColor="rgba(157, 180, 255, 0.12)",
+        domainColor="rgba(157, 180, 255, 0.16)",
+        tickColor="rgba(157, 180, 255, 0.16)",
+    )
+
     base = alt.Chart(chart_df).encode(
-        x=alt.X("timestamp:T", title="Time"),
-        y=alt.Y("carbon_g_per_kwh:Q", title="Carbon Intensity (g/kWh)")
+        x=alt.X("timestamp:T", title="Time", axis=axis),
+        y=alt.Y("carbon_g_per_kwh:Q", title="Carbon Intensity (g/kWh)", axis=axis)
     )
 
     line = base.mark_line(color="#a78bfa", strokeWidth=3).encode(
@@ -765,10 +1102,14 @@ def build_carbon_chart(display_df: pd.DataFrame) -> alt.Chart:
         alt.datum.run_flag == 1
     ).mark_circle(
         size=90,
-        color="#22c55e"
+        color="#6ee7b7"
     )
 
-    return (line + selected_points).properties(height=350)
+    return (line + selected_points).properties(height=350).configure_view(
+        strokeWidth=0
+    ).configure(
+        background="transparent"
+    )
 
 
 def build_metric_comparison_chart(comparison_df: pd.DataFrame) -> alt.Chart:
@@ -803,21 +1144,37 @@ def build_metric_comparison_chart(comparison_df: pd.DataFrame) -> alt.Chart:
             alt.Tooltip("Scenario:N"),
             alt.Tooltip("Value:Q", format=".3f")
         ]
-    ).properties(height=320)
+    ).properties(height=320).configure_view(
+        strokeWidth=0
+    ).configure(
+        background="transparent"
+    )
 
 
 def build_price_chart(display_df: pd.DataFrame) -> alt.Chart:
     chart_df = display_df.copy()
     chart_df["timestamp"] = pd.to_datetime(chart_df["timestamp"])
 
+    axis = alt.Axis(
+        titleColor="#dbe7ff",
+        labelColor="#a7b1c7",
+        gridColor="rgba(157, 180, 255, 0.12)",
+        domainColor="rgba(157, 180, 255, 0.16)",
+        tickColor="rgba(157, 180, 255, 0.16)",
+    )
+
     return alt.Chart(chart_df).mark_line(color="#8b5cf6", strokeWidth=3).encode(
-        x=alt.X("timestamp:T", title="Time"),
-        y=alt.Y("price_per_kwh:Q", title="Price ($/kWh)"),
+        x=alt.X("timestamp:T", title="Time", axis=axis),
+        y=alt.Y("price_per_kwh:Q", title="Price ($/kWh)", axis=axis),
         tooltip=[
             alt.Tooltip("timestamp:T", title="Time"),
             alt.Tooltip("price_per_kwh:Q", title="Price ($/kWh)", format=".3f")
         ]
-    ).properties(height=300)
+    ).properties(height=300).configure_view(
+        strokeWidth=0
+    ).configure(
+        background="transparent"
+    )
 
 
 def build_location_display_info(result: dict) -> dict:
@@ -918,25 +1275,24 @@ def render_recommendation_card(
 
     objective_label = "carbon emissions" if workload.objective == "carbon" else "electricity cost"
 
-    st.markdown(
-        f"""
-        <div class="util-card">
-            <strong>Recommendation:</strong> Run your workload from
-            <strong>{run_window["start"]}</strong> to <strong>{run_window["end"]}</strong>
-            to minimize <strong>{objective_label}</strong>.
-            <br><br>
-            <strong>Selected Intervals:</strong> {run_window["intervals"]}<br>
-            <strong>Machine Wattage:</strong> {int(workload.machine_watts):,} W<br>
-            <strong>Compute Hours Required:</strong> {int(workload.compute_hours_required)} hours
-        </div>
-        """,
-        unsafe_allow_html=True
-    )
-
     st.subheader("Carbon Forecast with Recommended Intervals")
     st.altair_chart(build_carbon_chart(display_df), use_container_width=True)
 
-    st.subheader("Forecast Table")
+    st.subheader("Electricity Price Forecast")
+    st.altair_chart(build_price_chart(display_df), use_container_width=True)
+
+    selected_rows = display_df[display_df["run_flag"] == 1][[
+        "hour_label", "carbon_g_per_kwh", "price_per_kwh"
+    ]].rename(columns={
+        "hour_label": "Selected Run Time",
+        "carbon_g_per_kwh": "Carbon (g/kWh)",
+        "price_per_kwh": "Price ($/kWh)"
+    })
+
+    st.subheader("Selected Schedule")
+    st.dataframe(selected_rows, use_container_width=True)
+
+    st.subheader("Possible Schedule")
 
     forecast_table = display_df[[
         "hour_label",
@@ -952,27 +1308,24 @@ def render_recommendation_card(
 
     st.dataframe(forecast_table, use_container_width=True)
 
-    selected_rows = display_df[display_df["run_flag"] == 1][[
-        "hour_label", "carbon_g_per_kwh", "price_per_kwh"
-    ]].rename(columns={
-        "hour_label": "Selected Run Time",
-        "carbon_g_per_kwh": "Carbon (g/kWh)",
-        "price_per_kwh": "Price ($/kWh)"
-    })
-
-    st.subheader("Selected Intervals")
-    st.dataframe(selected_rows, use_container_width=True)
-
-    st.subheader("Electricity Price Forecast")
-    st.altair_chart(build_price_chart(display_df), use_container_width=True)
+    render_info_card(
+        "Recommendation",
+        (
+            f"Run your workload from <strong>{run_window['start']}</strong> to "
+            f"<strong>{run_window['end']}</strong> to minimize <strong>{objective_label}</strong>."
+            f"<br><br><strong>Selected Intervals:</strong> {run_window['intervals']}"
+            f"<br><strong>Machine Wattage:</strong> {int(workload.machine_watts):,} W"
+            f"<br><strong>Compute Hours Required:</strong> {int(workload.compute_hours_required)} hours"
+        ),
+    )
 
 
 # ---------------------------------------------------
 # Session State Defaults
 # ---------------------------------------------------
 
-if "estimated_power_watts" not in st.session_state:
-    st.session_state["estimated_power_watts"] = 300
+if "estimated_machine_watts" not in st.session_state:
+    st.session_state["estimated_machine_watts"] = None
 
 if "optimizer_machine_watts" not in st.session_state:
     st.session_state["optimizer_machine_watts"] = 300
@@ -981,10 +1334,13 @@ if "result" not in st.session_state:
     st.session_state["result"] = None
 
 if "last_forecast_mode_label" not in st.session_state:
-    st.session_state["last_forecast_mode_label"] = "Demo"
+    st.session_state["last_forecast_mode_label"] = "Live Carbon"
 
 if "last_schedule_mode_label" not in st.session_state:
     st.session_state["last_schedule_mode_label"] = "Flexible"
+
+FORECAST_MODE_LABEL = "Live Carbon"
+FORECAST_MODE = "live_carbon"
 
 # ---------------------------------------------------
 # Header
@@ -994,24 +1350,12 @@ st.markdown(
     """
     <div class="util-hero">
         <div class="util-hero-grid">
-            <div>
-                <div class="util-brand-row">
-                    <div class="util-logo-shell">
-                        <img src="data:image/png;base64,{}" width="42" />
-                    </div>
-                    <div>
-                        <div class="util-brand-kicker">Intelligent Compute Scheduling</div>
-                        <h1 class="util-brand-title">Util</h1>
-                    </div>
+            <div class="util-brand-row">
+                <div class="util-logo-shell">
+                    <img src="data:image/png;base64,{}" width="40" />
                 </div>
-                <div class="util-subtext">
-                    Schedule compute workloads at cleaner and cheaper times without changing your workflow.
-                    The current experience is designed like a product dashboard so the same structure can carry cleanly into a future native app.
-                </div>
-                <div class="util-header-pills">
-                    <span class="util-header-pill">Cost-aware optimization</span>
-                    <span class="util-header-pill">Carbon-aware scheduling</span>
-                    <span class="util-header-pill">Forecast-driven recommendations</span>
+                <div>
+                    <h1 class="util-brand-title">Util</h1>
                 </div>
             </div>
         </div>
@@ -1025,27 +1369,35 @@ st.markdown(
 # Tabs
 # ---------------------------------------------------
 
-tab1, tab2, tab3, tab4, tab5, tab6, tab7 = st.tabs([
+tab_labels = [
     "Optimizer",
     "Savings Analysis",
     "Forecast Signals",
     "Run Timeline",
     "Power Estimator",
     "Multi-Location",
-    "About Util"
-])
+    "About Util",
+]
+tabs = st.tabs(tab_labels)
+tab1, tab2, tab3, tab4, tab5, tab6, tab7 = tabs
 
 # ====================================================
 # TAB 1 — OPTIMIZER
 # ====================================================
 
 with tab1:
-    st.header("Workload Optimization")
+    render_section_shell_start(
+        kicker="Optimization Studio",
+        title="Workload Optimization",
+        description=(
+            "Set workload constraints, choose how Util estimates carbon signals, and generate a "
+            "recommended run window without changing the optimization logic underneath."
+        ),
+    )
 
     col_input, col_output = st.columns([1, 2], gap="large")
 
     with col_input:
-        st.markdown('<div class="util-card">', unsafe_allow_html=True)
         st.subheader("Inputs")
 
         zip_code = st.text_input("ZIP Code", "93106")
@@ -1063,11 +1415,6 @@ with tab1:
             ["carbon", "cost"]
         )
 
-        forecast_mode_label = st.radio(
-            "Forecast Source",
-            ["Demo", "Live Carbon"],
-            horizontal=True
-        )
         carbon_estimation_mode_label = st.radio(
             "Carbon Estimate Type",
             [
@@ -1092,9 +1439,9 @@ with tab1:
             ["Flexible", "Continuous Block"],
             horizontal=True
         )
-
-        if st.session_state["optimizer_machine_watts"] != st.session_state["estimated_power_watts"]:
-            st.session_state["optimizer_machine_watts"] = st.session_state["estimated_power_watts"]
+        st.caption(
+            "Flexible is optimal 5 minute chunks. Continuous Block selects one continuous run window for the requested duration."
+        )
 
         machine_watts = st.number_input(
             "Machine Wattage (Watts)",
@@ -1112,11 +1459,20 @@ with tab1:
 
         run_button = st.button("Run Optimization")
 
-        st.markdown("</div>", unsafe_allow_html=True)
-
-        st.caption(
-            "Tip: use the Power Estimator tab to generate a machine wattage estimate."
-        )
+        estimated_machine_watts = st.session_state.get("estimated_machine_watts")
+        if estimated_machine_watts is None:
+            render_info_card(
+                "Input Tip",
+                "Use the Power Estimator tab to generate a machine wattage recommendation, then copy it here only when you want to."
+            )
+        else:
+            render_info_card(
+                "Estimator Recommendation",
+                (
+                    f"Latest estimator recommendation: <strong>{int(estimated_machine_watts):,} W</strong>."
+                    " Your optimizer input stays editable and will only change if you use the estimator button."
+                ),
+            )
         carbon_estimation_mode = (
                     "forecast_plus_historical_expectation"
                     if carbon_estimation_mode_label == "Extended (Estimated Forecast)"
@@ -1126,7 +1482,7 @@ with tab1:
         if run_button:
             st.session_state["result"] = None
             try:
-                forecast_mode = "live_carbon" if forecast_mode_label == "Live Carbon" else "demo"
+                forecast_mode = FORECAST_MODE
                 schedule_mode = "block" if schedule_mode_label == "Continuous Block" else "flexible"
 
                 workload = WorkloadInput(
@@ -1149,16 +1505,32 @@ with tab1:
                 )
 
                 st.session_state["result"] = result
-                st.session_state["last_forecast_mode_label"] = forecast_mode_label
+                st.session_state["last_forecast_mode_label"] = FORECAST_MODE_LABEL
                 st.session_state["last_schedule_mode_label"] = schedule_mode_label
+                if forecast_mode == "live_carbon":
+                    st.session_state["watttime_token_available"] = True
+                    st.session_state["last_successful_api_pull_time"] = datetime.now().strftime(
+                        "%Y-%m-%d %H:%M:%S"
+                    )
+
+                if ANALYTICS_LOGGING_ENABLED:
+                    analytics_record = build_run_analytics_record(
+                        result=result,
+                        run_type=DEFAULT_ANALYTICS_RUN_TYPE,
+                        schedule_mode_label=schedule_mode_label,
+                        forecast_mode_label=FORECAST_MODE_LABEL,
+                        api_mode=FORECAST_MODE,
+                    )
+                    append_run(ANALYTICS_PATH, analytics_record)
 
             except Exception as e:
                 error_message = str(e)
 
                 if forecast_mode == "live_carbon" and "WattTime" in error_message:
+                    st.session_state["watttime_token_available"] = False
                     st.error(
                         "Live carbon is currently unavailable because WattTime authentication "
-                        "or API access failed. Please use Demo mode or update deployment secrets/API plan."
+                        "or API access failed. Please update deployment secrets/API plan."
                     )
                 elif isinstance(e, InfeasibleScheduleError):
                     st.error(INFEASIBLE_WORKLOAD_MESSAGE)
@@ -1169,6 +1541,7 @@ with tab1:
         result = st.session_state["result"]
 
         if result is None:
+            st.markdown('<div class="util-spacer-sm"></div>', unsafe_allow_html=True)
             st.info("Enter workload inputs and click Run Optimization.")
         else:
             region = result["region"]
@@ -1193,21 +1566,29 @@ with tab1:
                 forecast_df=forecast
             )
 
-            st.markdown(
-                f"""
-                <div class="util-card">
-                    <strong>Mapped Region:</strong> {region}<br>
-                    <strong>Selected Objective:</strong> {result["workload_input"].objective.title()}<br>
-                    <strong>Machine Wattage:</strong> {int(result["workload_input"].machine_watts):,} W<br>
-                    <strong>Recommended Window Start:</strong> {run_window["start"]}<br>
-                    <strong>Recommended Window End:</strong> {run_window["end"]}<br>
-                    <strong>Selected Intervals:</strong> {run_window["intervals"]}
-                </div>
-                """,
-                unsafe_allow_html=True
+            st.markdown('<div class="util-spacer-xs"></div>', unsafe_allow_html=True)
+            render_callout_grid(
+                [
+                    ("Mapped Region", region),
+                    ("Objective", result["workload_input"].objective.title()),
+                    ("Machine Wattage", f"{int(result['workload_input'].machine_watts):,} W"),
+                    ("Selected Intervals", str(run_window["intervals"])),
+                ],
+                gap="medium",
             )
 
-            k1, k2, k3, k4 = st.columns(4)
+            st.markdown('<div class="util-summary-divider"></div>', unsafe_allow_html=True)
+            render_info_card(
+                "Recommended Window",
+                (
+                    f"Run from <strong>{run_window['start']}</strong> to "
+                    f"<strong>{run_window['end']}</strong> based on the selected forecast "
+                    f"and scheduling strategy."
+                ),
+            )
+
+            st.markdown('<div class="util-spacer-xs"></div>', unsafe_allow_html=True)
+            k1, k2, k3, k4 = st.columns(4, gap="medium")
             with k1:
                 render_metric_card(
                     "Optimized Carbon",
@@ -1231,9 +1612,11 @@ with tab1:
                     f"{metrics['cost_reduction_pct']:.1f}% lower"
                 )
 
+            st.markdown('<div class="util-spacer-sm"></div>', unsafe_allow_html=True)
             st.subheader("Compared with Running Immediately")
 
-            rn1, rn2 = st.columns(2)
+            st.markdown('<div class="util-spacer-xs"></div>', unsafe_allow_html=True)
+            rn1, rn2 = st.columns(2, gap="medium")
             with rn1:
                 render_metric_card(
                     "Carbon Saved vs Run Now",
@@ -1247,19 +1630,27 @@ with tab1:
                     f"Run now: ${comparison['run_now_cost']:.2f}"
                 )
 
+            st.markdown('<div class="util-spacer-sm"></div>', unsafe_allow_html=True)
             st.subheader("Recommended Schedule")
 
+            st.markdown('<div class="util-spacer-xs"></div>', unsafe_allow_html=True)
             if selected_schedule.empty:
                 st.warning("No run intervals were selected.")
             else:
                 st.dataframe(build_selected_schedule_df(schedule), use_container_width=True)
+
+    render_section_shell_end()
 
 # ====================================================
 # TAB 2 — SAVINGS ANALYSIS
 # ====================================================
 
 with tab2:
-    st.header("Savings Analysis")
+    render_section_shell_start(
+        kicker="Impact Review",
+        title="Savings Analysis",
+        description="",
+    )
 
     result = st.session_state["result"]
 
@@ -1412,12 +1803,27 @@ with tab2:
             unsafe_allow_html=True
         )
 
+        st.caption(
+            "Carbon estimates are based on marginal emissions (MOER), which measure the impact of "
+            "additional electricity demand on the grid. Values near zero indicate periods where extra "
+            "load does not increase total emissions, often due to excess renewable energy."
+        )
+
+    render_section_shell_end()
+
 # ====================================================
 # TAB 3 — FORECAST SIGNALS
 # ====================================================
 
 with tab3:
-    st.header("Forecast Signals")
+    render_section_shell_start(
+        kicker="Signal View",
+        title="Forecast Signals",
+        description=(
+            "Inspect the carbon and price curves that drive the recommendation, with the same "
+            "selection logic and datasets shown in a more cinematic charting environment."
+        ),
+    )
 
     result = st.session_state["result"]
 
@@ -1436,15 +1842,24 @@ with tab3:
             forecast_df=forecast
         )
 
-        render_location_access_card(result)
         render_recommendation_card(result, result["schedule"], display_df)
+        render_location_access_card(result)
+
+    render_section_shell_end()
 
 # ====================================================
 # TAB 4 — RUN TIMELINE
 # ====================================================
 
 with tab4:
-    st.header("Run Timeline")
+    render_section_shell_start(
+        kicker="Execution Map",
+        title="Run Timeline",
+        description=(
+            "See the full interval-by-interval plan for the recommended schedule without losing "
+            "any of the existing timeline data."
+        ),
+    )
 
     result = st.session_state["result"]
 
@@ -1466,21 +1881,20 @@ with tab4:
 
         st.dataframe(timeline_df, use_container_width=True)
 
+    render_section_shell_end()
+
 # ====================================================
 # TAB 5 — POWER ESTIMATOR
 # ====================================================
 
 with tab5:
-    st.header("System Power Estimator")
-
-    st.markdown(
-        """
-        <div class="util-card">
-            Estimate approximate system power draw under compute load.
-            This is useful when you do not know your machine wattage directly.
-        </div>
-        """,
-        unsafe_allow_html=True
+    render_section_shell_start(
+        kicker="Power Model",
+        title="System Power Estimator",
+        description=(
+            "Estimate approximate system power draw under compute load when you do not know your "
+            "machine wattage directly."
+        ),
     )
 
     gpu_models = {
@@ -1555,6 +1969,7 @@ with tab5:
     gpu_total_nameplate = gpu_models[gpu] * num_gpus
     gpu_total_estimated = gpu_total_nameplate * utilization_factor
     estimated_power = int(gpu_total_estimated + cpu_watts + overhead)
+    st.session_state["estimated_machine_watts"] = estimated_power
     estimated_kwh_per_hour = estimated_power / 1000
 
     p1, p2, p3 = st.columns(3)
@@ -1565,10 +1980,17 @@ with tab5:
     with p3:
         render_metric_card("GPU Power Component", f"{int(gpu_total_estimated):,} W")
 
-    if st.button("Use This Estimate in Optimizer"):
-        st.session_state["estimated_power_watts"] = estimated_power
+    render_info_card(
+        "Estimator Recommendation",
+        (
+            f"The current estimator recommends <strong>{estimated_power:,} W</strong>."
+            " This stays separate from the optimizer until you explicitly copy it over."
+        ),
+    )
+
+    if st.button("Use estimator value in optimizer", on_click=apply_estimator_value_to_optimizer):
         st.success(
-            f"Saved {estimated_power:,} W. Go back to the Optimizer tab and it is now loaded."
+            f"Copied {estimated_power:,} W into the optimizer input."
         )
 
     breakdown_df = pd.DataFrame({
@@ -1597,16 +2019,20 @@ with tab5:
     st.subheader("Estimator Breakdown")
     st.dataframe(breakdown_df, use_container_width=True)
 
+    render_section_shell_end()
+
 # ====================================================
 # TAB 6 — MULTI-LOCATION
 # ====================================================
 
 with tab6:
-    st.header("Multi-Location")
-
-    st.markdown(
-        '<div class="util-card">Compare the same workload across multiple ZIP codes.</div>',
-        unsafe_allow_html=True
+    render_section_shell_start(
+        kicker="Location Scan",
+        title="Multi-Location",
+        description=(
+            "Compare the same workload across multiple ZIP codes and surface the strongest "
+            "cost and carbon outcomes in the same glassy product language."
+        ),
     )
 
     multi_location_input = st.text_input(
@@ -1622,7 +2048,7 @@ with tab6:
             st.warning("Enter at least one ZIP code to compare.")
         else:
             try:
-                forecast_mode = "live_carbon" if forecast_mode_label == "Live Carbon" else "demo"
+                forecast_mode = FORECAST_MODE
                 schedule_mode = "block" if schedule_mode_label == "Continuous Block" else "flexible"
 
                 multi_location_results = run_multi_location_analysis(
@@ -1664,7 +2090,7 @@ with tab6:
                 if forecast_mode == "live_carbon" and "WattTime" in error_message:
                     st.error(
                         "Live carbon is currently unavailable because WattTime authentication "
-                        "or API access failed. Please use Demo mode or update deployment secrets/API plan."
+                        "or API access failed. Please update deployment secrets/API plan."
                     )
                 elif isinstance(e, InfeasibleScheduleError):
                     st.error(INFEASIBLE_WORKLOAD_MESSAGE)
@@ -1672,38 +2098,46 @@ with tab6:
                     st.error("An error occurred while comparing locations.")
                     st.exception(e)
 
+    render_section_shell_end()
+
 # ====================================================
 # TAB 7 — ABOUT
 # ====================================================
 
 with tab7:
-    st.header("About Util")
-
-    st.markdown(
-        """
-        <div class="util-card">
-            <strong>Util</strong> is a compute scheduling and optimization product designed to help users run
-            workloads at the best possible times and locations in order to minimize electricity costs and carbon emissions.
-            <br><br>
-            The current MVP is recommendation-only. It does not yet automatically control workloads or locations.
-            Instead, it shows users:
-            <ul>
-                <li>when to run</li>
-                <li>how much they can save</li>
-                <li>what forecast signals drive the recommendation</li>
-                <li>how much power their system is likely using</li>
-            </ul>
-            Future versions can add:
-            <ul>
-                <li>live carbon APIs (complete)</li>
-                <li>electricity pricing APIs</li>
-                <li>system auto-detection</li>
-                <li>live telemetry</li>
-                <li>automated workload control</li>
-                <li>multi-region scheduling</li>
-                <li>work with electricity providers to solve the issue from a supply side</li>
-            </ul>
-        </div>
-        """,
-        unsafe_allow_html=True
+    render_section_shell_start(
+        kicker="Product Context",
+        title="About Util",
+        description=(
+            "A concise overview of what the product does today and where the roadmap can expand next."
+        ),
     )
+
+    render_info_card(
+        "Current Product",
+        (
+            "<strong>Util</strong> is a compute scheduling and optimization product designed to help users "
+            "run workloads at the best possible times and locations in order to minimize electricity costs "
+            "and carbon emissions.<br><br>"
+            "The current MVP is recommendation-only. It does not yet automatically control workloads or "
+            "locations. Instead, it shows users when to run, how much they can save, what forecast signals "
+            "drive the recommendation, and how much power their system is likely using."
+        ),
+    )
+    render_callout_grid(
+        [
+            ("Live Carbon APIs", "Complete"),
+            ("Electricity Pricing APIs", "Planned"),
+            ("System Auto-Detection", "Planned"),
+            ("Automated Control", "Planned"),
+        ]
+    )
+    render_info_card(
+        "Future Expansion",
+        (
+            "Future versions can add live telemetry, multi-region scheduling, and deeper partnerships with "
+            "electricity providers to solve the issue from the supply side as well as the workload side."
+        ),
+    )
+
+    render_section_shell_end()

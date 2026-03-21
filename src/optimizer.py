@@ -19,6 +19,8 @@ from src.scheduling_window import (
     build_eligibility_mask,
     calculate_required_slots,
     ensure_window_feasibility,
+    InfeasibleScheduleError,
+    INFEASIBLE_WORKLOAD_MESSAGE,
 )
 
 
@@ -71,28 +73,86 @@ def _select_flexible_schedule(
 
 def _select_block_schedule(
     eligible_df: pd.DataFrame,
-    slots_required: int,
+    compute_hours_required: int,
+    interval_minutes: float,
 ) -> pd.DataFrame:
     """
     Select one contiguous run window with the lowest total score.
+
+    Block mode evaluates contiguous hour buckets, then marks every interval
+    inside the chosen continuous hour window as selected. This keeps flexible
+    mode interval-based while making block mode a true single run window.
     """
-    eligible_df = eligible_df.sort_values("timestamp").reset_index(drop=True)
+    if compute_hours_required <= 0:
+        raise ValueError("compute_hours_required must be positive")
 
-    ensure_window_feasibility(slots_required, len(eligible_df))
+    eligible_df = eligible_df.sort_values("timestamp").reset_index(drop=True).copy()
 
-    block_scores = eligible_df["score"].rolling(window=slots_required).sum()
+    expected_interval = pd.to_timedelta(interval_minutes, unit="m")
+    eligible_df["interval_group"] = (
+        eligible_df["timestamp"].diff().fillna(expected_interval).ne(expected_interval).cumsum()
+    )
+    eligible_df["block_hour"] = eligible_df["timestamp"].dt.floor("h")
 
-    if block_scores.dropna().empty:
-        raise ValueError("Could not compute a valid contiguous block schedule.")
+    best_candidate: tuple[float, int, pd.Timestamp, pd.Timestamp] | None = None
 
-    best_end_idx = block_scores.idxmin()
-    best_start_idx = best_end_idx - slots_required + 1
+    for interval_group, group_df in eligible_df.groupby("interval_group", sort=False):
+        hourly_df = (
+            group_df.groupby("block_hour", as_index=False)
+            .agg(score=("score", "mean"))
+            .sort_values("block_hour")
+            .reset_index(drop=True)
+        )
+
+        if hourly_df.empty:
+            continue
+
+        hourly_df["hour_group"] = (
+            hourly_df["block_hour"]
+            .diff()
+            .fillna(pd.Timedelta(hours=1))
+            .ne(pd.Timedelta(hours=1))
+            .cumsum()
+        )
+
+        for _, hour_group_df in hourly_df.groupby("hour_group", sort=False):
+            if len(hour_group_df) < compute_hours_required:
+                continue
+
+            rolling_scores = hour_group_df["score"].rolling(window=compute_hours_required).sum()
+            valid_scores = rolling_scores.dropna()
+            if valid_scores.empty:
+                continue
+
+            best_end_idx = valid_scores.idxmin()
+            best_start_idx = best_end_idx - compute_hours_required + 1
+            start_hour = hour_group_df.loc[best_start_idx, "block_hour"]
+            end_hour = hour_group_df.loc[best_end_idx, "block_hour"]
+            candidate = (
+                float(valid_scores.loc[best_end_idx]),
+                int(interval_group),
+                start_hour,
+                end_hour,
+            )
+
+            if best_candidate is None or candidate[0] < best_candidate[0]:
+                best_candidate = candidate
+
+    if best_candidate is None:
+        raise InfeasibleScheduleError(INFEASIBLE_WORKLOAD_MESSAGE)
+
+    _, selected_interval_group, selected_start_hour, selected_end_hour = best_candidate
 
     selected_df = eligible_df.copy()
     selected_df["run_flag"] = 0
-    selected_df.loc[best_start_idx:best_end_idx, "run_flag"] = 1
+    selected_mask = (
+        (selected_df["interval_group"] == selected_interval_group)
+        & (selected_df["block_hour"] >= selected_start_hour)
+        & (selected_df["block_hour"] <= selected_end_hour)
+    )
+    selected_df.loc[selected_mask, "run_flag"] = 1
 
-    return selected_df
+    return selected_df.drop(columns=["interval_group", "block_hour"])
 
 
 def optimize_schedule(
@@ -168,14 +228,17 @@ def optimize_schedule(
 
     eligible_df = df[df["eligible_flag"] == 1].copy()
 
-    ensure_window_feasibility(slots_required, len(eligible_df))
-
     eligible_df = _build_score_column(eligible_df, objective)
 
     if schedule_mode == "flexible":
+        ensure_window_feasibility(slots_required, len(eligible_df))
         selected_df = _select_flexible_schedule(eligible_df, slots_required)
     else:
-        selected_df = _select_block_schedule(eligible_df, slots_required)
+        selected_df = _select_block_schedule(
+            eligible_df=eligible_df,
+            compute_hours_required=compute_hours_required,
+            interval_minutes=interval_minutes,
+        )
 
     df = df.merge(
         selected_df[["timestamp", "score", "run_flag"]],

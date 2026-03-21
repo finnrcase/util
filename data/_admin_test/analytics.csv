@@ -1,0 +1,1 @@
+timestamp,run_type,compute_hours,region,zip_code,schedule_mode,objective_mode,machine_watts,machine_kw,baseline_emissions,optimized_emissions,carbon_saved,carbon_reduction_pct,baseline_cost,optimized_cost,cost_saved,selected_interval_count,eligible_interval_count,best_start_time,deadline,api_mode,forecast_mode,notes
