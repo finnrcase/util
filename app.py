@@ -9,6 +9,7 @@ from PIL import Image
 
 from src.admin_dashboard import build_run_analytics_record
 from src.analytics import append_run
+from src.exporter import EXPORT_FILENAMES, generate_export_package
 from src.inputs import WorkloadInput
 from src.metrics import add_interval_impact_columns
 from src.analysis.multi_location import run_multi_location_analysis
@@ -35,6 +36,7 @@ ZIP_PATH = DATA_DIR / "zip_to_region_sample.csv"
 CARBON_PATH = DATA_DIR / "sample_carbon_forecast.csv"
 PRICE_PATH = DATA_DIR / "sample_price_forecast.csv"
 ANALYTICS_PATH = PROJECT_ROOT / "data" / "analytics" / "util_admin_analytics.csv"
+EXPORTS_DIR = PROJECT_ROOT / "exports"
 ANALYTICS_LOGGING_ENABLED = os.getenv("UTIL_ANALYTICS_ENABLED", "true").strip().lower() in {
     "1",
     "true",
@@ -1339,6 +1341,9 @@ if "last_forecast_mode_label" not in st.session_state:
 if "last_schedule_mode_label" not in st.session_state:
     st.session_state["last_schedule_mode_label"] = "Flexible"
 
+if "last_export_package" not in st.session_state:
+    st.session_state["last_export_package"] = None
+
 FORECAST_MODE_LABEL = "Live Carbon"
 FORECAST_MODE = "live_carbon"
 
@@ -1523,6 +1528,18 @@ with tab1:
                     )
                     append_run(ANALYTICS_PATH, analytics_record)
 
+                try:
+                    export_package = generate_export_package(
+                        result=result,
+                        export_root=EXPORTS_DIR,
+                    )
+                    result["export_package"] = export_package
+                    st.session_state["last_export_package"] = export_package
+                except Exception as export_error:
+                    st.session_state["last_export_package"] = {
+                        "error": str(export_error),
+                    }
+
             except Exception as e:
                 error_message = str(e)
 
@@ -1586,6 +1603,24 @@ with tab1:
                     f"and scheduling strategy."
                 ),
             )
+
+            export_package = result.get("export_package")
+            if export_package and export_package.get("export_dir"):
+                render_info_card(
+                    "Structured Export Package",
+                    (
+                        "Run outputs were saved as a structured CSV package in "
+                        f"<strong>{export_package['export_dir']}</strong>."
+                    ),
+                )
+            elif (
+                st.session_state.get("last_export_package")
+                and st.session_state["last_export_package"].get("error")
+            ):
+                st.caption(
+                    "Export package note: "
+                    f"{st.session_state['last_export_package']['error']}"
+                )
 
             st.markdown('<div class="util-spacer-xs"></div>', unsafe_allow_html=True)
             k1, k2, k3, k4 = st.columns(4, gap="medium")
@@ -1705,85 +1740,41 @@ with tab2:
 
         st.altair_chart(build_metric_comparison_chart(comparison_df), use_container_width=True)
 
-        savings_export_df = pd.DataFrame([
-            {
-                "zip_code": workload.zip_code,
-                "region": result["region"],
-                "objective": workload.objective,
-                "compute_hours_required": workload.compute_hours_required,
-                "deadline": workload.deadline,
-                "machine_watts": workload.machine_watts,
-                "optimized_cost": metrics["optimized_cost"],
-                "baseline_cost": metrics["baseline_cost"],
-                "cost_savings": metrics["cost_savings"],
-                "cost_reduction_pct": metrics["cost_reduction_pct"],
-                "optimized_carbon_kg": metrics["optimized_carbon_kg"],
-                "baseline_carbon_kg": metrics["baseline_carbon_kg"],
-                "carbon_savings_kg": metrics["carbon_savings_kg"],
-                "carbon_reduction_pct": metrics["carbon_reduction_pct"],
-            }
-        ])
-        optimal_run_times_export_df = build_optimal_run_times_df(
-            optimized_df=optimized,
-            machine_watts=int(workload.machine_watts),
-        )
-        eligible_intervals_export_df = build_eligible_intervals_export_df(
-            optimized_df=optimized,
-            machine_watts=int(workload.machine_watts),
-        )
-        savings_csv = savings_export_df.to_csv(index=False).encode("utf-8")
-        optimal_run_times_csv = optimal_run_times_export_df.to_csv(index=False).encode("utf-8")
-        eligible_intervals_csv = eligible_intervals_export_df.to_csv(index=False).encode("utf-8")
-        historical_emissions_csv = None
-        historical_export_error = None
+        export_package = result.get("export_package") or st.session_state.get("last_export_package")
+        export_button_specs = [
+            ("Recommendation CSV", EXPORT_FILENAMES["recommendation"]),
+            ("Region Comparison CSV", EXPORT_FILENAMES["region_comparison"]),
+            ("Time Window Analysis CSV", EXPORT_FILENAMES["time_window_analysis"]),
+            ("Case Comparison CSV", EXPORT_FILENAMES["case_comparison"]),
+            ("Input Assumptions CSV", EXPORT_FILENAMES["input_assumptions"]),
+            ("Run Summary CSV", EXPORT_FILENAMES["run_summary"]),
+        ]
 
-        if st.session_state.get("last_forecast_mode_label") == "Live Carbon":
-            try:
-                historical_emissions_export_df = build_historical_emissions_export_df(
-                    region=result["region"],
-                    days=14,
-                )
-                historical_emissions_csv = historical_emissions_export_df.to_csv(index=False).encode("utf-8")
-            except Exception as exc:
-                historical_export_error = str(exc)
+        st.subheader("Export Package")
 
-        export_col1, export_col2, export_col3, export_col4 = st.columns(4)
-        with export_col1:
-            st.download_button(
-                "Download Savings Summary CSV",
-                data=savings_csv,
-                file_name="util_savings_analysis.csv",
-                mime="text/csv",
-            )
-        with export_col2:
-            st.download_button(
-                "Download Optimal Run Times CSV",
-                data=optimal_run_times_csv,
-                file_name="util_optimal_run_times.csv",
-                mime="text/csv",
-            )
-        with export_col3:
-            st.download_button(
-                "Download Eligible Intervals CSV",
-                data=eligible_intervals_csv,
-                file_name="util_eligible_intervals.csv",
-                mime="text/csv",
-            )
-        with export_col4:
-            if historical_emissions_csv is not None:
-                st.download_button(
-                    "Download 2-Week Historical CSV",
-                    data=historical_emissions_csv,
-                    file_name="util_historical_emissions_14_days.csv",
-                    mime="text/csv",
-                )
-            elif st.session_state.get("last_forecast_mode_label") == "Live Carbon":
-                st.caption("2-week historical CSV unavailable for this region/API access.")
-            else:
-                st.caption("2-week historical CSV is available in Live Carbon mode.")
+        if export_package and export_package.get("export_dir"):
+            export_dir = Path(export_package["export_dir"])
+            export_cols_row1 = st.columns(3, gap="medium")
+            export_cols_row2 = st.columns(3, gap="medium")
 
-        if historical_export_error:
-            st.caption(f"Historical export note: {historical_export_error}")
+            for column, (label, filename) in zip(export_cols_row1 + export_cols_row2, export_button_specs):
+                with column:
+                    file_path = export_dir / filename
+                    if file_path.exists():
+                        st.download_button(
+                            f"Download {label}",
+                            data=file_path.read_bytes(),
+                            file_name=filename,
+                            mime="text/csv",
+                            key=f"download_{filename}",
+                            use_container_width=True,
+                        )
+                    else:
+                        st.caption(f"{filename} unavailable for this run.")
+
+            st.caption(f"Export folder: {export_dir}")
+        else:
+            st.info("Run the optimizer to generate the structured CSV export package.")
 
         st.subheader("Interpretation")
 
