@@ -8,6 +8,7 @@ import pandas as pd
 
 from services.watttime_service import get_watttime_forecast, get_watttime_historical
 from src.forecasting.carbon_blender import extend_forecast_with_history
+from src.pricing import PricingUnavailableError, get_normalized_price_series
 
 
 def _normalize_timestamp_column(df: pd.DataFrame, column: str = "timestamp") -> pd.DataFrame:
@@ -199,18 +200,80 @@ def build_live_carbon_forecast_table(
             "'forecast_only' or 'forecast_plus_historical_expectation'"
         )
 
-    carbon_df["price_per_kwh"] = placeholder_price_per_kwh
+    pricing_status = "placeholder"
+    pricing_message = (
+        "Electricity pricing is currently supported only for the California / CAISO path. "
+        "Util is using placeholder pricing."
+    )
+    pricing_source = "Placeholder Price"
+    pricing_region_code = requested_region
+
+    try:
+        pricing_df = get_normalized_price_series(
+            region_code=forecast_region_used,
+            target_timestamps=carbon_df["timestamp"],
+        )
+        forecast_df = pd.merge(
+            carbon_df,
+            pricing_df[["timestamp", "price_per_kwh", "source", "region_code", "price_node"]],
+            on="timestamp",
+            how="left",
+        )
+        forecast_df["price_per_kwh"] = pd.to_numeric(
+            forecast_df["price_per_kwh"],
+            errors="coerce",
+        )
+        if forecast_df["price_per_kwh"].isna().all():
+            raise PricingUnavailableError(
+                f"No CAISO price rows aligned to WattTime region '{forecast_region_used}'."
+            )
+
+        forecast_df["price_per_kwh"] = forecast_df["price_per_kwh"].ffill().bfill()
+        pricing_status = "live_caiso"
+        pricing_message = (
+            "Using CAISO day-ahead market pricing routed from the resolved WattTime region."
+        )
+        pricing_source = (
+            forecast_df["source"].dropna().iloc[0]
+            if "source" in forecast_df.columns and forecast_df["source"].dropna().any()
+            else "CAISO OASIS"
+        )
+        pricing_region_code = (
+            forecast_df["region_code"].dropna().iloc[0]
+            if "region_code" in forecast_df.columns and forecast_df["region_code"].dropna().any()
+            else forecast_region_used
+        )
+        pricing_node = (
+            forecast_df["price_node"].dropna().iloc[0]
+            if "price_node" in forecast_df.columns and forecast_df["price_node"].dropna().any()
+            else ""
+        )
+    except PricingUnavailableError as exc:
+        forecast_df = carbon_df.copy()
+        forecast_df["price_per_kwh"] = placeholder_price_per_kwh
+        pricing_message = str(exc)
+        pricing_node = ""
 
     # metadata columns for transparency
-    carbon_df["forecast_region_requested"] = requested_region
-    carbon_df["forecast_region_used"] = forecast_region_used
-    carbon_df["forecast_access_mode"] = forecast_access_mode
+    forecast_df["forecast_region_requested"] = requested_region
+    forecast_df["forecast_region_used"] = forecast_region_used
+    forecast_df["forecast_access_mode"] = forecast_access_mode
+    forecast_df["pricing_status"] = pricing_status
+    forecast_df["pricing_message"] = pricing_message
+    forecast_df["pricing_source"] = pricing_source
+    forecast_df["pricing_region_code"] = pricing_region_code
+    forecast_df["pricing_node"] = pricing_node
 
     ordered_columns = [
         col for col in [
             "timestamp",
             "carbon_g_per_kwh",
             "price_per_kwh",
+            "pricing_status",
+            "pricing_message",
+            "pricing_source",
+            "pricing_region_code",
+            "pricing_node",
             "historical_avg_carbon_g_per_kwh",
             "carbon_source",
             "forecast_region_requested",
@@ -218,10 +281,10 @@ def build_live_carbon_forecast_table(
             "forecast_access_mode",
             "historical_region_used",
         ]
-        if col in carbon_df.columns
+        if col in forecast_df.columns
     ]
 
-    forecast_df = carbon_df[ordered_columns].copy()
+    forecast_df = forecast_df[ordered_columns].copy()
     forecast_df = forecast_df.sort_values("timestamp").reset_index(drop=True)
 
     if forecast_df.empty:

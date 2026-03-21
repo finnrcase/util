@@ -1037,6 +1037,10 @@ def render_status_pills(
 
     forecast_region_used = None
     forecast_access_mode = None
+    pricing_status = None
+    pricing_source = None
+    pricing_region_code = None
+    pricing_node = None
 
     if "forecast_region_used" in forecast_df.columns:
         non_null_used = forecast_df["forecast_region_used"].dropna()
@@ -1048,6 +1052,26 @@ def render_status_pills(
         if not non_null_mode.empty:
             forecast_access_mode = non_null_mode.iloc[0]
 
+    if "pricing_status" in forecast_df.columns:
+        non_null_pricing_status = forecast_df["pricing_status"].dropna()
+        if not non_null_pricing_status.empty:
+            pricing_status = non_null_pricing_status.iloc[0]
+
+    if "pricing_source" in forecast_df.columns:
+        non_null_pricing_source = forecast_df["pricing_source"].dropna()
+        if not non_null_pricing_source.empty:
+            pricing_source = non_null_pricing_source.iloc[0]
+
+    if "pricing_region_code" in forecast_df.columns:
+        non_null_pricing_region = forecast_df["pricing_region_code"].dropna()
+        if not non_null_pricing_region.empty:
+            pricing_region_code = non_null_pricing_region.iloc[0]
+
+    if "pricing_node" in forecast_df.columns:
+        non_null_pricing_node = forecast_df["pricing_node"].dropna()
+        if not non_null_pricing_node.empty:
+            pricing_node = non_null_pricing_node.iloc[0]
+
     extra_pills = ""
     if forecast_region_used:
         extra_pills += f'<span class="util-pill">Forecast Region Used: {forecast_region_used}</span>'
@@ -1056,6 +1080,20 @@ def render_status_pills(
         extra_pills += '<span class="util-warning-pill">Access Mode: Preview Fallback</span>'
     elif forecast_access_mode == "direct_region":
         extra_pills += '<span class="util-good-pill">Access Mode: Direct Region</span>'
+
+    if pricing_status == "live_caiso":
+        extra_pills += '<span class="util-good-pill">Pricing: CAISO Live Route</span>'
+    elif pricing_status == "placeholder":
+        extra_pills += '<span class="util-warning-pill">Pricing: Placeholder Fallback</span>'
+
+    if pricing_source:
+        extra_pills += f'<span class="util-pill">Price Source: {pricing_source}</span>'
+
+    if pricing_region_code:
+        extra_pills += f'<span class="util-pill">Price Region: {pricing_region_code}</span>'
+
+    if pricing_node:
+        extra_pills += f'<span class="util-pill">Price Node: {pricing_node}</span>'
 
     st.markdown(
         f"""
@@ -1151,6 +1189,63 @@ def build_metric_comparison_chart(comparison_df: pd.DataFrame) -> alt.Chart:
     ).configure(
         background="transparent"
     )
+
+
+def build_outcome_comparison_chart(
+    metric_name: str,
+    baseline_value: float,
+    optimized_value: float,
+    color: str,
+    value_format: str = ".3f",
+) -> alt.Chart:
+    chart_df = pd.DataFrame(
+        {
+            "Scenario": ["Baseline", "Optimized"],
+            "Value": [baseline_value, optimized_value],
+        }
+    )
+
+    return alt.Chart(chart_df).mark_bar(
+        cornerRadiusTopLeft=8,
+        cornerRadiusTopRight=8,
+        color=color,
+    ).encode(
+        x=alt.X("Scenario:N", title=None, axis=alt.Axis(labelColor="#b5bac1")),
+        y=alt.Y(
+            "Value:Q",
+            title=metric_name,
+            axis=alt.Axis(labelColor="#b5bac1", gridColor="rgba(255,255,255,0.08)"),
+        ),
+        tooltip=[
+            alt.Tooltip("Scenario:N"),
+            alt.Tooltip("Value:Q", format=value_format),
+        ],
+    ).properties(height=300).configure_view(
+        strokeWidth=0
+    ).configure(
+        background="transparent"
+    )
+
+
+def get_outcome_context(objective: str) -> dict[str, str]:
+    if objective == "carbon":
+        return {
+            "cost_title": "Cost Outcome Under Carbon-Optimal Schedule",
+            "carbon_title": "Carbon Outcome Under Carbon-Optimal Schedule",
+            "summary_note": "The schedule was chosen to minimize carbon, and Util is still reporting the realized price outcome.",
+        }
+    if objective == "cost":
+        return {
+            "cost_title": "Cost Outcome Under Price-Optimal Schedule",
+            "carbon_title": "Carbon Outcome Under Price-Optimal Schedule",
+            "summary_note": "The schedule was chosen to minimize price, and Util is still reporting the realized carbon outcome.",
+        }
+
+    return {
+        "cost_title": "Cost Outcome Under Selected Schedule",
+        "carbon_title": "Carbon Outcome Under Selected Schedule",
+        "summary_note": "Util is reporting both cost and carbon outcomes for the selected schedule.",
+    }
 
 
 def build_price_chart(display_df: pd.DataFrame) -> alt.Chart:
@@ -1583,6 +1678,19 @@ with tab1:
                 forecast_df=forecast
             )
 
+            if "pricing_message" in forecast.columns:
+                pricing_notes = forecast["pricing_message"].dropna()
+                if not pricing_notes.empty:
+                    pricing_status = (
+                        forecast["pricing_status"].dropna().iloc[0]
+                        if "pricing_status" in forecast.columns and not forecast["pricing_status"].dropna().empty
+                        else ""
+                    )
+                    if pricing_status == "placeholder":
+                        st.info(pricing_notes.iloc[0])
+                    elif pricing_status == "live_caiso":
+                        st.caption(pricing_notes.iloc[0])
+
             st.markdown('<div class="util-spacer-xs"></div>', unsafe_allow_html=True)
             render_callout_grid(
                 [
@@ -1695,6 +1803,7 @@ with tab2:
         metrics = result["metrics"]
         workload = result["workload_input"]
         optimized = result["optimized"]
+        objective_context = get_outcome_context(workload.objective)
         comparison = build_run_now_comparison(
             optimized_df=optimized,
             machine_watts=int(workload.machine_watts)
@@ -1707,13 +1816,13 @@ with tab2:
             render_metric_card("Workload Energy", f"{total_energy_kwh:.2f} kWh")
         with c2:
             render_metric_card(
-                "Cost Savings",
+                "Cost Outcome",
                 f"${metrics['cost_savings']:.2f}",
                 f"{metrics['cost_reduction_pct']:.1f}% lower than baseline"
             )
         with c3:
             render_metric_card(
-                "Carbon Savings",
+                "Carbon Outcome",
                 f"{metrics['carbon_savings_kg']:.2f} kg",
                 f"{metrics['carbon_reduction_pct']:.1f}% lower than baseline"
             )
@@ -1723,6 +1832,8 @@ with tab2:
                 f"{comparison['carbon_saved_vs_now_kg']:.2f} kg CO₂",
                 f"${comparison['cost_saved_vs_now']:.2f} lower cost"
             )
+
+        st.caption(objective_context["summary_note"])
 
         st.subheader("Baseline vs Optimized")
 
@@ -1739,6 +1850,33 @@ with tab2:
         })
 
         st.altair_chart(build_metric_comparison_chart(comparison_df), use_container_width=True)
+
+        st.subheader("Tradeoff Outcomes")
+        tradeoff_col1, tradeoff_col2 = st.columns(2, gap="medium")
+        with tradeoff_col1:
+            st.caption(objective_context["cost_title"])
+            st.altair_chart(
+                build_outcome_comparison_chart(
+                    metric_name="Cost ($)",
+                    baseline_value=metrics["baseline_cost"],
+                    optimized_value=metrics["optimized_cost"],
+                    color="#f59e0b",
+                    value_format=".2f",
+                ),
+                use_container_width=True,
+            )
+        with tradeoff_col2:
+            st.caption(objective_context["carbon_title"])
+            st.altair_chart(
+                build_outcome_comparison_chart(
+                    metric_name="Carbon (kg CO2)",
+                    baseline_value=metrics["baseline_carbon_kg"],
+                    optimized_value=metrics["optimized_carbon_kg"],
+                    color="#34d399",
+                    value_format=".2f",
+                ),
+                use_container_width=True,
+            )
 
         export_package = result.get("export_package") or st.session_state.get("last_export_package")
         export_button_specs = [

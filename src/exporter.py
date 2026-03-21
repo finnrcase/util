@@ -229,6 +229,27 @@ def build_export_frames(
     end_ts = selected_df["timestamp"].max() if not selected_df.empty else None
     objective = _clean_text(workload.objective, "cost")
     cost_weight, carbon_weight = _score_weights(objective)
+    pricing_source = _clean_text(
+        forecast_df.get("pricing_source").dropna().iloc[0]
+        if "pricing_source" in forecast_df.columns and not forecast_df.get("pricing_source").dropna().empty
+        else "",
+        "",
+    )
+    pricing_region_code = _clean_text(
+        forecast_df.get("pricing_region_code").dropna().iloc[0]
+        if "pricing_region_code" in forecast_df.columns and not forecast_df.get("pricing_region_code").dropna().empty
+        else region,
+        region,
+    )
+    pricing_node = _clean_text(
+        forecast_df.get("pricing_node").dropna().iloc[0]
+        if "pricing_node" in forecast_df.columns and not forecast_df.get("pricing_node").dropna().empty
+        else "",
+        "",
+    )
+    avg_electricity_price_usd_per_kwh = float(
+        pd.to_numeric(selected_df.get("price_per_kwh"), errors="coerce").dropna().mean()
+    ) if not selected_df.empty and "price_per_kwh" in selected_df.columns else 0.0
 
     carbon_price_usd_per_ton = _safe_float(os.getenv("UTIL_CARBON_PRICE_USD_PER_TON")) or 0.0
     clean_energy_credit_usd = _safe_float(os.getenv("UTIL_CLEAN_ENERGY_CREDIT_USD")) or 0.0
@@ -289,6 +310,10 @@ def build_export_frames(
                 "recommended_start_time_utc": _format_utc_timestamp(start_ts),
                 "recommended_end_time_utc": _format_utc_timestamp(end_ts),
                 "avg_grid_emissions_gco2_per_kwh": selected_totals["avg_emissions_gco2_per_kwh"],
+                "avg_electricity_price_usd_per_kwh": avg_electricity_price_usd_per_kwh,
+                "pricing_source": pricing_source,
+                "pricing_region_code": pricing_region_code,
+                "pricing_node": pricing_node,
                 "projected_electricity_cost_usd": optimized_electricity_cost,
                 "projected_carbon_cost_usd": projected_carbon_cost_usd,
                 "projected_credit_value_usd": clean_energy_credit_usd,
@@ -319,6 +344,9 @@ def build_export_frames(
                 "candidate_start_time_local": _format_local_timestamp(start_ts),
                 "candidate_end_time_local": _format_local_timestamp(end_ts),
                 "avg_grid_emissions_gco2_per_kwh": selected_totals["avg_emissions_gco2_per_kwh"],
+                "avg_electricity_price_usd_per_kwh": avg_electricity_price_usd_per_kwh,
+                "pricing_source": pricing_source,
+                "pricing_node": pricing_node,
                 "projected_electricity_cost_usd": optimized_electricity_cost,
                 "projected_carbon_cost_usd": projected_carbon_cost_usd,
                 "projected_credit_value_usd": clean_energy_credit_usd,
@@ -415,6 +443,10 @@ def build_export_frames(
                 "carbon_price_usd_per_ton": carbon_price_usd_per_ton,
                 "clean_energy_credit_usd": clean_energy_credit_usd,
                 "electricity_price_adder_pct": electricity_adder_pct,
+                "avg_electricity_price_usd_per_kwh": avg_electricity_price_usd_per_kwh,
+                "pricing_source": pricing_source,
+                "pricing_region_code": pricing_region_code,
+                "pricing_node": pricing_node,
                 "cost_weight": cost_weight,
                 "carbon_weight": carbon_weight,
                 "recommended_region": region,
@@ -449,6 +481,9 @@ def build_export_frames(
                 "clean_energy_credit_usd": clean_energy_credit_usd,
                 "coupon_or_incentive_name": "",
                 "electricity_adder_pct": electricity_adder_pct,
+                "pricing_source": pricing_source,
+                "pricing_region_code": pricing_region_code,
+                "pricing_node": pricing_node,
                 "policy_mode": "",
                 "cost_weight": cost_weight,
                 "carbon_weight": carbon_weight,
@@ -471,6 +506,9 @@ def build_export_frames(
                 "workload_name": workload_name_value,
                 "recommended_region": region,
                 "recommended_start_time_local": _format_local_timestamp(start_ts),
+                "avg_electricity_price_usd_per_kwh": avg_electricity_price_usd_per_kwh,
+                "pricing_source": pricing_source,
+                "pricing_node": pricing_node,
                 "projected_total_cost_usd": projected_total_cost_usd,
                 "optimized_emissions_total": optimized_emissions_total,
                 "cost_savings_pct": cost_savings_pct,
