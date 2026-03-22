@@ -1,4 +1,5 @@
 import base64
+import inspect
 import os
 import streamlit as st
 from datetime import datetime, timedelta
@@ -799,6 +800,45 @@ def render_loading_card(title: str, body: str):
         """,
         unsafe_allow_html=True,
     )
+
+
+def build_workload_input(
+    *,
+    zip_code: str,
+    compute_hours_required: int,
+    deadline,
+    objective: str,
+    machine_watts: int,
+    carbon_weight: float,
+    price_weight: float,
+) -> WorkloadInput:
+    """
+    Build WorkloadInput while remaining compatible with deployments that may
+    still have the older constructor signature during rollout.
+    """
+    workload_kwargs = {
+        "zip_code": zip_code,
+        "compute_hours_required": compute_hours_required,
+        "deadline": deadline,
+        "objective": objective,
+        "machine_watts": machine_watts,
+    }
+
+    signature = inspect.signature(WorkloadInput)
+    if "carbon_weight" in signature.parameters and "price_weight" in signature.parameters:
+        workload_kwargs["carbon_weight"] = carbon_weight
+        workload_kwargs["price_weight"] = price_weight
+
+    workload = WorkloadInput(**workload_kwargs)
+
+    # Preserve balanced-weight behavior even if the deployed WorkloadInput
+    # class has not yet been updated with explicit dataclass fields.
+    if not hasattr(workload, "carbon_weight"):
+        workload.carbon_weight = carbon_weight
+    if not hasattr(workload, "price_weight"):
+        workload.price_weight = price_weight
+
+    return workload
 
 
 def _format_interpretation_html(lines: list[str]) -> str:
@@ -1858,7 +1898,7 @@ with tab1:
                 forecast_mode = FORECAST_MODE
                 schedule_mode = "block" if schedule_mode_label == "Continuous Block" else "flexible"
 
-                workload = WorkloadInput(
+                workload = build_workload_input(
                     zip_code=zip_code,
                     compute_hours_required=int(compute_hours),
                     deadline=deadline,
