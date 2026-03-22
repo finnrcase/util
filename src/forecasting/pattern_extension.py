@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import pandas as pd
+from scipy.optimize import nnls
 
 
 DEFAULT_TOTAL_HORIZON_DAYS = 7
@@ -17,6 +18,13 @@ HYBRID_COMPONENT_WEIGHTS = {
 }
 
 RECENT_HISTORY_WINDOW_DAYS = 3
+MIN_TRAINING_ROWS = 12
+MIN_VALIDATION_ROWS = 4
+VALIDATION_FRACTION = 0.2
+
+
+def _default_component_weights() -> dict[str, float]:
+    return dict(HYBRID_COMPONENT_WEIGHTS)
 
 
 def _normalize_timestamp_column(df: pd.DataFrame, column: str = "timestamp") -> pd.DataFrame:
@@ -50,7 +58,18 @@ def _prepare_history(
     return df
 
 
-def _weighted_component_average(components: dict[str, float | None]) -> float | None:
+def _normalize_component_weights(raw_weights: dict[str, float]) -> dict[str, float] | None:
+    non_negative_weights = {name: max(float(value), 0.0) for name, value in raw_weights.items()}
+    total_weight = sum(non_negative_weights.values())
+    if total_weight <= 0:
+        return None
+    return {name: value / total_weight for name, value in non_negative_weights.items()}
+
+
+def _weighted_component_average(
+    components: dict[str, float | None],
+    component_weights: dict[str, float] | None = None,
+) -> float | None:
     valid_components = {
         name: value
         for name, value in components.items()
@@ -59,12 +78,13 @@ def _weighted_component_average(components: dict[str, float | None]) -> float | 
     if not valid_components:
         return None
 
-    valid_weight_total = sum(HYBRID_COMPONENT_WEIGHTS[name] for name in valid_components)
+    weights = component_weights or _default_component_weights()
+    valid_weight_total = sum(weights[name] for name in valid_components)
     if valid_weight_total <= 0:
         return None
 
     return sum(
-        (HYBRID_COMPONENT_WEIGHTS[name] / valid_weight_total) * float(value)
+        (weights[name] / valid_weight_total) * float(value)
         for name, value in valid_components.items()
     )
 
@@ -98,11 +118,190 @@ def _build_component_profiles(
     return recent_profile_df, same_weekday_profile_df, baseline_profile_df
 
 
+def _build_component_lookups(
+    historical_df: pd.DataFrame,
+    *,
+    value_column: str,
+) -> tuple[dict[str, float], dict[tuple[str, int], float], dict[str, float]]:
+    recent_profile_df, same_weekday_profile_df, baseline_profile_df = _build_component_profiles(
+        historical_df,
+        value_column=value_column,
+    )
+    recent_lookup = recent_profile_df.set_index("time_key")["recent_history_component"].to_dict()
+    same_weekday_lookup = same_weekday_profile_df.set_index(["time_key", "weekday"])["same_weekday_component"].to_dict()
+    baseline_lookup = baseline_profile_df.set_index("time_key")["long_run_baseline_component"].to_dict()
+    return recent_lookup, same_weekday_lookup, baseline_lookup
+
+
+def _build_learning_examples(
+    historical_df: pd.DataFrame,
+    *,
+    value_column: str,
+) -> pd.DataFrame:
+    df = _prepare_history(historical_df, value_column=value_column)
+    examples: list[dict[str, float | pd.Timestamp | int | str]] = []
+
+    for idx in range(1, len(df)):
+        current_row = df.iloc[idx]
+        prior_df = df.iloc[:idx].copy()
+        if prior_df.empty:
+            continue
+
+        recent_cutoff = current_row["timestamp"] - pd.Timedelta(days=RECENT_HISTORY_WINDOW_DAYS)
+        recent_component = prior_df.loc[
+            (prior_df["timestamp"] >= recent_cutoff) & (prior_df["time_key"] == current_row["time_key"]),
+            value_column,
+        ].mean()
+        same_weekday_component = prior_df.loc[
+            (prior_df["time_key"] == current_row["time_key"]) & (prior_df["weekday"] == current_row["weekday"]),
+            value_column,
+        ].mean()
+        baseline_component = prior_df.loc[
+            prior_df["time_key"] == current_row["time_key"],
+            value_column,
+        ].mean()
+
+        examples.append(
+            {
+                "timestamp": current_row["timestamp"],
+                "time_key": current_row["time_key"],
+                "weekday": current_row["weekday"],
+                "recent_history_component": recent_component,
+                "same_weekday_component": same_weekday_component,
+                "long_run_baseline_component": baseline_component,
+                "target_value": current_row[value_column],
+            }
+        )
+
+    examples_df = pd.DataFrame(examples)
+    if examples_df.empty:
+        return examples_df
+
+    return examples_df.sort_values("timestamp").reset_index(drop=True)
+
+
+def _score_component_weights(
+    examples_df: pd.DataFrame,
+    component_weights: dict[str, float],
+) -> float:
+    predictions = examples_df.apply(
+        lambda row: _weighted_component_average(
+            {
+                "recent_history": row["recent_history_component"],
+                "same_weekday": row["same_weekday_component"],
+                "long_run_baseline": row["long_run_baseline_component"],
+            },
+            component_weights=component_weights,
+        ),
+        axis=1,
+    )
+    valid_predictions = pd.to_numeric(predictions, errors="coerce")
+    valid_mask = valid_predictions.notna() & pd.to_numeric(examples_df["target_value"], errors="coerce").notna()
+    if not valid_mask.any():
+        return float("inf")
+
+    errors = (
+        pd.to_numeric(examples_df.loc[valid_mask, "target_value"], errors="coerce")
+        - valid_predictions.loc[valid_mask]
+    ).abs()
+    return float(errors.mean())
+
+
+def _learn_component_weights(
+    historical_df: pd.DataFrame,
+    *,
+    value_column: str,
+) -> dict[str, object]:
+    """
+    Learn non-negative blend weights from past-only historical examples using
+    a time-ordered train/validation split. Falls back to fixed weights when
+    history is too sparse to fit a stable model.
+    """
+    default_weights = _default_component_weights()
+    examples_df = _build_learning_examples(
+        historical_df,
+        value_column=value_column,
+    )
+
+    complete_examples_df = examples_df.dropna(
+        subset=[
+            "recent_history_component",
+            "same_weekday_component",
+            "long_run_baseline_component",
+            "target_value",
+        ]
+    ).copy()
+
+    validation_rows = max(int(len(complete_examples_df) * VALIDATION_FRACTION), MIN_VALIDATION_ROWS)
+    if len(complete_examples_df) < (MIN_TRAINING_ROWS + MIN_VALIDATION_ROWS) or len(complete_examples_df) <= validation_rows:
+        return {
+            "weights": default_weights,
+            "method": "fixed_fallback_insufficient_history",
+            "training_rows": int(len(complete_examples_df)),
+            "validation_rows": 0,
+            "validation_mae": None,
+            "baseline_validation_mae": None,
+        }
+
+    train_df = complete_examples_df.iloc[:-validation_rows].copy()
+    validation_df = complete_examples_df.iloc[-validation_rows:].copy()
+
+    if len(train_df) < MIN_TRAINING_ROWS or validation_df.empty:
+        return {
+            "weights": default_weights,
+            "method": "fixed_fallback_insufficient_history",
+            "training_rows": int(len(train_df)),
+            "validation_rows": int(len(validation_df)),
+            "validation_mae": None,
+            "baseline_validation_mae": None,
+        }
+
+    feature_columns = [
+        "recent_history_component",
+        "same_weekday_component",
+        "long_run_baseline_component",
+    ]
+    x_train = train_df[feature_columns].to_numpy(dtype=float)
+    y_train = train_df["target_value"].to_numpy(dtype=float)
+
+    learned_raw_weights, _ = nnls(x_train, y_train)
+    normalized_weights = _normalize_component_weights(
+        {
+            "recent_history": learned_raw_weights[0],
+            "same_weekday": learned_raw_weights[1],
+            "long_run_baseline": learned_raw_weights[2],
+        }
+    )
+
+    if normalized_weights is None:
+        return {
+            "weights": default_weights,
+            "method": "fixed_fallback_zero_weight_fit",
+            "training_rows": int(len(train_df)),
+            "validation_rows": int(len(validation_df)),
+            "validation_mae": None,
+            "baseline_validation_mae": None,
+        }
+
+    validation_mae = _score_component_weights(validation_df, normalized_weights)
+    baseline_validation_mae = _score_component_weights(validation_df, default_weights)
+
+    return {
+        "weights": normalized_weights,
+        "method": "learned_nnls",
+        "training_rows": int(len(train_df)),
+        "validation_rows": int(len(validation_df)),
+        "validation_mae": validation_mae,
+        "baseline_validation_mae": baseline_validation_mae,
+    }
+
+
 def _build_hybrid_projection_profile(
     historical_df: pd.DataFrame,
     *,
     value_column: str,
     profile_value_column: str,
+    component_weights: dict[str, float] | None = None,
 ) -> pd.DataFrame:
     """
     Build a hybrid weighted profile using recent history, same-weekday history,
@@ -110,14 +309,11 @@ def _build_hybrid_projection_profile(
     the latest pattern.
     """
     df = _prepare_history(historical_df, value_column=value_column)
-    recent_profile_df, same_weekday_profile_df, baseline_profile_df = _build_component_profiles(
+    active_weights = component_weights or _default_component_weights()
+    recent_lookup, same_weekday_lookup, baseline_lookup = _build_component_lookups(
         historical_df,
         value_column=value_column,
     )
-
-    recent_lookup = recent_profile_df.set_index("time_key")["recent_history_component"].to_dict()
-    same_weekday_lookup = same_weekday_profile_df.set_index(["time_key", "weekday"])["same_weekday_component"].to_dict()
-    baseline_lookup = baseline_profile_df.set_index("time_key")["long_run_baseline_component"].to_dict()
 
     rows: list[dict[str, float | str]] = []
     for (time_key, weekday), group_df in df.groupby(["time_key", "weekday"], sort=False):
@@ -126,7 +322,8 @@ def _build_hybrid_projection_profile(
                 "recent_history": recent_lookup.get(time_key),
                 "same_weekday": same_weekday_lookup.get((time_key, weekday)),
                 "long_run_baseline": baseline_lookup.get(time_key),
-            }
+            },
+            component_weights=active_weights,
         )
 
         rows.append(
@@ -153,14 +350,30 @@ def build_time_of_day_profile(
     """
     Backward-compatible profile builder used by the extension engine.
 
-    The returned profile now uses a hybrid weighted estimate:
-    45% recent history, 35% same-weekday history, and 20% long-run baseline.
+    The returned profile uses a hybrid estimate whose blend weights are learned
+    from historical data when possible, with a fixed weighted fallback when
+    history is too sparse.
     """
-    return _build_hybrid_projection_profile(
+    learning_summary = _learn_component_weights(
+        historical_df,
+        value_column=value_column,
+    )
+    profile_df = _build_hybrid_projection_profile(
         historical_df,
         value_column=value_column,
         profile_value_column=profile_value_column,
+        component_weights=learning_summary["weights"],
     )
+    profile_df.attrs["extension_model"] = learning_summary
+    print(
+        f"[FORECAST EXTENSION DEBUG] {value_column} weights={learning_summary['weights']} "
+        f"method={learning_summary['method']} "
+        f"training_rows={learning_summary['training_rows']} "
+        f"validation_rows={learning_summary['validation_rows']} "
+        f"validation_mae={learning_summary['validation_mae']} "
+        f"baseline_validation_mae={learning_summary['baseline_validation_mae']}"
+    )
+    return profile_df
 
 
 def extend_series_with_history(
@@ -228,13 +441,22 @@ def extend_series_with_history(
         value_column=value_column,
         profile_value_column=profile_value_column,
     )
-    recent_profile_df, same_weekday_profile_df, baseline_profile_df = _build_component_profiles(
+    learning_summary = profile_df.attrs.get(
+        "extension_model",
+        {
+            "weights": _default_component_weights(),
+            "method": "fixed_fallback_unknown",
+            "training_rows": 0,
+            "validation_rows": 0,
+            "validation_mae": None,
+            "baseline_validation_mae": None,
+        },
+    )
+    component_weights = learning_summary["weights"]
+    recent_lookup, same_weekday_lookup, baseline_lookup = _build_component_lookups(
         historical_df,
         value_column=value_column,
     )
-    recent_lookup = recent_profile_df.set_index("time_key")["recent_history_component"].to_dict()
-    same_weekday_lookup = same_weekday_profile_df.set_index(["time_key", "weekday"])["same_weekday_component"].to_dict()
-    baseline_lookup = baseline_profile_df.set_index("time_key")["long_run_baseline_component"].to_dict()
 
     extension_df = pd.DataFrame({"timestamp": extension_timestamps})
     extension_df["time_key"] = extension_df["timestamp"].dt.strftime("%H:%M")
@@ -256,7 +478,8 @@ def extend_series_with_history(
                 "recent_history": row["recent_history_component"],
                 "same_weekday": row["same_weekday_component"],
                 "long_run_baseline": row["long_run_baseline_component"],
-            }
+            },
+            component_weights=component_weights,
         ),
         axis=1,
     )
@@ -290,4 +513,6 @@ def extend_series_with_history(
         [live_output_df, extension_output_df],
         ignore_index=True,
     )
-    return combined_df.sort_values("timestamp").reset_index(drop=True)
+    combined_df = combined_df.sort_values("timestamp").reset_index(drop=True)
+    combined_df.attrs["extension_model"] = learning_summary
+    return combined_df

@@ -87,3 +87,53 @@ def test_block_mode_balanced_selects_best_tradeoff_window():
     assert selected_rows["timestamp"].tolist() == list(
         pd.date_range("2026-03-20 04:00:00", periods=2, freq="h")
     )
+
+
+def test_block_mode_fails_when_deadline_leaves_too_few_partial_hour_slots():
+    timestamps = pd.date_range("2026-03-20 00:00:00", periods=10, freq="15min")
+    forecast_df = pd.DataFrame(
+        {
+            "timestamp": timestamps,
+            "carbon_g_per_kwh": [90, 80, 70, 60, 50, 40, 30, 20, 10, 5],
+            "price_per_kwh": [0.20] * 10,
+        }
+    )
+
+    with pytest.raises(InfeasibleScheduleError):
+        optimize_schedule(
+            forecast_df=forecast_df,
+            compute_hours_required=2,
+            objective="carbon",
+            schedule_mode="block",
+            deadline="2026-03-20 01:30:00",
+            current_time_override="2026-03-20 00:00:00",
+        )
+
+
+def test_flexible_mode_keeps_deadline_hard_even_with_extended_rows_present():
+    timestamps = pd.date_range("2026-03-20 00:00:00", periods=10, freq="h")
+    forecast_df = pd.DataFrame(
+        {
+            "timestamp": timestamps,
+            "carbon_g_per_kwh": [50, 45, 40, 35, 30, 25, 5, 4, 3, 2],
+            "price_per_kwh": [0.20] * 10,
+            "carbon_source": ["live_forecast"] * 4 + ["historical_pattern_estimate"] * 6,
+        }
+    )
+
+    optimized_df = optimize_schedule(
+        forecast_df=forecast_df,
+        compute_hours_required=2,
+        objective="carbon",
+        schedule_mode="flexible",
+        deadline="2026-03-20 03:00:00",
+        current_time_override="2026-03-20 00:00:00",
+    )
+
+    selected_rows = optimized_df[optimized_df["run_flag"] == 1].copy()
+    assert selected_rows["timestamp"].tolist() == [
+        pd.Timestamp("2026-03-20 02:00:00"),
+        pd.Timestamp("2026-03-20 03:00:00"),
+    ]
+    assert (selected_rows["timestamp"] <= pd.Timestamp("2026-03-20 03:00:00")).all()
+    assert optimized_df.loc[optimized_df["timestamp"] > pd.Timestamp("2026-03-20 03:00:00"), "run_flag"].sum() == 0

@@ -8,7 +8,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from src.data_fetcher import build_live_carbon_forecast_table, build_live_price_forecast_table
 from src.forecasting.carbon_blender import extend_forecast_with_history
-from src.forecasting.pattern_extension import build_time_of_day_profile
+from src.forecasting.pattern_extension import _learn_component_weights, build_time_of_day_profile
 
 
 def test_carbon_extension_uses_historical_pattern_label() -> None:
@@ -107,6 +107,54 @@ def test_hybrid_profile_renormalizes_when_same_weekday_is_missing() -> None:
 
     # recent and baseline are both available; same-weekday is missing so weights should renormalize.
     assert sunday_extension["carbon_g_per_kwh"] == pytest.approx(60.0)
+
+
+def test_learned_component_weights_are_non_negative_and_normalized_when_history_is_sufficient() -> None:
+    historical_rows = []
+    timestamps = pd.date_range("2026-01-01 00:00:00", periods=24 * 28, freq="h")
+    for ts in timestamps:
+        hour_signal = (ts.hour * 3.0) + (ts.dayofweek * 5.0)
+        recency_trend = ts.day * 0.4
+        historical_rows.append(
+            {
+                "timestamp": ts,
+                "carbon_g_per_kwh": 40.0 + hour_signal + recency_trend,
+            }
+        )
+
+    historical_df = pd.DataFrame(historical_rows)
+    learning_summary = _learn_component_weights(
+        historical_df,
+        value_column="carbon_g_per_kwh",
+    )
+
+    assert learning_summary["method"] == "learned_nnls"
+    assert learning_summary["training_rows"] >= 12
+    assert learning_summary["validation_rows"] >= 4
+    assert pytest.approx(sum(learning_summary["weights"].values())) == 1.0
+    assert all(weight >= 0 for weight in learning_summary["weights"].values())
+    assert learning_summary["validation_mae"] is not None
+
+
+def test_learned_component_weights_fall_back_when_history_is_too_sparse() -> None:
+    historical_df = pd.DataFrame(
+        {
+            "timestamp": pd.date_range("2026-03-01 00:00:00", periods=5, freq="h"),
+            "carbon_g_per_kwh": [10, 20, 30, 40, 50],
+        }
+    )
+
+    learning_summary = _learn_component_weights(
+        historical_df,
+        value_column="carbon_g_per_kwh",
+    )
+
+    assert learning_summary["method"] == "fixed_fallback_insufficient_history"
+    assert learning_summary["weights"] == {
+        "recent_history": 0.45,
+        "same_weekday": 0.35,
+        "long_run_baseline": 0.20,
+    }
 
 
 def test_live_price_forecast_table_extends_with_historical_pattern(monkeypatch) -> None:

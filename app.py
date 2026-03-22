@@ -686,9 +686,7 @@ def build_theme_css(tokens: dict[str, str]) -> str:
     }}
 
     div[data-baseweb="select"] > div,
-    div[data-baseweb="input"] > div,
     .stDateInput > div > div,
-    .stNumberInput > div > div,
     .stTextInput > div > div,
     .stTextArea textarea {{
         background:
@@ -701,12 +699,84 @@ def build_theme_css(tokens: dict[str, str]) -> str:
     }}
 
     div[data-baseweb="select"] > div:hover,
-    div[data-baseweb="input"] > div:hover,
     .stDateInput > div > div:hover,
-    .stNumberInput > div > div:hover,
     .stTextInput > div > div:hover,
     .stTextArea textarea:hover {{
         border-color: rgba(157, 180, 255, 0.28) !important;
+    }}
+
+    div[data-testid="stNumberInput"] [data-baseweb="input"] {{
+        background:
+            linear-gradient(180deg, rgba(255,255,255,0.045), rgba(255,255,255,0.015)),
+            rgba(11, 15, 26, 0.9) !important;
+        border: 1px solid rgba(157, 180, 255, 0.18) !important;
+        border-radius: 16px !important;
+        box-shadow: inset 0 1px 0 rgba(255,255,255,0.04);
+        overflow: hidden !important;
+        min-height: 3rem;
+        align-items: stretch !important;
+        transition: border-color 0.2s ease, box-shadow 0.2s ease;
+    }}
+
+    div[data-testid="stNumberInput"] [data-baseweb="input"]:hover {{
+        border-color: rgba(157, 180, 255, 0.28) !important;
+    }}
+
+    div[data-testid="stNumberInput"] [data-baseweb="input"]:focus-within {{
+        border-color: rgba(184, 145, 255, 0.38) !important;
+        box-shadow:
+            inset 0 1px 0 rgba(255,255,255,0.05),
+            0 0 0 1px rgba(167, 123, 255, 0.12) !important;
+    }}
+
+    div[data-testid="stNumberInput"] [data-baseweb="input"] > div {{
+        background: transparent !important;
+        border: none !important;
+        box-shadow: none !important;
+        border-radius: 0 !important;
+        min-height: 3rem;
+    }}
+
+    div[data-testid="stNumberInput"] [data-baseweb="input"] input {{
+        background: transparent !important;
+        color: var(--util-text) !important;
+        height: 3rem !important;
+        padding-left: 0.95rem !important;
+        padding-right: 0.75rem !important;
+    }}
+
+    div[data-testid="stNumberInput"] [data-baseweb="input"] button {{
+        background: rgba(255,255,255,0.03) !important;
+        border: none !important;
+        border-left: 1px solid rgba(157, 180, 255, 0.14) !important;
+        border-radius: 0 !important;
+        min-width: 2.8rem !important;
+        box-shadow: none !important;
+        color: var(--util-text-soft) !important;
+        transition: background 0.2s ease, color 0.2s ease;
+    }}
+
+    div[data-testid="stNumberInput"] [data-baseweb="input"] button:hover {{
+        background: rgba(167, 123, 255, 0.12) !important;
+        color: var(--util-text) !important;
+    }}
+
+    div[data-testid="stNumberInput"] [data-baseweb="input"] button:first-of-type {{
+        border-top-right-radius: 16px !important;
+    }}
+
+    div[data-testid="stNumberInput"] [data-baseweb="input"] button:last-of-type {{
+        border-bottom-right-radius: 16px !important;
+    }}
+
+    div[data-testid="stDateInput"] [data-baseweb="input"],
+    div[data-testid="stTextInput"] [data-baseweb="input"] {{
+        overflow: hidden !important;
+        border-radius: 16px !important;
+    }}
+
+    .stRadio {{
+        margin-bottom: 0.1rem;
     }}
 
     .stRadio [role="radiogroup"] {{
@@ -718,6 +788,7 @@ def build_theme_css(tokens: dict[str, str]) -> str:
         border: 1px solid rgba(157, 180, 255, 0.12);
         border-radius: 18px;
         backdrop-filter: blur(16px);
+        overflow: hidden;
     }}
 
     .stRadio [role="radiogroup"] label {{
@@ -725,6 +796,8 @@ def build_theme_css(tokens: dict[str, str]) -> str:
         border: 1px solid transparent;
         border-radius: 14px;
         padding: 0.45rem 0.7rem;
+        min-height: 2.75rem;
+        align-items: center !important;
     }}
 
     .stSlider [data-baseweb="slider"] {{
@@ -1270,7 +1343,7 @@ def build_run_now_comparison(
     }
 
 
-def render_status_pills(
+def _render_status_pills_legacy(
     forecast_mode_label: str,
     schedule_mode_label: str,
     region: str,
@@ -1374,6 +1447,67 @@ def render_status_pills(
             <span class="util-pill">Schedule Mode: {schedule_mode_label}</span>
             <span class="util-pill">Granularity: {interval_minutes:.0f} min</span>
             <span class="util-pill">Forecast Window: {forecast_min.strftime("%b %d %I:%M %p")} → {forecast_max.strftime("%b %d %I:%M %p")}</span>
+            {extra_pills}
+        </div>
+        """,
+        unsafe_allow_html=True
+    )
+
+
+def render_status_pills(
+    forecast_mode_label: str,
+    schedule_mode_label: str,
+    region: str,
+    forecast_df: pd.DataFrame
+):
+    interval_minutes = infer_interval_minutes(forecast_df)
+    forecast_min = pd.to_datetime(forecast_df["timestamp"]).min()
+    forecast_max = pd.to_datetime(forecast_df["timestamp"]).max()
+
+    pricing_status = None
+    carbon_signal_modes: list[str] = []
+    price_signal_modes: list[str] = []
+
+    if "pricing_status" in forecast_df.columns:
+        non_null_pricing_status = forecast_df["pricing_status"].dropna()
+        if not non_null_pricing_status.empty:
+            pricing_status = non_null_pricing_status.iloc[0]
+
+    if "carbon_source" in forecast_df.columns:
+        carbon_signal_modes = sorted(
+            format_signal_source_label(str(value))
+            for value in forecast_df["carbon_source"].dropna().unique().tolist()
+            if value
+        )
+
+    if "price_signal_source" in forecast_df.columns:
+        price_signal_modes = sorted(
+            format_signal_source_label(str(value))
+            for value in forecast_df["price_signal_source"].dropna().unique().tolist()
+            if value
+        )
+
+    extra_pills = ""
+    if pricing_status == "live_caiso":
+        extra_pills += '<span class="util-good-pill">Pricing: Live CAISO</span>'
+    elif pricing_status == "placeholder":
+        extra_pills += '<span class="util-warning-pill">Pricing: Placeholder Fallback</span>'
+
+    if carbon_signal_modes:
+        extra_pills += f'<span class="util-pill">Carbon Signal Mix: {", ".join(carbon_signal_modes)}</span>'
+
+    if price_signal_modes:
+        extra_pills += f'<span class="util-pill">Price Signal Mix: {", ".join(price_signal_modes)}</span>'
+
+    forecast_window_label = (
+        f"{forecast_min.strftime('%b %d %I:%M %p')} -> {forecast_max.strftime('%b %d %I:%M %p')}"
+    )
+
+    st.markdown(
+        f"""
+        <div class="util-pill-row">
+            <span class="util-pill">Granularity: {interval_minutes:.0f} min</span>
+            <span class="util-pill">Forecast Window: {forecast_window_label}</span>
             {extra_pills}
         </div>
         """,
@@ -1924,6 +2058,7 @@ with tab1:
                     else "forecast_only"
                 )  
     with col_output:
+        st.markdown('<div class="util-spacer-sm"></div>', unsafe_allow_html=True)
         loading_placeholder = st.empty()
         if run_button:
             st.session_state["result"] = None
@@ -2020,9 +2155,11 @@ with tab1:
         result = st.session_state["result"]
 
         if result is None:
+            st.markdown('<div class="util-spacer-xs"></div>', unsafe_allow_html=True)
             st.markdown('<div class="util-spacer-sm"></div>', unsafe_allow_html=True)
             st.info("Enter workload inputs and click Run Optimization.")
         else:
+            st.markdown('<div class="util-spacer-xs"></div>', unsafe_allow_html=True)
             region = result["region"]
             schedule = result["schedule"].copy()
             metrics = result["metrics"]
