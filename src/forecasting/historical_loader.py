@@ -2,6 +2,8 @@ from __future__ import annotations
 
 import pandas as pd
 
+from src.forecasting.pattern_extension import build_time_of_day_profile as build_generic_time_of_day_profile
+
 
 def normalize_historical_dataframe(historical_df: pd.DataFrame) -> pd.DataFrame:
     """
@@ -21,13 +23,8 @@ def build_time_of_day_profile(historical_df: pd.DataFrame) -> pd.DataFrame:
     """
     Build an average historical carbon profile by HH:MM time-of-day.
     """
-    df = normalize_historical_dataframe(historical_df)
-    df["time_key"] = df["timestamp"].dt.strftime("%H:%M")
-
-    profile_df = (
-        df.groupby("time_key", as_index=False)["carbon_g_per_kwh"]
-        .mean()
-        .rename(columns={"carbon_g_per_kwh": "historical_avg_carbon_g_per_kwh"})
+    return build_generic_time_of_day_profile(
+        historical_df,
+        value_column="carbon_g_per_kwh",
+        profile_value_column="historical_avg_carbon_g_per_kwh",
     )
-
-    return profile_df

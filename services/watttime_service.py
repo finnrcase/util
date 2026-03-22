@@ -13,6 +13,7 @@ This module handles:
 from __future__ import annotations
 
 import os
+from functools import lru_cache
 from datetime import datetime, timedelta, timezone
 from typing import Any
 
@@ -38,6 +39,7 @@ HISTORICAL_URL = "https://api.watttime.org/v3/historical"
 REGION_FROM_LOC_URL = "https://api.watttime.org/v3/region-from-loc"
 
 
+@lru_cache(maxsize=1)
 def get_token() -> str:
     """
     Log in to WattTime and return a bearer token.
@@ -79,17 +81,26 @@ def _fetch_json(url: str, params: dict[str, Any]) -> dict[str, Any]:
     Make an authenticated GET request to a WattTime endpoint and return JSON.
     """
     token = get_token()
+    response = None
 
-    headers = {
-        "Authorization": f"Bearer {token}",
-    }
+    for attempt in range(2):
+        headers = {
+            "Authorization": f"Bearer {token}",
+        }
 
-    response = requests.get(
-        url,
-        headers=headers,
-        params=params,
-        timeout=60,
-    )
+        response = requests.get(
+            url,
+            headers=headers,
+            params=params,
+            timeout=60,
+        )
+
+        if response.status_code != 401 or attempt == 1:
+            break
+
+        print("WATTTIME DEBUG: received 401, clearing cached token and retrying once.")
+        get_token.cache_clear()
+        token = get_token()
 
     print("REQUEST STATUS:", response.status_code)
     print("REQUEST CONTENT TYPE:", response.headers.get("content-type"))
@@ -241,6 +252,19 @@ def get_ba_from_loc(
     )
 
 
+@lru_cache(maxsize=16)
+def _get_watttime_forecast_cached(
+    region: str,
+    signal_type: str,
+) -> tuple[tuple[pd.Timestamp, float], ...]:
+    forecast_json = get_forecast(region=region, signal_type=signal_type)
+    forecast_df = forecast_to_dataframe(forecast_json)
+    return tuple(
+        (row.timestamp, float(row.carbon_g_per_kwh))
+        for row in forecast_df.itertuples(index=False)
+    )
+
+
 def get_watttime_forecast(
     region: str = "CAISO_NORTH",
     signal_type: str = "co2_moer",
@@ -248,8 +272,30 @@ def get_watttime_forecast(
     """
     Fetch live WattTime forecast data and return it in Util's standardized dataframe format.
     """
-    forecast_json = get_forecast(region=region, signal_type=signal_type)
-    return forecast_to_dataframe(forecast_json)
+    cached_rows = _get_watttime_forecast_cached(region, signal_type)
+    return pd.DataFrame(cached_rows, columns=["timestamp", "carbon_g_per_kwh"])
+
+
+@lru_cache(maxsize=16)
+def _get_watttime_historical_cached(
+    region: str,
+    signal_type: str,
+    start: str | None,
+    end: str | None,
+    days: int,
+) -> tuple[tuple[pd.Timestamp, float], ...]:
+    historical_json = get_historical(
+        region=region,
+        signal_type=signal_type,
+        start=start,
+        end=end,
+        days=days,
+    )
+    historical_df = forecast_to_dataframe(historical_json)
+    return tuple(
+        (row.timestamp, float(row.carbon_g_per_kwh))
+        for row in historical_df.itertuples(index=False)
+    )
 
 
 def get_watttime_historical(
@@ -262,11 +308,5 @@ def get_watttime_historical(
     """
     Fetch historical WattTime data and return it in Util's standardized dataframe format.
     """
-    historical_json = get_historical(
-        region=region,
-        signal_type=signal_type,
-        start=start,
-        end=end,
-        days=days,
-    )
-    return forecast_to_dataframe(historical_json)
+    cached_rows = _get_watttime_historical_cached(region, signal_type, start, end, days)
+    return pd.DataFrame(cached_rows, columns=["timestamp", "carbon_g_per_kwh"])

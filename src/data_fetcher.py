@@ -8,7 +8,8 @@ import pandas as pd
 
 from services.watttime_service import get_watttime_forecast, get_watttime_historical
 from src.forecasting.carbon_blender import extend_forecast_with_history
-from src.pricing import PricingUnavailableError, get_normalized_price_series
+from src.forecasting.pattern_extension import extend_series_with_history
+from src.pricing import PricingUnavailableError, align_price_series, get_normalized_price_series, get_price_series
 
 
 def _normalize_timestamp_column(df: pd.DataFrame, column: str = "timestamp") -> pd.DataFrame:
@@ -53,6 +54,8 @@ def build_forecast_table(
 ) -> pd.DataFrame:
     carbon_df = load_carbon_forecast(carbon_filepath)
     price_df = load_price_forecast(price_filepath)
+    carbon_df["carbon_source"] = "live_forecast"
+    price_df["price_signal_source"] = "live_forecast"
 
     forecast_df = pd.merge(carbon_df, price_df, on="timestamp", how="inner")
     forecast_df = forecast_df.sort_values("timestamp").reset_index(drop=True)
@@ -120,6 +123,46 @@ def _fetch_live_historical_with_fallback(region: str, days: int):
     return historical_df, region_used
 
 
+def _infer_interval_minutes_from_timestamps(timestamps: pd.Series) -> float:
+    normalized = pd.to_datetime(timestamps, errors="coerce").dropna().sort_values()
+    if len(normalized) < 2:
+        raise ValueError("At least 2 timestamps are required to infer interval length.")
+
+    interval_minutes = normalized.diff().dropna().dt.total_seconds().median() / 60.0
+    if interval_minutes <= 0:
+        raise ValueError("Could not infer a valid interval length.")
+
+    return float(interval_minutes)
+
+
+def _build_historical_price_template(
+    historical_price_df: pd.DataFrame,
+    *,
+    interval_minutes: float,
+) -> pd.DataFrame:
+    history_df = historical_price_df.copy()
+    history_df["timestamp"] = pd.to_datetime(history_df["timestamp"], errors="coerce")
+    history_df = history_df.dropna(subset=["timestamp"]).sort_values("timestamp").reset_index(drop=True)
+
+    if history_df.empty:
+        raise PricingUnavailableError("Historical price fetch returned no usable rows.")
+
+    template_timestamps = pd.date_range(
+        start=history_df["timestamp"].min(),
+        end=history_df["timestamp"].max(),
+        freq=pd.Timedelta(minutes=interval_minutes),
+    )
+    template_df = pd.DataFrame({"timestamp": template_timestamps}).sort_values("timestamp")
+    aligned = pd.merge_asof(
+        template_df,
+        history_df.sort_values("timestamp"),
+        on="timestamp",
+        direction="backward",
+    )
+    aligned["price_per_kwh"] = aligned["price_per_kwh"].ffill().bfill()
+    return aligned
+
+
 def build_live_historical_export_table(
     region: str,
     days: int = 14,
@@ -137,6 +180,155 @@ def build_live_historical_export_table(
     return historical_df.sort_values("timestamp").reset_index(drop=True)
 
 
+def build_live_price_forecast_table(
+    *,
+    region: str,
+    target_timestamps: pd.Series,
+    live_target_timestamps: pd.Series | None = None,
+    historical_days: int,
+    deadline: str | None,
+    allow_historical_extension: bool,
+) -> pd.DataFrame:
+    target_ts = pd.to_datetime(target_timestamps, errors="coerce").dropna().sort_values()
+    if target_ts.empty:
+        raise PricingUnavailableError("No target timestamps were provided for price forecasting.")
+
+    live_target_ts = pd.to_datetime(
+        live_target_timestamps if live_target_timestamps is not None else target_timestamps,
+        errors="coerce",
+    ).dropna().sort_values()
+    if live_target_ts.empty:
+        live_target_ts = target_ts
+
+    interval_minutes = _infer_interval_minutes_from_timestamps(target_ts)
+    live_price_df = get_price_series(
+        region_code=region,
+        start_time=live_target_ts.min(),
+        end_time=live_target_ts.max(),
+    )
+    print(f"[PRICE DEBUG] live raw price rows fetched: {len(live_price_df)}")
+
+    live_aligned_df = align_price_series(
+        price_df=live_price_df,
+        target_timestamps=live_target_ts,
+        carry_forward_beyond_last_known=False,
+    )
+    if "price_node" in live_price_df.columns:
+        live_aligned_df["price_node"] = live_price_df["price_node"].dropna().iloc[0]
+    live_aligned_df["price_signal_source"] = "live_forecast"
+    print(
+        "[PRICE DEBUG] live aligned price rows:",
+        len(live_aligned_df),
+        "non-null prices:",
+        int(live_aligned_df["price_per_kwh"].notna().sum()),
+        "columns:",
+        list(live_aligned_df.columns),
+    )
+
+    live_price_max = pd.to_datetime(live_price_df["timestamp"], errors="coerce").dropna().max()
+    if pd.isna(live_price_max):
+        raise PricingUnavailableError("Live price fetch returned no usable timestamps.")
+
+    needs_extension = bool((target_ts > live_price_max).any())
+    if not needs_extension:
+        if "price_node" in live_price_df.columns and "price_node" not in live_aligned_df.columns:
+            live_aligned_df["price_node"] = live_price_df["price_node"].dropna().iloc[0]
+        live_aligned_df["price_extension_status"] = "not_needed"
+        live_aligned_df["price_extension_message"] = ""
+        return live_aligned_df
+
+    if not allow_historical_extension:
+        live_aligned_df["price_extension_status"] = "live_only"
+        live_aligned_df["price_extension_message"] = (
+            "Live price data does not cover the requested optimization horizon, so Util kept live rows only."
+        )
+        print("[PRICE DEBUG] extension skipped because historical extension was not enabled.")
+        return live_aligned_df
+
+    if deadline is None:
+        live_aligned_df["price_extension_status"] = "live_only"
+        live_aligned_df["price_extension_message"] = (
+            "Price historical-pattern extension requires a deadline, so Util kept live rows only."
+        )
+        print("[PRICE DEBUG] extension skipped because deadline was missing.")
+        return live_aligned_df
+
+    try:
+        history_end = live_price_max - pd.Timedelta(minutes=interval_minutes)
+        history_start = history_end - pd.Timedelta(days=historical_days)
+        historical_price_df = get_price_series(
+            region_code=region,
+            start_time=history_start,
+            end_time=history_end,
+        )
+        print(f"[PRICE DEBUG] historical raw price rows fetched: {len(historical_price_df)}")
+
+        historical_template_df = _build_historical_price_template(
+            historical_price_df,
+            interval_minutes=interval_minutes,
+        )
+        print(
+            "[PRICE DEBUG] historical price template rows:",
+            len(historical_template_df),
+            "non-null prices:",
+            int(historical_template_df["price_per_kwh"].notna().sum()),
+        )
+
+        live_extension_seed_df = live_aligned_df.dropna(subset=["price_per_kwh"]).copy()
+        if len(live_extension_seed_df) < 2:
+            raise PricingUnavailableError("Not enough live price rows were available to build an estimated extension.")
+
+        extended_price_df = extend_series_with_history(
+            live_forecast_df=live_extension_seed_df[["timestamp", "price_per_kwh"]].copy(),
+            historical_df=historical_template_df[["timestamp", "price_per_kwh"]].copy(),
+            deadline=deadline,
+            value_column="price_per_kwh",
+            source_column="price_signal_source",
+            live_source_value="live_forecast",
+            historical_source_value="historical_pattern_estimate",
+            profile_value_column="historical_avg_price_per_kwh",
+        )
+        print(
+            "[PRICE DEBUG] extended price rows:",
+            len(extended_price_df),
+            "non-null prices:",
+            int(extended_price_df["price_per_kwh"].notna().sum()),
+        )
+
+        combined_df = pd.merge(
+            pd.DataFrame({"timestamp": target_ts}),
+            extended_price_df,
+            on="timestamp",
+            how="left",
+        )
+
+        metadata_columns = [column for column in ["source", "region_code", "price_node"] if column in live_aligned_df.columns]
+        if metadata_columns:
+            metadata_df = live_aligned_df[["timestamp"] + metadata_columns].drop_duplicates(subset=["timestamp"])
+            combined_df = combined_df.merge(metadata_df, on="timestamp", how="left")
+            for column in metadata_columns:
+                combined_df[column] = combined_df[column].ffill().bfill()
+
+        combined_df["price_extension_status"] = "extended"
+        combined_df["price_extension_message"] = ""
+        print(
+            "[PRICE DEBUG] final combined price rows:",
+            len(combined_df),
+            "non-null prices:",
+            int(combined_df["price_per_kwh"].notna().sum()),
+            "columns:",
+            list(combined_df.columns),
+        )
+        return combined_df
+    except Exception as exc:
+        print(f"[PRICE DEBUG] price extension failed; preserving live price rows. Error: {exc}")
+        live_aligned_df["price_extension_status"] = "live_only_extension_failed"
+        live_aligned_df["price_extension_message"] = (
+            f"Historical-pattern price extension failed; Util kept live price rows only. Details: {exc}"
+        )
+        return live_aligned_df
+
+
 def build_live_carbon_forecast_table(
     region: str,
     placeholder_price_per_kwh: float = 0.15,
@@ -146,11 +338,11 @@ def build_live_carbon_forecast_table(
 ) -> pd.DataFrame:
     """
     Build a forecast table using live carbon forecast data from WattTime
-    and a placeholder electricity price.
+    and live or estimated electricity pricing when available.
 
     carbon_estimation_mode:
     - forecast_only
-    - forecast_plus_historical_expectation
+    - forecast_plus_historical_pattern
     """
 
     requested_region = region
@@ -207,15 +399,28 @@ def build_live_carbon_forecast_table(
     )
     pricing_source = "Placeholder Price"
     pricing_region_code = requested_region
+    price_signal_source = "placeholder"
 
     try:
-        pricing_df = get_normalized_price_series(
-            region_code=forecast_region_used,
+        live_price_target_ts = (
+            carbon_df.loc[carbon_df["carbon_source"] == "live_forecast", "timestamp"]
+            if "carbon_source" in carbon_df.columns
+            else carbon_df["timestamp"]
+        )
+        if live_price_target_ts.empty:
+            live_price_target_ts = carbon_df["timestamp"]
+
+        pricing_df = build_live_price_forecast_table(
+            region=forecast_region_used,
             target_timestamps=carbon_df["timestamp"],
+            live_target_timestamps=live_price_target_ts,
+            historical_days=historical_days,
+            deadline=deadline,
+            allow_historical_extension=(carbon_estimation_mode == "forecast_plus_historical_expectation"),
         )
         forecast_df = pd.merge(
             carbon_df,
-            pricing_df[["timestamp", "price_per_kwh", "source", "region_code", "price_node"]],
+            pricing_df,
             on="timestamp",
             how="left",
         )
@@ -227,12 +432,37 @@ def build_live_carbon_forecast_table(
             raise PricingUnavailableError(
                 f"No CAISO price rows aligned to WattTime region '{forecast_region_used}'."
             )
-
-        forecast_df["price_per_kwh"] = forecast_df["price_per_kwh"].ffill().bfill()
+        missing_price_rows = int(forecast_df["price_per_kwh"].isna().sum())
+        if missing_price_rows > 0:
+            forecast_df["price_per_kwh"] = forecast_df["price_per_kwh"].fillna(placeholder_price_per_kwh)
+            missing_mask = forecast_df["price_signal_source"].isna()
+            if missing_mask.any():
+                forecast_df.loc[missing_mask, "price_signal_source"] = "placeholder"
+            print(
+                f"[PRICE DEBUG] filled {missing_price_rows} uncovered price rows with placeholder pricing after preserving live rows."
+            )
         pricing_status = "live_caiso"
-        pricing_message = (
-            "Using CAISO day-ahead market pricing routed from the resolved WattTime region."
+        extension_status = (
+            forecast_df["price_extension_status"].dropna().iloc[0]
+            if "price_extension_status" in forecast_df.columns and forecast_df["price_extension_status"].dropna().any()
+            else "not_needed"
         )
+        extension_message = (
+            forecast_df["price_extension_message"].dropna().iloc[0]
+            if "price_extension_message" in forecast_df.columns and forecast_df["price_extension_message"].dropna().any()
+            else ""
+        )
+        pricing_message = (
+            "Using CAISO day-ahead market pricing where live rows are available, with historical-pattern extension beyond the live horizon when needed."
+            if (forecast_df.get("price_signal_source") == "historical_pattern_estimate").any()
+            else "Using CAISO day-ahead market pricing routed from the resolved WattTime region."
+        )
+        if extension_status in {"live_only", "live_only_extension_failed"} and extension_message:
+            pricing_message = (
+                "Using live CAISO pricing where available. "
+                "Rows beyond the live horizon fell back to placeholder pricing. "
+                f"{extension_message}"
+            )
         pricing_source = (
             forecast_df["source"].dropna().iloc[0]
             if "source" in forecast_df.columns and forecast_df["source"].dropna().any()
@@ -248,11 +478,30 @@ def build_live_carbon_forecast_table(
             if "price_node" in forecast_df.columns and forecast_df["price_node"].dropna().any()
             else ""
         )
+        price_signal_source = (
+            forecast_df["price_signal_source"].dropna().iloc[0]
+            if "price_signal_source" in forecast_df.columns and forecast_df["price_signal_source"].dropna().any()
+            else "live_forecast"
+        )
     except PricingUnavailableError as exc:
         forecast_df = carbon_df.copy()
         forecast_df["price_per_kwh"] = placeholder_price_per_kwh
+        forecast_df["price_signal_source"] = "placeholder"
         pricing_message = str(exc)
         pricing_node = ""
+        if "historical_avg_price_per_kwh" not in forecast_df.columns:
+            forecast_df["historical_avg_price_per_kwh"] = pd.NA
+        forecast_df["price_extension_status"] = "placeholder"
+        forecast_df["price_extension_message"] = pricing_message
+
+    print(
+        "[PRICE DEBUG] forecast_df pricing summary:",
+        {
+            "rows": len(forecast_df),
+            "non_null_price_rows": int(pd.to_numeric(forecast_df["price_per_kwh"], errors="coerce").notna().sum()),
+            "columns": list(forecast_df.columns),
+        },
+    )
 
     # metadata columns for transparency
     forecast_df["forecast_region_requested"] = requested_region
@@ -263,23 +512,28 @@ def build_live_carbon_forecast_table(
     forecast_df["pricing_source"] = pricing_source
     forecast_df["pricing_region_code"] = pricing_region_code
     forecast_df["pricing_node"] = pricing_node
+    forecast_df["price_signal_source"] = forecast_df.get("price_signal_source", price_signal_source)
 
     ordered_columns = [
         col for col in [
             "timestamp",
             "carbon_g_per_kwh",
             "price_per_kwh",
+            "historical_avg_carbon_g_per_kwh",
+            "historical_avg_price_per_kwh",
+            "carbon_source",
+            "price_signal_source",
             "pricing_status",
             "pricing_message",
             "pricing_source",
             "pricing_region_code",
             "pricing_node",
-            "historical_avg_carbon_g_per_kwh",
-            "carbon_source",
             "forecast_region_requested",
             "forecast_region_used",
             "forecast_access_mode",
             "historical_region_used",
+            "price_extension_status",
+            "price_extension_message",
         ]
         if col in forecast_df.columns
     ]

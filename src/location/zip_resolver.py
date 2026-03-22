@@ -4,10 +4,16 @@ ZIP code -> coordinate resolution for Util.
 
 from __future__ import annotations
 
+from functools import lru_cache
 from typing import Any
 
 import pandas as pd
 import pgeocode
+
+
+@lru_cache(maxsize=4)
+def _get_nominatim(country_code: str) -> pgeocode.Nominatim:
+    return pgeocode.Nominatim(country_code)
 
 
 def zip_to_coordinates(zip_code: str, country_code: str = "US") -> dict[str, Any]:
@@ -36,7 +42,7 @@ def zip_to_coordinates(zip_code: str, country_code: str = "US") -> dict[str, Any
     """
     zip_code = str(zip_code).strip()
 
-    nomi = pgeocode.Nominatim(country_code)
+    nomi = _get_nominatim(country_code)
     result = nomi.query_postal_code(zip_code)
 
     latitude = result.latitude

@@ -44,6 +44,29 @@ def validate_objective(objective: str) -> str:
     return objective
 
 
+def validate_objective_weights(
+    carbon_weight: float,
+    price_weight: float,
+) -> tuple[float, float]:
+    """
+    Validate objective weights as non-negative values that sum to 1.0.
+    """
+    try:
+        carbon_weight = float(carbon_weight)
+        price_weight = float(price_weight)
+    except (TypeError, ValueError) as exc:
+        raise ValueError("objective weights must be numeric") from exc
+
+    if carbon_weight < 0 or price_weight < 0:
+        raise ValueError("objective weights must be non-negative")
+
+    total_weight = carbon_weight + price_weight
+    if abs(total_weight - 1.0) > 1e-9:
+        raise ValueError("objective weights must sum to 1.0")
+
+    return carbon_weight, price_weight
+
+
 def validate_machine_watts(machine_watts: int) -> int:
     """
     Validate machine wattage as a positive number.

@@ -1,8 +1,10 @@
 from __future__ import annotations
 
 import io
+import time
 import zipfile
 from datetime import timedelta
+from functools import lru_cache
 from typing import Any
 
 import pandas as pd
@@ -13,6 +15,7 @@ from src.scheduling_window import APP_TIMEZONE
 
 CAISO_OASIS_SINGLE_ZIP_URL = "https://oasis.caiso.com/oasisapi/SingleZip"
 CAISO_PRICE_SOURCE_LABEL = "CAISO"
+CAISO_RETRYABLE_STATUS_CODES = {429}
 
 
 class CaisoPricingError(ValueError):
@@ -165,6 +168,8 @@ def fetch_caiso_day_ahead_prices(
     end_time: Any,
     market_run_id: str = "DAM",
     timeout_seconds: int = 45,
+    max_retry_attempts: int = 2,
+    retry_sleep_seconds: float = 5.0,
 ) -> pd.DataFrame:
     """
     Fetch CAISO day-ahead hourly LMP data from OASIS PRC_LMP.
@@ -178,18 +183,70 @@ def fetch_caiso_day_ahead_prices(
         end_time=end_time,
         market_run_id=market_run_id,
     )
+    cache_key = (
+        price_node,
+        region_code,
+        params["startdatetime"],
+        params["enddatetime"],
+        market_run_id,
+    )
+    cached_rows = _fetch_caiso_day_ahead_prices_cached(
+        cache_key=cache_key,
+        timeout_seconds=timeout_seconds,
+        max_retry_attempts=max_retry_attempts,
+        retry_sleep_seconds=retry_sleep_seconds,
+    )
+    return pd.DataFrame(
+        cached_rows,
+        columns=["timestamp", "local_time", "price_per_kwh", "source", "region_code", "price_node"],
+    )
 
-    try:
-        response = requests.get(
-            CAISO_OASIS_SINGLE_ZIP_URL,
-            params=params,
-            timeout=timeout_seconds,
-        )
-    except requests.RequestException as exc:
-        raise CaisoPricingError(f"CAISO network request failed: {exc}") from exc
 
-    print(f"[CAISO DEBUG] Request URL: {response.url}")
-    print(f"[CAISO DEBUG] Response status: {response.status_code}")
+@lru_cache(maxsize=32)
+def _fetch_caiso_day_ahead_prices_cached(
+    *,
+    cache_key: tuple[str, str, str, str, str],
+    timeout_seconds: int,
+    max_retry_attempts: int,
+    retry_sleep_seconds: float,
+) -> tuple[tuple[pd.Timestamp, str, float, str, str, str], ...]:
+    price_node, region_code, startdatetime, enddatetime, market_run_id = cache_key
+    params = {
+        "queryname": "PRC_LMP",
+        "market_run_id": market_run_id,
+        "node": price_node,
+        "startdatetime": startdatetime,
+        "enddatetime": enddatetime,
+        "resultformat": 6,
+        "version": "1",
+    }
+
+    response = None
+    for attempt in range(1, max_retry_attempts + 1):
+        try:
+            response = requests.get(
+                CAISO_OASIS_SINGLE_ZIP_URL,
+                params=params,
+                timeout=timeout_seconds,
+            )
+        except requests.RequestException as exc:
+            raise CaisoPricingError(f"CAISO network request failed: {exc}") from exc
+
+        print(f"[CAISO DEBUG] Request URL: {response.url}")
+        print(f"[CAISO DEBUG] Response status: {response.status_code} on attempt {attempt}/{max_retry_attempts}")
+
+        if response.status_code not in CAISO_RETRYABLE_STATUS_CODES:
+            break
+
+        if attempt < max_retry_attempts:
+            print(
+                f"[CAISO DEBUG] Retryable CAISO response received ({response.status_code}). "
+                f"Sleeping {retry_sleep_seconds} seconds before retry."
+            )
+            time.sleep(retry_sleep_seconds)
+
+    if response is None:
+        raise CaisoPricingError("CAISO pricing request did not return a response.")
 
     if response.status_code >= 400:
         preview = response.text[:500]
@@ -205,4 +262,14 @@ def fetch_caiso_day_ahead_prices(
     )
     print(f"[CAISO DEBUG] Parsed rows: {len(normalized_df)}")
     print(f"[CAISO DEBUG] Output sample:\n{normalized_df.head(3).to_string(index=False)}")
-    return normalized_df
+    return tuple(
+        (
+            row.timestamp,
+            row.local_time,
+            float(row.price_per_kwh),
+            row.source,
+            row.region_code,
+            row.price_node,
+        )
+        for row in normalized_df.itertuples(index=False)
+    )

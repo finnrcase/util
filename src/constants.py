@@ -14,7 +14,7 @@ USING_PLACEHOLDER_DATA = True
 # Supported optimization objectives
 # -------------------------------------------------------------------
 
-SUPPORTED_OBJECTIVES = ["cost", "carbon"]
+SUPPORTED_OBJECTIVES = ["cost", "carbon", "balanced"]
 
 
 # -------------------------------------------------------------------

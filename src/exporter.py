@@ -42,6 +42,14 @@ def _clean_text(value: Any, default: str = "") -> str:
     return text if text else default
 
 
+def _format_objective_label(objective: str) -> str:
+    return {
+        "carbon": "Carbon",
+        "cost": "Price",
+        "balanced": "Balanced",
+    }.get(objective, str(objective).title())
+
+
 def _coerce_timestamp(value: Any) -> pd.Timestamp | None:
     if value is None or value == "":
         return None
@@ -111,20 +119,44 @@ def _compute_totals(df: pd.DataFrame, machine_watts: int) -> dict[str, float]:
 
 def _score_weights(objective: str) -> tuple[float, float]:
     if objective == "carbon":
-        return 0.2, 0.8
+        return 0.0, 1.0
     if objective == "cost":
-        return 0.8, 0.2
+        return 1.0, 0.0
     return 0.5, 0.5
+
+
+def _min_max_normalize(series: pd.Series) -> pd.Series:
+    numeric = pd.to_numeric(series, errors="coerce")
+    min_value = numeric.min()
+    max_value = numeric.max()
+
+    if pd.isna(min_value) or pd.isna(max_value):
+        return pd.Series(0.0, index=series.index)
+
+    if max_value == min_value:
+        return pd.Series(0.0, index=series.index)
+
+    return (numeric - min_value) / (max_value - min_value)
 
 
 def _build_summary_note(
     *,
+    objective: str,
     region: str,
     start_local: str,
     cost_savings_pct: float,
     emissions_reduction_pct: float,
+    price_weight: float,
+    carbon_weight: float,
 ) -> str:
     timing_note = f"Start at {start_local}" if start_local else "Adjust the run timing"
+    if objective == "balanced":
+        return (
+            f"{timing_note} and deploy in {region}. This schedule was selected using a weighted "
+            f"balance of carbon and electricity cost ({carbon_weight:.0%} carbon / "
+            f"{price_weight:.0%} price), reducing cost by {cost_savings_pct:.1f}% and "
+            f"emissions by {emissions_reduction_pct:.1f}%."
+        )
     return (
         f"{timing_note} and deploy in {region} to reduce cost by "
         f"{cost_savings_pct:.1f}% and emissions by {emissions_reduction_pct:.1f}%."
@@ -184,13 +216,11 @@ def _build_candidate_windows(
     if windows_df.empty:
         return windows_df
 
-    cost_max = windows_df["projected_electricity_cost_usd"].max() or 1.0
-    emissions_max = windows_df["projected_emissions_total"].max() or 1.0
     windows_df["balanced_score"] = (
-        (1 - (windows_df["projected_electricity_cost_usd"] / cost_max)) * cost_weight
-        + (1 - (windows_df["projected_emissions_total"] / emissions_max)) * carbon_weight
-    ) * 100
-    windows_df["window_rank"] = windows_df["balanced_score"].rank(method="dense", ascending=False).astype(int)
+        _min_max_normalize(windows_df["projected_electricity_cost_usd"]) * cost_weight
+        + _min_max_normalize(windows_df["projected_emissions_total"]) * carbon_weight
+    )
+    windows_df["window_rank"] = windows_df["balanced_score"].rank(method="dense", ascending=True).astype(int)
     return windows_df
 
 
@@ -212,7 +242,7 @@ def build_export_frames(
 
     generated_at = datetime.now(timezone.utc)
     generated_at_label = generated_at.strftime("%Y-%m-%d %H:%M:%S UTC")
-    case_name_value = case_name or f"{workload.objective.title()} Optimization - {region}"
+    case_name_value = case_name or f"{_format_objective_label(workload.objective)} Optimization - {region}"
     workload_name_value = workload_name or f"Util Run {run_id[-8:]}"
 
     schedule_df["timestamp"] = pd.to_datetime(schedule_df["timestamp"], errors="coerce")
@@ -228,7 +258,14 @@ def build_export_frames(
     start_ts = selected_df["timestamp"].min() if not selected_df.empty else None
     end_ts = selected_df["timestamp"].max() if not selected_df.empty else None
     objective = _clean_text(workload.objective, "cost")
-    cost_weight, carbon_weight = _score_weights(objective)
+    default_cost_weight, default_carbon_weight = _score_weights(objective)
+    price_weight = _safe_float(getattr(workload, "price_weight", None))
+    carbon_weight = _safe_float(getattr(workload, "carbon_weight", None))
+    if objective == "balanced":
+        cost_weight = price_weight if price_weight is not None else default_cost_weight
+        carbon_weight = carbon_weight if carbon_weight is not None else default_carbon_weight
+    else:
+        cost_weight, carbon_weight = default_cost_weight, default_carbon_weight
     pricing_source = _clean_text(
         forecast_df.get("pricing_source").dropna().iloc[0]
         if "pricing_source" in forecast_df.columns and not forecast_df.get("pricing_source").dropna().empty
@@ -276,10 +313,13 @@ def build_export_frames(
 
     decision_score = (cost_weight * cost_savings_pct) + (carbon_weight * emissions_reduction_pct)
     summary_note = _build_summary_note(
+        objective=objective,
         region=region,
         start_local=_format_local_timestamp(start_ts),
         cost_savings_pct=cost_savings_pct,
         emissions_reduction_pct=emissions_reduction_pct,
+        price_weight=cost_weight,
+        carbon_weight=carbon_weight,
     )
 
     selected_timestamp_set = set(selected_df["timestamp"].tolist()) if not selected_df.empty else set()

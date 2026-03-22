@@ -61,3 +61,29 @@ def test_block_mode_fails_when_no_contiguous_window_is_available():
             schedule_mode="block",
             current_time_override="2026-03-20 00:00:00",
         )
+
+
+def test_block_mode_balanced_selects_best_tradeoff_window():
+    timestamps = pd.date_range("2026-03-20 00:00:00", periods=6, freq="h")
+    forecast_df = pd.DataFrame(
+        {
+            "timestamp": timestamps,
+            "carbon_g_per_kwh": [10, 10, 80, 80, 40, 40],
+            "price_per_kwh": [0.80, 0.80, 0.10, 0.10, 0.30, 0.30],
+        }
+    )
+
+    optimized_df = optimize_schedule(
+        forecast_df=forecast_df,
+        compute_hours_required=2,
+        objective="balanced",
+        carbon_weight=0.5,
+        price_weight=0.5,
+        schedule_mode="block",
+        current_time_override="2026-03-20 00:00:00",
+    )
+
+    selected_rows = optimized_df[optimized_df["run_flag"] == 1].copy()
+    assert selected_rows["timestamp"].tolist() == list(
+        pd.date_range("2026-03-20 04:00:00", periods=2, freq="h")
+    )

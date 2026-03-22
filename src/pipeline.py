@@ -198,6 +198,8 @@ def run_util_pipeline(
         deadline=workload_input.deadline,
         schedule_mode=schedule_mode,
         current_time_override=reference_now,
+        carbon_weight=workload_input.carbon_weight,
+        price_weight=workload_input.price_weight,
     )
 
     schedule_df = build_schedule_func(optimized_df)

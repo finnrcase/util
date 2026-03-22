@@ -332,6 +332,59 @@ def build_theme_css(tokens: dict[str, str]) -> str:
         mask: linear-gradient(180deg, rgba(255,255,255,0.75), transparent 48%);
     }}
 
+    .util-card-highlight {{
+        background:
+            linear-gradient(180deg, rgba(255,255,255,0.08), rgba(255,255,255,0.02)),
+            linear-gradient(135deg, rgba(167, 123, 255, 0.26), rgba(123, 109, 255, 0.18)),
+            linear-gradient(140deg, rgba(18, 23, 38, 0.9), rgba(10, 13, 22, 0.8));
+        border: 1px solid rgba(157, 180, 255, 0.28);
+        box-shadow:
+            inset 0 1px 0 rgba(255,255,255,0.08),
+            0 20px 38px rgba(34, 50, 95, 0.34);
+    }}
+
+    .util-card-highlight::after {{
+        content: "";
+        position: absolute;
+        inset: auto -10% -55% auto;
+        width: 180px;
+        height: 180px;
+        border-radius: 50%;
+        background: radial-gradient(circle, rgba(139, 92, 246, 0.22), transparent 72%);
+        filter: blur(10px);
+        pointer-events: none;
+    }}
+
+    .util-loading-card {{
+        display: flex;
+        align-items: center;
+        gap: 0.95rem;
+        min-height: 96px;
+    }}
+
+    .util-loading-spinner {{
+        width: 22px;
+        height: 22px;
+        border-radius: 999px;
+        border: 2px solid rgba(167, 123, 255, 0.22);
+        border-top-color: var(--util-accent-violet);
+        border-right-color: var(--util-accent-blue);
+        box-shadow: 0 0 0 6px rgba(139, 92, 246, 0.08);
+        animation: util-spin 0.8s linear infinite;
+        flex: 0 0 auto;
+    }}
+
+    .util-loading-copy {{
+        color: var(--util-text-soft);
+        font-size: 0.96rem;
+        line-height: 1.6;
+    }}
+
+    @keyframes util-spin {{
+        from {{ transform: rotate(0deg); }}
+        to {{ transform: rotate(360deg); }}
+    }}
+
     .util-section-shell {{
         position: relative;
         overflow: hidden;
@@ -684,11 +737,17 @@ st.markdown(build_theme_css(THEME_TOKENS), unsafe_allow_html=True)
 # Helpers
 # ---------------------------------------------------
 
-def render_metric_card(label: str, value: str, delta: str | None = None):
+def render_metric_card(
+    label: str,
+    value: str,
+    delta: str | None = None,
+    highlighted: bool = False,
+):
     delta_html = f'<div class="util-metric-delta">{delta}</div>' if delta else ""
+    card_class = "util-card util-card-highlight" if highlighted else "util-card"
     st.markdown(
         f"""
-        <div class="util-card">
+        <div class="{card_class}">
             <div class="util-metric-label">{label}</div>
             <div class="util-metric-value">{value}</div>
             {delta_html}
@@ -725,6 +784,105 @@ def render_info_card(title: str, body: str):
         """,
         unsafe_allow_html=True,
     )
+
+
+def render_loading_card(title: str, body: str):
+    st.markdown(
+        f"""
+        <div class="util-card util-loading-card">
+            <div class="util-loading-spinner"></div>
+            <div>
+                <div class="util-card-title">{title}</div>
+                <div class="util-loading-copy">{body}</div>
+            </div>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+
+
+def _format_interpretation_html(lines: list[str]) -> str:
+    items = "".join(f"<li>{line}</li>" for line in lines if line)
+    return f'<ul style="margin:0.35rem 0 0 1rem; padding:0; color:#c8d3eb; line-height:1.7;">{items}</ul>'
+
+
+def build_interpretation_content(
+    *,
+    result: dict,
+    comparison: dict,
+    schedule_mode_label: str,
+) -> dict[str, str]:
+    workload = result["workload_input"]
+    optimized_df = result["optimized"].copy()
+    forecast_df = result["forecast"].copy()
+    metrics = result["metrics"]
+
+    optimized_df["timestamp"] = pd.to_datetime(optimized_df["timestamp"])
+    selected_df = optimized_df[optimized_df["run_flag"] == 1].copy().sort_values("timestamp")
+    eligible_df = optimized_df[optimized_df["eligible_flag"] == 1].copy().sort_values("timestamp")
+
+    if selected_df.empty or eligible_df.empty:
+        fallback = "This schedule was selected as the best feasible option within the analyzed window."
+        return {
+            "summary": fallback,
+            "driver": "Primary driver: no single dominant driver could be determined from the available run output.",
+            "constraint": "Constraint: limited optimization detail was available for this run.",
+        }
+
+    interval_minutes = infer_interval_minutes(optimized_df)
+    interval_hours = interval_minutes / 60.0
+    selected_hours = len(selected_df) * interval_hours
+    feasible_hours = len(eligible_df) * interval_hours
+    slack_hours = max(feasible_hours - selected_hours, 0.0)
+    eligible_ratio = len(selected_df) / max(len(eligible_df), 1)
+
+    pricing_status = ""
+    if "pricing_status" in forecast_df.columns and not forecast_df["pricing_status"].dropna().empty:
+        pricing_status = str(forecast_df["pricing_status"].dropna().iloc[0]).strip().lower()
+
+    objective = workload.objective
+    if objective == "carbon":
+        summary = (
+            "Util selected this schedule because it minimized carbon emissions within the feasible run window."
+        )
+        if metrics["cost_savings"] > 0:
+            summary += f" It also lowered realized electricity cost by ${metrics['cost_savings']:.2f} versus baseline."
+        driver = "Primary driver: lower marginal emissions during the selected hours."
+    elif objective == "cost":
+        summary = (
+            "Util selected this schedule because it shifted the workload into lower-cost hours while preserving feasibility before the deadline."
+        )
+        if metrics["carbon_savings_kg"] > 0:
+            summary += f" It also reduced emissions by {metrics['carbon_savings_kg']:.2f} kg CO2 versus baseline."
+        driver = "Primary driver: lower electricity pricing during the selected hours."
+    else:
+        summary = (
+            "This schedule was selected using a balanced score across carbon and electricity cost."
+            f" Util applied weights of {workload.carbon_weight:.0%} carbon and {workload.price_weight:.0%} price."
+        )
+        driver = "Primary driver: combined cost and carbon advantage across the selected window."
+
+    if pricing_status and pricing_status != "live_caiso" and objective in {"cost", "balanced"}:
+        driver = (
+            "Primary driver: the best combined feasible timing across the available carbon signal and placeholder electricity pricing."
+        )
+
+    if schedule_mode_label == "Continuous Block":
+        constraint = "Constraint: the workload needed a continuous runtime block, which reduced scheduling flexibility."
+    elif slack_hours <= max(interval_hours * 2, selected_hours * 0.25):
+        constraint = "Constraint: a tight completion deadline left limited room to move into later windows."
+    elif eligible_ratio >= 0.6:
+        constraint = "Constraint: only a limited share of eligible intervals were available before the deadline."
+    elif comparison["carbon_saved_vs_now_kg"] <= 0 and comparison["cost_saved_vs_now"] <= 0:
+        constraint = "Constraint: there was little separation between feasible intervals, so the best option was only marginally better than running immediately."
+    else:
+        constraint = "Constraint: the optimizer balanced the available feasible intervals within the analyzed window."
+
+    return {
+        "summary": summary,
+        "driver": driver,
+        "constraint": constraint,
+    }
 
 
 def render_callout_grid(items: list[tuple[str, str]], gap: str = "large"):
@@ -886,6 +1044,20 @@ def build_forecast_display_df(
     df["eligible_flag"] = df["eligible_flag"].fillna(0).astype(int)
 
     df["recommended_action"] = df["run_flag"].map({1: "Run", 0: "Wait"})
+    if "carbon_source" not in df.columns:
+        df["carbon_source"] = "available_signal"
+    if "price_signal_source" not in df.columns:
+        df["price_signal_source"] = "available_signal"
+    df["carbon_source"] = df["carbon_source"].apply(format_signal_source_label)
+    df["price_signal_source"] = df["price_signal_source"].apply(format_signal_source_label)
+    print(
+        "[PRICE DEBUG] UI forecast display dataframe:",
+        {
+            "rows": len(df),
+            "non_null_price_rows": int(pd.to_numeric(df.get("price_per_kwh"), errors="coerce").notna().sum()),
+            "columns": list(df.columns),
+        },
+    )
     return df
 
 
@@ -1041,6 +1213,8 @@ def render_status_pills(
     pricing_source = None
     pricing_region_code = None
     pricing_node = None
+    carbon_signal_modes: list[str] = []
+    price_signal_modes: list[str] = []
 
     if "forecast_region_used" in forecast_df.columns:
         non_null_used = forecast_df["forecast_region_used"].dropna()
@@ -1072,6 +1246,20 @@ def render_status_pills(
         if not non_null_pricing_node.empty:
             pricing_node = non_null_pricing_node.iloc[0]
 
+    if "carbon_source" in forecast_df.columns:
+        carbon_signal_modes = sorted(
+            format_signal_source_label(str(value))
+            for value in forecast_df["carbon_source"].dropna().unique().tolist()
+            if value
+        )
+
+    if "price_signal_source" in forecast_df.columns:
+        price_signal_modes = sorted(
+            format_signal_source_label(str(value))
+            for value in forecast_df["price_signal_source"].dropna().unique().tolist()
+            if value
+        )
+
     extra_pills = ""
     if forecast_region_used:
         extra_pills += f'<span class="util-pill">Forecast Region Used: {forecast_region_used}</span>'
@@ -1094,6 +1282,12 @@ def render_status_pills(
 
     if pricing_node:
         extra_pills += f'<span class="util-pill">Price Node: {pricing_node}</span>'
+
+    if carbon_signal_modes:
+        extra_pills += f'<span class="util-pill">Carbon Signal Mix: {", ".join(carbon_signal_modes)}</span>'
+
+    if price_signal_modes:
+        extra_pills += f'<span class="util-pill">Price Signal Mix: {", ".join(price_signal_modes)}</span>'
 
     st.markdown(
         f"""
@@ -1134,6 +1328,7 @@ def build_carbon_chart(display_df: pd.DataFrame) -> alt.Chart:
             alt.Tooltip("timestamp:T", title="Time"),
             alt.Tooltip("carbon_g_per_kwh:Q", title="Carbon (g/kWh)", format=".1f"),
             alt.Tooltip("price_per_kwh:Q", title="Price ($/kWh)", format=".3f"),
+            alt.Tooltip("carbon_source:N", title="Carbon Signal Type"),
             alt.Tooltip("Selected:N", title="Selection")
         ]
     )
@@ -1240,6 +1435,12 @@ def get_outcome_context(objective: str) -> dict[str, str]:
             "carbon_title": "Carbon Outcome Under Price-Optimal Schedule",
             "summary_note": "The schedule was chosen to minimize price, and Util is still reporting the realized carbon outcome.",
         }
+    if objective == "balanced":
+        return {
+            "cost_title": "Cost Outcome Under Balanced Schedule",
+            "carbon_title": "Carbon Outcome Under Balanced Schedule",
+            "summary_note": "This schedule was selected using a weighted balance of carbon and electricity cost.",
+        }
 
     return {
         "cost_title": "Cost Outcome Under Selected Schedule",
@@ -1248,9 +1449,27 @@ def get_outcome_context(objective: str) -> dict[str, str]:
     }
 
 
+def format_objective_label(objective: str) -> str:
+    return {
+        "carbon": "Minimize Carbon",
+        "cost": "Minimize Price",
+        "balanced": "Balanced",
+    }.get(objective, str(objective).title())
+
+
+def format_signal_source_label(source: str) -> str:
+    return {
+        "live_forecast": "Live forecast",
+        "historical_pattern_estimate": "Historical-pattern estimate",
+        "placeholder": "Placeholder",
+        "available_signal": "Available signal",
+    }.get(str(source), str(source).replace("_", " ").title())
+
+
 def build_price_chart(display_df: pd.DataFrame) -> alt.Chart:
     chart_df = display_df.copy()
     chart_df["timestamp"] = pd.to_datetime(chart_df["timestamp"])
+    chart_df["Selected"] = chart_df["run_flag"].apply(lambda x: "Selected" if x == 1 else "Not Selected")
 
     axis = alt.Axis(
         titleColor="#dbe7ff",
@@ -1260,14 +1479,28 @@ def build_price_chart(display_df: pd.DataFrame) -> alt.Chart:
         tickColor="rgba(157, 180, 255, 0.16)",
     )
 
-    return alt.Chart(chart_df).mark_line(color="#8b5cf6", strokeWidth=3).encode(
+    base = alt.Chart(chart_df).encode(
         x=alt.X("timestamp:T", title="Time", axis=axis),
         y=alt.Y("price_per_kwh:Q", title="Price ($/kWh)", axis=axis),
+    )
+
+    line = base.mark_line(color="#8b5cf6", strokeWidth=3).encode(
         tooltip=[
             alt.Tooltip("timestamp:T", title="Time"),
-            alt.Tooltip("price_per_kwh:Q", title="Price ($/kWh)", format=".3f")
+            alt.Tooltip("price_per_kwh:Q", title="Price ($/kWh)", format=".3f"),
+            alt.Tooltip("price_signal_source:N", title="Price Signal Type"),
+            alt.Tooltip("Selected:N", title="Selection"),
         ]
-    ).properties(height=300).configure_view(
+    )
+
+    selected_points = base.transform_filter(
+        alt.datum.run_flag == 1
+    ).mark_circle(
+        size=90,
+        color="#6ee7b7"
+    )
+
+    return (line + selected_points).properties(height=300).configure_view(
         strokeWidth=0
     ).configure(
         background="transparent"
@@ -1370,7 +1603,15 @@ def render_recommendation_card(
     workload = result["workload_input"]
     run_window = build_run_window_summary(schedule_df)
 
-    objective_label = "carbon emissions" if workload.objective == "carbon" else "electricity cost"
+    if workload.objective == "carbon":
+        objective_label = "carbon emissions"
+    elif workload.objective == "cost":
+        objective_label = "electricity cost"
+    else:
+        objective_label = (
+            f"a weighted balance of carbon and electricity cost "
+            f"({workload.carbon_weight:.0%} carbon / {workload.price_weight:.0%} price)"
+        )
 
     st.subheader("Carbon Forecast with Recommended Intervals")
     st.altair_chart(build_carbon_chart(display_df), use_container_width=True)
@@ -1379,11 +1620,13 @@ def render_recommendation_card(
     st.altair_chart(build_price_chart(display_df), use_container_width=True)
 
     selected_rows = display_df[display_df["run_flag"] == 1][[
-        "hour_label", "carbon_g_per_kwh", "price_per_kwh"
+        "hour_label", "carbon_g_per_kwh", "carbon_source", "price_per_kwh", "price_signal_source"
     ]].rename(columns={
         "hour_label": "Selected Run Time",
         "carbon_g_per_kwh": "Carbon (g/kWh)",
-        "price_per_kwh": "Price ($/kWh)"
+        "carbon_source": "Carbon Signal Type",
+        "price_per_kwh": "Price ($/kWh)",
+        "price_signal_source": "Price Signal Type",
     })
 
     st.subheader("Selected Schedule")
@@ -1394,12 +1637,16 @@ def render_recommendation_card(
     forecast_table = display_df[[
         "hour_label",
         "carbon_g_per_kwh",
+        "carbon_source",
         "price_per_kwh",
+        "price_signal_source",
         "recommended_action"
     ]].rename(columns={
         "hour_label": "Time",
         "carbon_g_per_kwh": "Carbon (g/kWh)",
+        "carbon_source": "Carbon Signal Type",
         "price_per_kwh": "Price ($/kWh)",
+        "price_signal_source": "Price Signal Type",
         "recommended_action": "Recommended Action"
     })
 
@@ -1512,19 +1759,39 @@ with tab1:
 
         objective = st.selectbox(
             "Optimization Objective",
-            ["carbon", "cost"]
+            ["Minimize Carbon", "Minimize Price", "Balanced"]
         )
+        objective_value = {
+            "Minimize Carbon": "carbon",
+            "Minimize Price": "cost",
+            "Balanced": "balanced",
+        }[objective]
+
+        carbon_weight_pct = 50
+        price_weight_pct = 50
+        if objective_value == "balanced":
+            carbon_weight_pct = st.slider(
+                "Carbon Weight",
+                min_value=0,
+                max_value=100,
+                value=50,
+                step=1,
+            )
+            price_weight_pct = 100 - carbon_weight_pct
+            st.caption(
+                f"Price Weight: {price_weight_pct}%"
+            )
 
         carbon_estimation_mode_label = st.radio(
             "Carbon Estimate Type",
             [
                 "Short-Term (Live Data - 24 hour access)",
-                "Extended (Estimated Forecast)",
+                "Extended (Historical-Pattern Estimate)",
             ],
             horizontal=True
         )
         st.caption(
-            "Extended mode uses historical data to estimate beyond the live forecast window."
+            "Extended mode keeps the live forecast where available and estimates the remaining horizon from recent historical patterns."
         )
 
         historical_days = st.slider(
@@ -1575,12 +1842,18 @@ with tab1:
             )
         carbon_estimation_mode = (
                     "forecast_plus_historical_expectation"
-                    if carbon_estimation_mode_label == "Extended (Estimated Forecast)"
+                    if carbon_estimation_mode_label == "Extended (Historical-Pattern Estimate)"
                     else "forecast_only"
                 )  
     with col_output:
+        loading_placeholder = st.empty()
         if run_button:
             st.session_state["result"] = None
+            with loading_placeholder.container():
+                render_loading_card(
+                    "Running Optimization",
+                    "Util is fetching signals, evaluating feasible intervals, and preparing your recommendation.",
+                )
             try:
                 forecast_mode = FORECAST_MODE
                 schedule_mode = "block" if schedule_mode_label == "Continuous Block" else "flexible"
@@ -1589,8 +1862,10 @@ with tab1:
                     zip_code=zip_code,
                     compute_hours_required=int(compute_hours),
                     deadline=deadline,
-                    objective=objective,
-                    machine_watts=int(machine_watts)
+                    objective=objective_value,
+                    machine_watts=int(machine_watts),
+                    carbon_weight=carbon_weight_pct / 100,
+                    price_weight=price_weight_pct / 100,
                 )
 
                 result = run_util_pipeline(
@@ -1634,11 +1909,25 @@ with tab1:
                     st.session_state["last_export_package"] = {
                         "error": str(export_error),
                     }
+                loading_placeholder.empty()
 
             except Exception as e:
+                loading_placeholder.empty()
                 error_message = str(e)
+                is_watttime_auth_error = (
+                    forecast_mode == "live_carbon"
+                    and any(
+                        marker in error_message
+                        for marker in [
+                            "WattTime credentials are missing",
+                            "WattTime authentication failed",
+                            "WattTime request failed: unauthorized",
+                            "WattTime request failed: forbidden",
+                        ]
+                    )
+                )
 
-                if forecast_mode == "live_carbon" and "WattTime" in error_message:
+                if is_watttime_auth_error:
                     st.session_state["watttime_token_available"] = False
                     st.error(
                         "Live carbon is currently unavailable because WattTime authentication "
@@ -1647,7 +1936,7 @@ with tab1:
                 elif isinstance(e, InfeasibleScheduleError):
                     st.error(INFEASIBLE_WORKLOAD_MESSAGE)
                 else:
-                    st.error("An error occurred while running the pipeline.")
+                    st.error(error_message or "An error occurred while running the pipeline.")
                     st.exception(e)
 
         result = st.session_state["result"]
@@ -1670,6 +1959,55 @@ with tab1:
             )
 
             st.subheader("Optimization Summary")
+
+            st.markdown('<div class="util-spacer-xs"></div>', unsafe_allow_html=True)
+            k1, k2, k3, k4 = st.columns(4, gap="medium")
+            with k1:
+                render_metric_card(
+                    "Optimized Carbon",
+                    f"{metrics['optimized_carbon_kg']:.2f} kg",
+                    highlighted=True,
+                )
+            with k2:
+                render_metric_card(
+                    "Carbon Reduction vs Baseline",
+                    f"{metrics['carbon_reduction_pct']:.1f}%",
+                    f"Saved: {metrics['carbon_savings_kg']:.2f} kg",
+                    highlighted=True,
+                )
+            with k3:
+                render_metric_card(
+                    "Optimized Cost",
+                    f"${metrics['optimized_cost']:.2f}",
+                    highlighted=True,
+                )
+            with k4:
+                render_metric_card(
+                    "Cost Savings vs Baseline",
+                    f"${metrics['cost_savings']:.2f}",
+                    f"{metrics['cost_reduction_pct']:.1f}% lower",
+                    highlighted=True,
+                )
+
+            st.markdown('<div class="util-spacer-xs"></div>', unsafe_allow_html=True)
+            st.subheader("Compared with Running Immediately")
+
+            st.markdown('<div class="util-spacer-xs"></div>', unsafe_allow_html=True)
+            rn1, rn2 = st.columns(2, gap="medium")
+            with rn1:
+                render_metric_card(
+                    "Carbon Saved vs Run Now",
+                    f"{comparison['carbon_saved_vs_now_kg']:.2f} kg",
+                    f"Run now: {comparison['run_now_carbon_kg']:.2f} kg",
+                    highlighted=True,
+                )
+            with rn2:
+                render_metric_card(
+                    "Cost Saved vs Run Now",
+                    f"${comparison['cost_saved_vs_now']:.2f}",
+                    f"Run now: ${comparison['run_now_cost']:.2f}",
+                    highlighted=True,
+                )
 
             render_status_pills(
                 forecast_mode_label=st.session_state["last_forecast_mode_label"],
@@ -1695,12 +2033,22 @@ with tab1:
             render_callout_grid(
                 [
                     ("Mapped Region", region),
-                    ("Objective", result["workload_input"].objective.title()),
+                    ("Objective", format_objective_label(result["workload_input"].objective)),
                     ("Machine Wattage", f"{int(result['workload_input'].machine_watts):,} W"),
                     ("Selected Intervals", str(run_window["intervals"])),
                 ],
                 gap="medium",
             )
+
+            if result["workload_input"].objective == "balanced":
+                render_callout_grid(
+                    [
+                        ("Carbon Weight", f"{result['workload_input'].carbon_weight:.0%}"),
+                        ("Price Weight", f"{result['workload_input'].price_weight:.0%}"),
+                        ("Selection Logic", "Weighted carbon + price score"),
+                    ],
+                    gap="medium",
+                )
 
             st.markdown('<div class="util-summary-divider"></div>', unsafe_allow_html=True)
             render_info_card(
@@ -1728,49 +2076,6 @@ with tab1:
                 st.caption(
                     "Export package note: "
                     f"{st.session_state['last_export_package']['error']}"
-                )
-
-            st.markdown('<div class="util-spacer-xs"></div>', unsafe_allow_html=True)
-            k1, k2, k3, k4 = st.columns(4, gap="medium")
-            with k1:
-                render_metric_card(
-                    "Optimized Carbon",
-                    f"{metrics['optimized_carbon_kg']:.2f} kg"
-                )
-            with k2:
-                render_metric_card(
-                    "Carbon Reduction vs Baseline",
-                    f"{metrics['carbon_reduction_pct']:.1f}%",
-                    f"Saved: {metrics['carbon_savings_kg']:.2f} kg"
-                )
-            with k3:
-                render_metric_card(
-                    "Optimized Cost",
-                    f"${metrics['optimized_cost']:.2f}"
-                )
-            with k4:
-                render_metric_card(
-                    "Cost Savings vs Baseline",
-                    f"${metrics['cost_savings']:.2f}",
-                    f"{metrics['cost_reduction_pct']:.1f}% lower"
-                )
-
-            st.markdown('<div class="util-spacer-sm"></div>', unsafe_allow_html=True)
-            st.subheader("Compared with Running Immediately")
-
-            st.markdown('<div class="util-spacer-xs"></div>', unsafe_allow_html=True)
-            rn1, rn2 = st.columns(2, gap="medium")
-            with rn1:
-                render_metric_card(
-                    "Carbon Saved vs Run Now",
-                    f"{comparison['carbon_saved_vs_now_kg']:.2f} kg",
-                    f"Run now: {comparison['run_now_carbon_kg']:.2f} kg"
-                )
-            with rn2:
-                render_metric_card(
-                    "Cost Saved vs Run Now",
-                    f"${comparison['cost_saved_vs_now']:.2f}",
-                    f"Run now: ${comparison['run_now_cost']:.2f}"
                 )
 
             st.markdown('<div class="util-spacer-sm"></div>', unsafe_allow_html=True)
@@ -1804,9 +2109,15 @@ with tab2:
         workload = result["workload_input"]
         optimized = result["optimized"]
         objective_context = get_outcome_context(workload.objective)
+        schedule_mode_label = st.session_state.get("last_schedule_mode_label", "Flexible")
         comparison = build_run_now_comparison(
             optimized_df=optimized,
             machine_watts=int(workload.machine_watts)
+        )
+        interpretation = build_interpretation_content(
+            result=result,
+            comparison=comparison,
+            schedule_mode_label=schedule_mode_label,
         )
 
         total_energy_kwh = comparison["optimized_df"].shape[0] * (workload.machine_watts / 1000) * (infer_interval_minutes(result["forecast"]) / 60)
@@ -1834,6 +2145,10 @@ with tab2:
             )
 
         st.caption(objective_context["summary_note"])
+        if workload.objective == "balanced":
+            st.caption(
+                f"Carbon weight: {workload.carbon_weight:.0%}. Price weight: {workload.price_weight:.0%}."
+            )
 
         st.subheader("Baseline vs Optimized")
 
@@ -1915,6 +2230,20 @@ with tab2:
             st.info("Run the optimizer to generate the structured CSV export package.")
 
         st.subheader("Interpretation")
+
+        interpretation_html = _format_interpretation_html(
+            [interpretation["driver"], interpretation["constraint"]]
+        )
+        st.markdown(
+            f"""
+            <div class="util-card">
+                <div class="util-card-title">Recommendation Summary</div>
+                <div class="util-card-copy">{interpretation["summary"]}</div>
+                {interpretation_html}
+            </div>
+            """,
+            unsafe_allow_html=True
+        )
 
         st.markdown(
             f"""

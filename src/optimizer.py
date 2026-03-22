@@ -24,6 +24,11 @@ from src.scheduling_window import (
 )
 
 
+BALANCED_MISSING_DATA_MESSAGE = (
+    "Balanced optimization requires both carbon and price data for every eligible interval."
+)
+
+
 def _infer_interval_minutes(df: pd.DataFrame) -> float:
     """
     Infer the time interval in minutes between forecast rows.
@@ -41,7 +46,40 @@ def _infer_interval_minutes(df: pd.DataFrame) -> float:
     return interval_minutes
 
 
-def _build_score_column(df: pd.DataFrame, objective: str) -> pd.DataFrame:
+def _min_max_normalize(series: pd.Series) -> pd.Series:
+    """
+    Normalize a numeric series to the [0, 1] range.
+    Lower values remain better. If the series has no variation, return zeros.
+    """
+    numeric = pd.to_numeric(series, errors="coerce")
+    min_value = numeric.min()
+    max_value = numeric.max()
+
+    if pd.isna(min_value) or pd.isna(max_value):
+        raise ValueError("Cannot normalize a series with missing numeric values.")
+
+    if max_value == min_value:
+        return pd.Series(0.0, index=series.index)
+
+    return (numeric - min_value) / (max_value - min_value)
+
+
+def _validate_balanced_inputs(df: pd.DataFrame) -> None:
+    required_columns = ["carbon_g_per_kwh", "price_per_kwh"]
+    missing_columns = [col for col in required_columns if col not in df.columns]
+    if missing_columns:
+        raise ValueError(BALANCED_MISSING_DATA_MESSAGE)
+
+    if df[required_columns].isna().any().any():
+        raise ValueError(BALANCED_MISSING_DATA_MESSAGE)
+
+
+def _build_score_column(
+    df: pd.DataFrame,
+    objective: str,
+    carbon_weight: float = 0.5,
+    price_weight: float = 0.5,
+) -> pd.DataFrame:
     """
     Add the optimization score column based on the selected objective.
     Lower score is better.
@@ -52,8 +90,16 @@ def _build_score_column(df: pd.DataFrame, objective: str) -> pd.DataFrame:
         df["score"] = df["carbon_g_per_kwh"]
     elif objective == "cost":
         df["score"] = df["price_per_kwh"]
+    elif objective == "balanced":
+        _validate_balanced_inputs(df)
+        df["normalized_carbon_metric"] = _min_max_normalize(df["carbon_g_per_kwh"])
+        df["normalized_price_metric"] = _min_max_normalize(df["price_per_kwh"])
+        df["score"] = (
+            carbon_weight * df["normalized_carbon_metric"]
+            + price_weight * df["normalized_price_metric"]
+        )
     else:
-        raise ValueError("objective must be either 'carbon' or 'cost'")
+        raise ValueError("objective must be 'carbon', 'cost', or 'balanced'")
 
     return df
 
@@ -75,6 +121,9 @@ def _select_block_schedule(
     eligible_df: pd.DataFrame,
     compute_hours_required: int,
     interval_minutes: float,
+    objective: str,
+    carbon_weight: float = 0.5,
+    price_weight: float = 0.5,
 ) -> pd.DataFrame:
     """
     Select one contiguous run window with the lowest total score.
@@ -87,6 +136,8 @@ def _select_block_schedule(
         raise ValueError("compute_hours_required must be positive")
 
     eligible_df = eligible_df.sort_values("timestamp").reset_index(drop=True).copy()
+    if objective == "balanced":
+        _validate_balanced_inputs(eligible_df)
 
     expected_interval = pd.to_timedelta(interval_minutes, unit="m")
     eligible_df["interval_group"] = (
@@ -97,6 +148,48 @@ def _select_block_schedule(
     best_candidate: tuple[float, int, pd.Timestamp, pd.Timestamp] | None = None
 
     for interval_group, group_df in eligible_df.groupby("interval_group", sort=False):
+        if objective == "balanced":
+            interval_slots_per_hour = max(int(round(60 / interval_minutes)), 1)
+            hour_windows_required = compute_hours_required * interval_slots_per_hour
+            if len(group_df) < hour_windows_required:
+                continue
+
+            rolling_cost = group_df["price_per_kwh"].rolling(window=hour_windows_required).sum()
+            rolling_carbon = group_df["carbon_g_per_kwh"].rolling(window=hour_windows_required).sum()
+            candidate_df = pd.DataFrame(
+                {
+                    "end_idx": group_df.index,
+                    "cost_total": rolling_cost,
+                    "carbon_total": rolling_carbon,
+                }
+            ).dropna().reset_index(drop=True)
+
+            if candidate_df.empty:
+                continue
+
+            candidate_df["normalized_price_metric"] = _min_max_normalize(candidate_df["cost_total"])
+            candidate_df["normalized_carbon_metric"] = _min_max_normalize(candidate_df["carbon_total"])
+            candidate_df["score"] = (
+                carbon_weight * candidate_df["normalized_carbon_metric"]
+                + price_weight * candidate_df["normalized_price_metric"]
+            )
+
+            best_row = candidate_df.loc[candidate_df["score"].idxmin()]
+            selected_end_pos = int(best_row["end_idx"])
+            selected_start_pos = selected_end_pos - hour_windows_required + 1
+            start_hour = eligible_df.loc[selected_start_pos, "block_hour"]
+            end_hour = eligible_df.loc[selected_end_pos, "block_hour"]
+            candidate = (
+                float(best_row["score"]),
+                int(interval_group),
+                start_hour,
+                end_hour,
+            )
+
+            if best_candidate is None or candidate[0] < best_candidate[0]:
+                best_candidate = candidate
+            continue
+
         hourly_df = (
             group_df.groupby("block_hour", as_index=False)
             .agg(score=("score", "mean"))
@@ -162,6 +255,8 @@ def optimize_schedule(
     deadline: str | None = None,
     schedule_mode: str = "flexible",
     current_time_override: str | None = None,
+    carbon_weight: float = 0.5,
+    price_weight: float = 0.5,
 ) -> pd.DataFrame:
     """
     Select the best times to run based on the chosen objective,
@@ -177,7 +272,7 @@ def optimize_schedule(
     compute_hours_required : int
         Number of compute hours needed.
     objective : str
-        Either 'carbon' or 'cost'.
+        One of 'carbon', 'cost', or 'balanced'.
     deadline : str | None
         Optional ISO-format datetime string. Only rows between the current
         time and this deadline will be eligible for selection.
@@ -194,8 +289,8 @@ def optimize_schedule(
         - eligible_flag
         - run_flag
     """
-    if objective not in ["carbon", "cost"]:
-        raise ValueError("objective must be either 'carbon' or 'cost'")
+    if objective not in ["carbon", "cost", "balanced"]:
+        raise ValueError("objective must be 'carbon', 'cost', or 'balanced'")
 
     if schedule_mode not in ["flexible", "block"]:
         raise ValueError("schedule_mode must be either 'flexible' or 'block'")
@@ -228,7 +323,12 @@ def optimize_schedule(
 
     eligible_df = df[df["eligible_flag"] == 1].copy()
 
-    eligible_df = _build_score_column(eligible_df, objective)
+    eligible_df = _build_score_column(
+        eligible_df,
+        objective,
+        carbon_weight=carbon_weight,
+        price_weight=price_weight,
+    )
 
     if schedule_mode == "flexible":
         ensure_window_feasibility(slots_required, len(eligible_df))
@@ -238,6 +338,9 @@ def optimize_schedule(
             eligible_df=eligible_df,
             compute_hours_required=compute_hours_required,
             interval_minutes=interval_minutes,
+            objective=objective,
+            carbon_weight=carbon_weight,
+            price_weight=price_weight,
         )
 
     df = df.merge(
