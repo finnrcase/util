@@ -12,7 +12,6 @@ This module handles:
 
 from __future__ import annotations
 
-import os
 from functools import lru_cache
 from datetime import datetime, timedelta, timezone
 from typing import Any
@@ -20,18 +19,7 @@ from typing import Any
 import pandas as pd
 import requests
 from requests.auth import HTTPBasicAuth
-
-try:
-    from dotenv import load_dotenv
-except ModuleNotFoundError:
-    load_dotenv = None
-
-if load_dotenv is not None:
-    load_dotenv()
-
-
-USERNAME = os.getenv("WATTTIME_USERNAME")
-PASSWORD = os.getenv("WATTTIME_PASSWORD")
+from src.runtime_config import get_setting
 
 LOGIN_URL = "https://api2.watttime.org/v2/login"
 FORECAST_URL = "https://api.watttime.org/v3/forecast"
@@ -44,7 +32,10 @@ def get_token() -> str:
     """
     Log in to WattTime and return a bearer token.
     """
-    if not USERNAME or not PASSWORD:
+    username = get_setting("WATTTIME_USERNAME")
+    password = get_setting("WATTTIME_PASSWORD")
+
+    if not username or not password:
         raise ValueError(
             "WattTime credentials are missing. "
             "Set WATTTIME_USERNAME and WATTTIME_PASSWORD in the environment."
@@ -52,7 +43,7 @@ def get_token() -> str:
 
     response = requests.get(
         LOGIN_URL,
-        auth=HTTPBasicAuth(USERNAME, PASSWORD),
+        auth=HTTPBasicAuth(str(username), str(password)),
         timeout=30,
     )
 

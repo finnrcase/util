@@ -1,7 +1,4 @@
 from __future__ import annotations
-
-import os
-from datetime import datetime
 from pathlib import Path
 from typing import Any
 
@@ -16,9 +13,11 @@ from src.analytics import (
     load_analytics_data,
     summarize_analytics,
 )
+from src.runtime_config import get_app_mode, get_setting
+from src.scheduling_window import APP_TIMEZONE
 
 
-ADMIN_PASSWORD = "utiladmin"
+ADMIN_PASSWORD = str(get_setting("UTIL_ADMIN_PASSWORD", "utiladmin"))
 
 
 def init_admin_state() -> None:
@@ -40,8 +39,7 @@ def init_admin_state() -> None:
     if "last_analytics_log_message" not in st.session_state:
         st.session_state["last_analytics_log_message"] = None
 
-    dev_mode = os.getenv("DEV_MODE", "").strip().lower() in {"1", "true", "yes", "on"}
-    if dev_mode:
+    if get_app_mode().lower() == "dev":
         st.session_state["admin_unlocked"] = True
 
 
@@ -103,7 +101,7 @@ def build_run_analytics_record(
             best_start_time = pd.to_datetime(selected_rows["timestamp"], errors="coerce").min()
 
     return {
-        "timestamp": datetime.now(),
+        "timestamp": pd.Timestamp.now(tz=APP_TIMEZONE).tz_localize(None).to_pydatetime(),
         "run_type": run_type,
         "compute_hours": getattr(workload, "compute_hours_required", None),
         "region": result.get("region"),
@@ -362,7 +360,7 @@ def _render_system_status(
 ) -> None:
     st.subheader("System Status")
 
-    credentials_configured = bool(os.getenv("WATTTIME_USERNAME")) and bool(os.getenv("WATTTIME_PASSWORD"))
+    credentials_configured = bool(get_setting("WATTTIME_USERNAME")) and bool(get_setting("WATTTIME_PASSWORD"))
     token_available = st.session_state.get("watttime_token_available")
     last_pull = st.session_state.get("last_successful_api_pull_time")
     zip_mapping_available = Path(current_context["zip_mapping_path"]).exists()

@@ -1,6 +1,4 @@
 from __future__ import annotations
-
-import os
 import uuid
 from datetime import datetime, timezone
 from pathlib import Path
@@ -8,6 +6,7 @@ from typing import Any
 
 import pandas as pd
 
+from src.runtime_config import get_float_setting
 from src.scheduling_window import APP_TIMEZONE
 
 
@@ -288,9 +287,9 @@ def build_export_frames(
         pd.to_numeric(selected_df.get("price_per_kwh"), errors="coerce").dropna().mean()
     ) if not selected_df.empty and "price_per_kwh" in selected_df.columns else 0.0
 
-    carbon_price_usd_per_ton = _safe_float(os.getenv("UTIL_CARBON_PRICE_USD_PER_TON")) or 0.0
-    clean_energy_credit_usd = _safe_float(os.getenv("UTIL_CLEAN_ENERGY_CREDIT_USD")) or 0.0
-    electricity_adder_pct = _safe_float(os.getenv("UTIL_ELECTRICITY_PRICE_ADDER_PCT")) or 0.0
+    carbon_price_usd_per_ton = get_float_setting("UTIL_CARBON_PRICE_USD_PER_TON", 0.0) or 0.0
+    clean_energy_credit_usd = get_float_setting("UTIL_CLEAN_ENERGY_CREDIT_USD", 0.0) or 0.0
+    electricity_adder_pct = get_float_setting("UTIL_ELECTRICITY_PRICE_ADDER_PCT", 0.0) or 0.0
 
     optimized_electricity_cost = _safe_float(metrics.get("optimized_cost")) or selected_totals["cost_usd"]
     baseline_electricity_cost = _safe_float(metrics.get("baseline_cost")) or baseline_totals["cost_usd"]

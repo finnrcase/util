@@ -1,6 +1,5 @@
 import base64
 import inspect
-import os
 import streamlit as st
 from datetime import datetime, timedelta
 from pathlib import Path
@@ -16,6 +15,7 @@ from src.metrics import add_interval_impact_columns
 from src.analysis.multi_location import run_multi_location_analysis
 from src.data_fetcher import build_live_historical_export_table
 from src.pipeline import run_util_pipeline
+from src.runtime_config import get_app_mode, get_bool_setting, get_runtime_diagnostics, get_setting
 from src.scheduling_window import (
     APP_TIMEZONE,
     InfeasibleScheduleError,
@@ -38,13 +38,8 @@ CARBON_PATH = DATA_DIR / "sample_carbon_forecast.csv"
 PRICE_PATH = DATA_DIR / "sample_price_forecast.csv"
 ANALYTICS_PATH = PROJECT_ROOT / "data" / "analytics" / "util_admin_analytics.csv"
 EXPORTS_DIR = PROJECT_ROOT / "exports"
-ANALYTICS_LOGGING_ENABLED = os.getenv("UTIL_ANALYTICS_ENABLED", "true").strip().lower() in {
-    "1",
-    "true",
-    "yes",
-    "on",
-}
-DEFAULT_ANALYTICS_RUN_TYPE = os.getenv("UTIL_ANALYTICS_RUN_TYPE", "Real").strip() or "Real"
+ANALYTICS_LOGGING_ENABLED = get_bool_setting("UTIL_ANALYTICS_ENABLED", True)
+DEFAULT_ANALYTICS_RUN_TYPE = str(get_setting("UTIL_ANALYTICS_RUN_TYPE", "Real")).strip() or "Real"
 
 # ---------------------------------------------------
 # Page Setup
@@ -82,6 +77,47 @@ THEME_TOKENS = {
     "radius_md": "22px",
     "radius_sm": "16px",
 }
+
+
+def get_local_now() -> pd.Timestamp:
+    return pd.Timestamp.now(tz=APP_TIMEZONE).tz_localize(None)
+
+
+def build_runtime_diagnostics_payload() -> dict[str, object]:
+    diagnostics = get_runtime_diagnostics()
+    diagnostics["app_timezone"] = APP_TIMEZONE
+    diagnostics["forecast_mode"] = FORECAST_MODE
+    diagnostics["forecast_mode_label"] = FORECAST_MODE_LABEL
+    diagnostics["analytics_path_exists"] = ANALYTICS_PATH.exists()
+    diagnostics["zip_mapping_exists"] = ZIP_PATH.exists()
+    diagnostics["sample_carbon_exists"] = CARBON_PATH.exists()
+    diagnostics["sample_price_exists"] = PRICE_PATH.exists()
+    diagnostics["exports_dir_exists"] = EXPORTS_DIR.exists()
+    return diagnostics
+
+
+def render_runtime_diagnostics() -> None:
+    diagnostics = build_runtime_diagnostics_payload()
+    if not diagnostics.get("show_runtime_diagnostics") and get_app_mode().lower() != "dev":
+        return
+
+    display_items = {
+        "App Mode": diagnostics["app_mode"],
+        "App Timezone": diagnostics["app_timezone"],
+        "Forecast Mode": diagnostics["forecast_mode_label"],
+        "Analytics Logging": "enabled" if diagnostics["analytics_logging_enabled"] else "disabled",
+        "Streamlit Secrets": "available" if diagnostics["streamlit_secrets_available"] else "not detected",
+        "WattTime Config": "present" if diagnostics["watttime_configured"] else "missing",
+        "ZIP Mapping File": "present" if diagnostics["zip_mapping_exists"] else "missing",
+        "Sample Carbon File": "present" if diagnostics["sample_carbon_exists"] else "missing",
+        "Sample Price File": "present" if diagnostics["sample_price_exists"] else "missing",
+        "Analytics File": "present" if diagnostics["analytics_path_exists"] else "not created yet",
+        "Exports Directory": "present" if diagnostics["exports_dir_exists"] else "not created yet",
+    }
+
+    with st.expander("Runtime Diagnostics", expanded=False):
+        st.caption("Non-secret environment status for local vs deployment parity checks.")
+        st.json(display_items)
 
 
 def build_theme_css(tokens: dict[str, str]) -> str:
@@ -1752,6 +1788,8 @@ st.markdown(
     unsafe_allow_html=True
 )
 
+render_runtime_diagnostics()
+
 # ---------------------------------------------------
 # Tabs
 # ---------------------------------------------------
@@ -1858,7 +1896,7 @@ with tab1:
             key="optimizer_machine_watts"
         )
 
-        default_deadline = datetime.now() + timedelta(hours=24)
+        default_deadline = (get_local_now() + timedelta(hours=24)).to_pydatetime()
         deadline = st.datetime_input(
             "Deadline",
             value=default_deadline
@@ -1924,7 +1962,7 @@ with tab1:
                 st.session_state["last_schedule_mode_label"] = schedule_mode_label
                 if forecast_mode == "live_carbon":
                     st.session_state["watttime_token_available"] = True
-                    st.session_state["last_successful_api_pull_time"] = datetime.now().strftime(
+                    st.session_state["last_successful_api_pull_time"] = get_local_now().strftime(
                         "%Y-%m-%d %H:%M:%S"
                     )
 
