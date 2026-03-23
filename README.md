@@ -2,8 +2,10 @@
 > Built as part of a broader research and product initiative exploring cost and carbon optimization in AI and data center infrastructure.
 ### Demo
 https://utilplatformv01.streamlit.app/
+
 Website for download (in progress):
 https://utilcompute.com/
+
 ## Overview
 Util is a decision-support tool that optimizes when and where computational workloads should run to minimize electricity cost, carbon emissions, or a weighted combination of both.
 
