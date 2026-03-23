@@ -1,0 +1,131 @@
+Util - Compute Cost & Carbon Optimization Engine
+> Built as part of a broader research and product initiative exploring cost and carbon optimization in AI and data center infrastructure.
+## Demo
+https://utilplatformv01.streamlit.app/
+Website for download (in progress):
+https://utilcompute.com/
+Overview
+Util is a decision-support tool that optimizes when and where computational workloads should run to minimize electricity cost, carbon emissions, or a weighted combination of both.
+The system models compute as a constrained optimization problem under real-world conditions by using the variables:
+time-varying electricity prices
+carbon intensity of the grid at any given time
+Workload time requirements
+deadline constraints
+Historical data
+Util produces an optimal execution schedule along with quantified cost and emissions outcomes.
+
+Why this matters
+As compute demand grows (AI training, data centers, research modeling, GPU workloads), energy consumption is becoming a primary cost and sustainability issue.
+
+Key Features
+Optimization Engine
+Minimizes cost, carbon, or a weighted objective
+Built using constrained optimization
+Workload Scheduling
+Allocates compute across time intervals
+Respects users deadlines and compute requirements
+Forecast Integration
+Uses time-series electricity price and carbon intensity data along with machine learning to determine an estimate for future costs and emissions beyond public provided information
+Balanced Optimization Mode
+Allows trade-offs between cost and emissions
+Detailed Outputs
+Optimal schedule (run vs pause)
+Cost and emissions breakdown
+Savings vs baseline
+CSV output
+Interactive Interface
+Streamlit-based UI for real-time scenario analysis
+Workload Shifting (in progress)
+Determines which data centers have access to the cleanest or cheapest energy and shift workloads accordingly
+
+Example Output
+Hour
+Run %
+Price
+Carbon
+1 AM
+100%
+Low
+Low
+2 AM
+100%
+Low
+Low
+5 PM
+0%
+High
+High
+
+Result:
+Cost reduction: ~$7.20
+Carbon reduction: ~18%
+
+System Architecture
+User Input
+  ↓
+Location Mapping
+  ↓
+Energy Data Fetcher
+  ↓
+Forecast Engine
+  ↓
+Optimization Engine
+  ↓
+Scheduler
+  ↓
+Dashboard Output
+
+Tech Stack
+Python
+pandas / numpy — data processing
+scipy.optimize — optimization engine
+Streamlit — frontend interface
+Altair — visualization
+
+How It Works
+Util solves:
+Minimize:
+Cost = Σ(power × price × time)
+ or
+ Carbon = Σ(power × carbon_intensity × time)
+Subject to:
+required compute hours
+deadline constraint
+machine capacity
+
+Installation
+1. Clone the repository
+git clone https://github.com/yourusername/util.git
+cd util
+
+2. Install dependencies
+pip install -r requirements.txt
+
+3. Run the app
+streamlit run app.py
+
+Use Cases
+AI model training optimization
+GPU workload scheduling
+data center cost reduction
+carbon-aware compute planning
+research and academic compute workloads
+
+Roadmap
+Downloadable result packages (CSV / scenario outputs)
+Improved location-based data mapping
+Multi-region compute optimization
+Cloud integration for persistent run storage
+Automated workload control
+
+About
+Util is being developed as an early-stage product exploring the intersection of:
+infrastructure economics
+energy systems
+cost optimization
+AI compute
+
+Author
+Finn Case
+ Economics @ UC Santa Barbara
+ Focus: infrastructure, energy systems, and cost optimization in technology environments
