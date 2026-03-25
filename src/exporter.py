@@ -6,6 +6,7 @@ from typing import Any
 
 import pandas as pd
 
+from src.cloud.s3_storage import upload_run_outputs
 from src.runtime_config import get_float_setting
 from src.scheduling_window import APP_TIMEZONE
 
@@ -604,9 +605,14 @@ def generate_export_package(
         workload_type=workload_type,
     )
     files = write_export_frames(export_dir, frames)
+    cloud_uploads = upload_run_outputs(resolved_run_id, files)
 
     return {
         "run_id": resolved_run_id,
         "export_dir": str(export_dir),
         "files": [str(path) for path in files],
+        "cloud_outputs": cloud_uploads["files"],
+        "cloud_storage_configured": cloud_uploads["configured"],
+        "cloud_message": cloud_uploads["message"],
+        "s3_bucket_name": cloud_uploads["bucket_name"],
     }

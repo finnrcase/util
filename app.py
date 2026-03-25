@@ -1,5 +1,6 @@
 import base64
 import inspect
+import logging
 import streamlit as st
 from datetime import datetime, timedelta
 from pathlib import Path
@@ -21,6 +22,8 @@ from src.scheduling_window import (
     InfeasibleScheduleError,
     INFEASIBLE_WORKLOAD_MESSAGE,
 )
+
+logger = logging.getLogger(__name__)
 
 # ---------------------------------------------------
 # Paths
@@ -2287,6 +2290,16 @@ with tab1:
                         f"<strong>{export_package['export_dir']}</strong>."
                     ),
                 )
+                if export_package.get("cloud_storage_configured") and export_package.get("cloud_outputs"):
+                    render_info_card(
+                        "Cloud Saved Outputs",
+                        (
+                            f"{len(export_package['cloud_outputs'])} files were uploaded to private S3 storage "
+                            f"for run <strong>{export_package['run_id']}</strong>."
+                        ),
+                    )
+                elif export_package.get("cloud_message"):
+                    st.caption(export_package["cloud_message"])
             elif (
                 st.session_state.get("last_export_package")
                 and st.session_state["last_export_package"].get("error")
@@ -2444,6 +2457,33 @@ with tab2:
                         st.caption(f"{filename} unavailable for this run.")
 
             st.caption(f"Export folder: {export_dir}")
+        else:
+            st.info("Run the optimizer to generate the structured CSV export package.")
+
+        st.subheader("Cloud Saved Outputs")
+        if export_package:
+            cloud_outputs = export_package.get("cloud_outputs", [])
+            cloud_message = export_package.get("cloud_message")
+
+            if cloud_outputs:
+                for cloud_output in cloud_outputs:
+                    file_name = cloud_output.get("file_name", "download")
+                    download_url = cloud_output.get("download_url")
+                    s3_key = cloud_output.get("s3_key", "")
+                    if download_url:
+                        st.markdown(f"- [{file_name}]({download_url})")
+                    elif cloud_output.get("error"):
+                        logger.warning("Cloud upload unavailable for %s: %s", file_name, cloud_output["error"])
+                        st.caption(f"{file_name}: upload failed")
+                    else:
+                        st.caption(f"{file_name}: link unavailable")
+
+                    if s3_key:
+                        st.caption(f"S3 key: {s3_key}")
+            elif cloud_message:
+                st.info(cloud_message)
+            else:
+                st.caption("No cloud-saved outputs available for this run.")
         else:
             st.info("Run the optimizer to generate the structured CSV export package.")
 
