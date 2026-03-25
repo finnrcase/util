@@ -71,17 +71,42 @@ def _fetch_live_forecast_with_fallback(region: str):
     Attempt to fetch WattTime forecast for requested region.
     If WattTime plan does not allow it, fall back to CAISO_NORTH.
     """
+    print(f"[FORECAST DEBUG] Requesting WattTime forecast for region: {region}")
     try:
         carbon_df = get_watttime_forecast(region)
         region_used = region
         access_mode = "direct_region"
+        print(
+            "[FORECAST DEBUG] Direct region forecast succeeded.",
+            {
+                "requested_region": region,
+                "forecast_region_used": region_used,
+                "access_mode": access_mode,
+                "row_count": len(carbon_df),
+            },
+        )
 
     except ValueError as exc:
         error_text = str(exc)
+        print(
+            "[FORECAST DEBUG] Direct region forecast failed.",
+            {
+                "requested_region": region,
+                "error": error_text,
+            },
+        )
 
         if "forbidden (403)" in error_text or "INVALID_SCOPE" in error_text:
 
             fallback_region = "CAISO_NORTH"
+            print(
+                "[FORECAST DEBUG] Falling back to preview region.",
+                {
+                    "requested_region": region,
+                    "fallback_region": fallback_region,
+                    "reason": error_text,
+                },
+            )
 
             carbon_df = get_watttime_forecast(fallback_region)
 
@@ -99,16 +124,46 @@ def _fetch_live_historical_with_fallback(region: str, days: int):
     Attempt to fetch WattTime historical data for requested region.
     Falls back to CAISO_NORTH if needed.
     """
+    print(
+        "[HISTORICAL DEBUG] Requesting WattTime historical data.",
+        {
+            "region": region,
+            "days": days,
+        },
+    )
     try:
         historical_df = get_watttime_historical(region=region, days=days)
         region_used = region
+        print(
+            "[HISTORICAL DEBUG] Direct region historical fetch succeeded.",
+            {
+                "requested_region": region,
+                "historical_region_used": region_used,
+                "row_count": len(historical_df),
+            },
+        )
 
     except ValueError as exc:
         error_text = str(exc)
+        print(
+            "[HISTORICAL DEBUG] Direct region historical fetch failed.",
+            {
+                "requested_region": region,
+                "error": error_text,
+            },
+        )
 
         if "forbidden (403)" in error_text or "INVALID_SCOPE" in error_text:
 
             fallback_region = "CAISO_NORTH"
+            print(
+                "[HISTORICAL DEBUG] Falling back to preview region.",
+                {
+                    "requested_region": region,
+                    "fallback_region": fallback_region,
+                    "reason": error_text,
+                },
+            )
 
             historical_df = get_watttime_historical(
                 region=fallback_region,

@@ -1960,6 +1960,9 @@ with tab1:
         st.subheader("Inputs")
 
         zip_code = st.text_input("ZIP Code", "93106")
+        st.caption(
+            "Location-based forecasting is still in progress. For now, please use the provided ZIP code."
+        )
 
         compute_hours = st.number_input(
             "Compute Hours Required",

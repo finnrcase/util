@@ -17,10 +17,27 @@ def resolve_zip_to_watttime_region(zip_code: str) -> dict[str, Any]:
     Flow:
     ZIP code -> latitude/longitude -> WattTime region
     """
+    print(f"[LOCATION DEBUG] ZIP received: {zip_code}")
     coordinate_info = zip_to_coordinates(zip_code)
+    print(
+        "[LOCATION DEBUG] ZIP resolved to coordinates:",
+        {
+            "zip_code": coordinate_info["zip_code"],
+            "latitude": coordinate_info["latitude"],
+            "longitude": coordinate_info["longitude"],
+        },
+    )
     region_info = coordinates_to_watttime_region(
         latitude=coordinate_info["latitude"],
         longitude=coordinate_info["longitude"],
+    )
+    print(
+        "[LOCATION DEBUG] Coordinates resolved to WattTime region:",
+        {
+            "region": region_info["watttime_region"],
+            "region_full_name": region_info["watttime_region_full_name"],
+            "signal_type": region_info["signal_type"],
+        },
     )
 
     return {

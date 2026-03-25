@@ -165,6 +165,15 @@ def run_util_pipeline(
     elif forecast_mode == "live_carbon":
         location_info = resolve_zip_to_watttime_region(workload_input.zip_code)
         region = location_info["watttime_region"]
+        print(
+            "[PIPELINE DEBUG] Live carbon location context:",
+            {
+                "zip_code": workload_input.zip_code,
+                "latitude": location_info["latitude"],
+                "longitude": location_info["longitude"],
+                "watttime_region": region,
+            },
+        )
 
     else:
         raise ValueError(
