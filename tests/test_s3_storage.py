@@ -18,6 +18,7 @@ def _make_workspace_temp_dir() -> Path:
 def test_upload_run_outputs_returns_local_only_when_unconfigured(monkeypatch) -> None:
     monkeypatch.setattr(s3_storage, "get_setting", lambda name, default=None: default)
     s3_storage.create_s3_client.cache_clear()
+    s3_storage._log_s3_env_detection.cache_clear()
 
     result = s3_storage.upload_run_outputs("util-test-run", [])
 
@@ -37,6 +38,7 @@ def test_upload_run_outputs_builds_s3_keys_and_urls(monkeypatch) -> None:
 
     monkeypatch.setattr(s3_storage, "get_setting", lambda name, default=None: settings.get(name, default))
     monkeypatch.setattr(s3_storage, "create_s3_client", lambda: object())
+    s3_storage._log_s3_env_detection.cache_clear()
 
     def fake_upload_file_to_s3(local_path, s3_key):
         uploads.append(s3_key)
@@ -132,3 +134,25 @@ def test_generate_export_package_includes_cloud_metadata(monkeypatch) -> None:
         assert export_package["cloud_outputs"][0]["s3_key"] == "runs/util-fixed-run/util_optimization_recommendation.csv"
     finally:
         shutil.rmtree(temp_dir, ignore_errors=True)
+
+
+def test_s3_env_detection_logs_presence_without_secret_values(monkeypatch, caplog) -> None:
+    settings = {
+        "AWS_ACCESS_KEY_ID": "visible-only-as-present",
+        "AWS_SECRET_ACCESS_KEY": "super-secret-value",
+        "AWS_REGION": "",
+        "S3_BUCKET_NAME": "util-private-bucket",
+    }
+
+    monkeypatch.setattr(s3_storage, "get_setting", lambda name, default=None: settings.get(name, default))
+    s3_storage._log_s3_env_detection.cache_clear()
+
+    with caplog.at_level("INFO"):
+        s3_storage._get_s3_settings()
+
+    log_text = "\n".join(caplog.messages)
+    assert "AWS_ACCESS_KEY_ID=yes" in log_text
+    assert "AWS_SECRET_ACCESS_KEY=yes" in log_text
+    assert "AWS_REGION=no" in log_text
+    assert "S3_BUCKET_NAME=yes" in log_text
+    assert "super-secret-value" not in log_text

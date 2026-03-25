@@ -20,9 +20,23 @@ except ModuleNotFoundError:
 
 
 logger = logging.getLogger(__name__)
+AWS_ENV_VARS = (
+    "AWS_ACCESS_KEY_ID",
+    "AWS_SECRET_ACCESS_KEY",
+    "AWS_REGION",
+    "S3_BUCKET_NAME",
+)
+
+
+@lru_cache(maxsize=1)
+def _log_s3_env_detection() -> None:
+    for env_name in AWS_ENV_VARS:
+        detected = bool(str(get_setting(env_name, "")).strip())
+        logger.info("S3 env detected: %s=%s", env_name, "yes" if detected else "no")
 
 
 def _get_s3_settings() -> dict[str, str] | None:
+    _log_s3_env_detection()
     access_key = str(get_setting("AWS_ACCESS_KEY_ID", "")).strip()
     secret_key = str(get_setting("AWS_SECRET_ACCESS_KEY", "")).strip()
     region = str(get_setting("AWS_REGION", "")).strip()
