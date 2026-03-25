@@ -2049,6 +2049,7 @@ with tab1:
             "Save outputs to AWS cloud",
             key="save_outputs_to_cloud",
         )
+        cloud_save_enabled = bool(st.session_state.get("save_outputs_to_cloud", False))
 
         run_button = st.button("Run Optimization")
 
@@ -2129,7 +2130,7 @@ with tab1:
                     export_package = generate_export_package(
                         result=result,
                         export_root=EXPORTS_DIR,
-                        enable_cloud_upload=save_outputs_to_cloud,
+                        enable_cloud_upload=cloud_save_enabled,
                     )
                     result["export_package"] = export_package
                     st.session_state["last_export_package"] = export_package
@@ -2471,7 +2472,10 @@ with tab2:
 
         st.subheader("Cloud Saved Outputs")
         if export_package:
-            cloud_save_enabled = export_package.get("cloud_save_enabled", False)
+            cloud_save_enabled = export_package.get(
+                "cloud_save_enabled",
+                bool(st.session_state.get("save_outputs_to_cloud", False)),
+            )
             cloud_outputs = export_package.get("cloud_outputs", [])
             cloud_message = export_package.get("cloud_message")
             cloud_status_detail = export_package.get("cloud_status_detail")
