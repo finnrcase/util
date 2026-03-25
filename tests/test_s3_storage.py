@@ -38,7 +38,7 @@ def test_upload_run_outputs_returns_local_only_when_unconfigured(monkeypatch) ->
         s3_storage,
         "resolve_cloud_config",
         lambda: {
-            "source": "environment variables / .env",
+            "source": "missing",
             "values": {
                 "AWS_ACCESS_KEY_ID": "",
                 "AWS_SECRET_ACCESS_KEY": "",
@@ -90,7 +90,7 @@ def test_upload_run_outputs_builds_s3_keys_and_urls(monkeypatch) -> None:
         s3_storage,
         "resolve_cloud_config",
         lambda: {
-            "source": "environment variables / .env",
+            "source": "environment/.env",
             "values": settings,
             "configured": True,
         },
@@ -140,7 +140,7 @@ def test_generate_export_package_includes_cloud_metadata(monkeypatch) -> None:
             "message": "Uploaded 6 files to cloud storage.",
             "bucket_name": "util-private-bucket",
             "region_name": "us-west-2",
-            "status_detail": "Cloud config source: C:/dev/util/.env",
+            "status_detail": "Cloud config source: environment/.env",
             "env_path": "C:/dev/util/.env",
             "failure_reason": None,
             "error_detail": None,
@@ -296,7 +296,7 @@ def test_cloud_status_detail_reports_env_path_without_secret_values(monkeypatch,
         s3_storage,
         "resolve_cloud_config",
         lambda: {
-            "source": "environment variables / .env",
+            "source": "environment/.env",
             "values": settings,
             "configured": True,
         },
@@ -308,8 +308,8 @@ def test_cloud_status_detail_reports_env_path_without_secret_values(monkeypatch,
     log_text = "\n".join(caplog.messages)
     expected_path = str(Path("C:/dev/util/.env"))
     assert env_path == expected_path
-    assert detail == "Cloud config source: environment variables / .env | local env path: C:/dev/util/.env"
-    assert "Cloud config source: environment variables / .env | local env path: C:/dev/util/.env" in log_text
+    assert detail == "Cloud config source: environment/.env"
+    assert "Cloud config source: environment/.env" in log_text
     assert "super-secret-value" not in log_text
 
 
@@ -340,7 +340,7 @@ def test_build_s3_settings_strips_bucket_comment_suffix(monkeypatch) -> None:
         s3_storage,
         "resolve_cloud_config",
         lambda: {
-            "source": "environment variables / .env",
+            "source": "environment/.env",
             "values": settings,
             "configured": True,
         },
@@ -381,7 +381,7 @@ def test_upload_run_outputs_reports_bucket_access_failure(monkeypatch) -> None:
         s3_storage,
         "resolve_cloud_config",
         lambda: {
-            "source": "environment variables / .env",
+            "source": "environment/.env",
             "values": settings,
             "configured": True,
         },
@@ -435,6 +435,6 @@ def test_resolve_cloud_config_falls_back_to_env(monkeypatch) -> None:
 
     result = runtime_config.resolve_cloud_config()
 
-    assert result["source"] == "environment variables / .env"
+    assert result["source"] == "environment/.env"
     assert result["values"]["S3_BUCKET_NAME"] == "env-bucket"
     assert result["configured"] is True
