@@ -187,9 +187,17 @@ def upload_run_outputs(run_id, file_paths):
     settings = settings_result["settings"]
     client = create_s3_client()
     if settings is None:
+        env_diagnostics = get_project_env_diagnostics()
+        if not env_diagnostics["exists"]:
+            message = (
+                "Cloud storage is disabled because no .env file is present in the runtime workspace "
+                f"at {settings_result['env_path']}"
+            )
+        else:
+            message = "Cloud storage not configured, using local only"
         return {
             "configured": False,
-            "message": "Cloud storage not configured, using local only",
+            "message": message,
             "bucket_name": None,
             "files": [],
             "diagnostics": settings_result["diagnostics"],

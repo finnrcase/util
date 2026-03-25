@@ -83,7 +83,21 @@ cd util
 2. Install dependencies
 pip install -r requirements.txt
 
-3. Run the app
+3. Create a `.env` file in the project root
+The app expects `.env` at the root of the running workspace, next to `app.py`.
+If you run Util in a mounted or containerized workspace, that workspace must also contain its own `.env` file.
+
+Template:
+```env
+WATTTIME_USERNAME=your_watttime_username
+WATTTIME_PASSWORD=your_watttime_password
+AWS_ACCESS_KEY_ID=your_aws_access_key_id
+AWS_SECRET_ACCESS_KEY=your_aws_secret_access_key
+AWS_REGION=your_aws_region
+S3_BUCKET_NAME=your_private_s3_bucket_name
+```
+
+4. Run the app
 streamlit run app.py
 
 ## Use Cases
