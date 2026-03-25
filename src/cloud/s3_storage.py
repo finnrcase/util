@@ -25,12 +25,6 @@ except ModuleNotFoundError:
 
 
 logger = logging.getLogger(__name__)
-AWS_ENV_VARS = (
-    "AWS_ACCESS_KEY_ID",
-    "AWS_SECRET_ACCESS_KEY",
-    "AWS_REGION",
-    "S3_BUCKET_NAME",
-)
 
 
 def _normalize_value(value: Any, *, strip_inline_comment: bool = False) -> str:
@@ -41,57 +35,38 @@ def _normalize_value(value: Any, *, strip_inline_comment: bool = False) -> str:
 
 
 @lru_cache(maxsize=1)
-def _log_s3_env_detection() -> tuple[str, list[str]]:
+def _build_cloud_status_detail() -> tuple[str, str]:
     env_path = load_project_env()
     env_diagnostics = get_project_env_diagnostics()
-    diagnostics: list[str] = [
-        f"Project root detected: {get_project_root()}",
-        f"Env file path: {env_path}",
-        f"Env file exists: {'yes' if env_diagnostics['exists'] else 'no'}",
-        f"Env file empty: {'yes' if env_diagnostics['is_empty'] else 'no'}",
-        f"Parsed env keys: {', '.join(env_diagnostics['parsed_keys']) if env_diagnostics['parsed_keys'] else '<none>'}",
-        f"AWS_ACCESS_KEY_ID key present in file: {'yes' if env_diagnostics['has_aws_access_key_id'] else 'no'}",
-        f"AWS_SECRET_ACCESS_KEY key present in file: {'yes' if env_diagnostics['has_aws_secret_access_key'] else 'no'}",
-        f"AWS_REGION key present in file: {'yes' if env_diagnostics['has_aws_region'] else 'no'}",
-        f"S3_BUCKET_NAME key present in file: {'yes' if env_diagnostics['has_s3_bucket_name'] else 'no'}",
-    ]
+    if not env_diagnostics["exists"]:
+        detail = f"Cloud config source: {env_path} (.env missing)"
+    elif env_diagnostics["is_empty"]:
+        detail = f"Cloud config source: {env_path} (.env present but empty)"
+    else:
+        detail = f"Cloud config source: {env_path}"
 
-    for message in diagnostics[2:]:
-        logger.warning(message)
-
-    for env_name in AWS_ENV_VARS:
-        raw_value = get_setting(env_name, "")
-        strip_inline_comment = env_name in {"AWS_REGION", "S3_BUCKET_NAME"}
-        normalized = _normalize_value(raw_value, strip_inline_comment=strip_inline_comment)
-        detected = bool(normalized)
-        message = f"{env_name} detected: {'yes' if detected else 'no'}"
-        diagnostics.append(message)
-        logger.warning(message)
-
-    return str(env_path), diagnostics
+    logger.info(detail)
+    return str(env_path), detail
 
 
 def _build_s3_settings_result() -> dict[str, Any]:
-    env_path, diagnostics = _log_s3_env_detection()
+    env_path, status_detail = _build_cloud_status_detail()
     access_key = _normalize_value(get_setting("AWS_ACCESS_KEY_ID", ""))
     secret_key = _normalize_value(get_setting("AWS_SECRET_ACCESS_KEY", ""))
     region = _normalize_value(get_setting("AWS_REGION", ""), strip_inline_comment=True)
     bucket_name = _normalize_value(get_setting("S3_BUCKET_NAME", ""), strip_inline_comment=True)
-
-    logger.warning("AWS region in use: %s", region or "<missing>")
-    logger.warning("S3 bucket in use: %s", bucket_name or "<missing>")
-    diagnostics.append(f"AWS region in use: {region or '<missing>'}")
-    diagnostics.append(f"S3 bucket in use: {bucket_name or '<missing>'}")
+    detail = status_detail
 
     if not all([access_key, secret_key, region, bucket_name]):
         return {
             "configured": False,
             "settings": None,
             "message": "Cloud storage not configured, using local only",
-            "diagnostics": diagnostics,
+            "status_detail": detail,
             "env_path": env_path,
         }
 
+    logger.info("S3 configured for bucket=%s region=%s", bucket_name, region)
     return {
         "configured": True,
         "settings": {
@@ -101,7 +76,7 @@ def _build_s3_settings_result() -> dict[str, Any]:
             "bucket_name": bucket_name,
         },
         "message": "",
-        "diagnostics": diagnostics,
+        "status_detail": detail,
         "env_path": env_path,
     }
 
@@ -200,7 +175,7 @@ def upload_run_outputs(run_id, file_paths):
             "message": message,
             "bucket_name": None,
             "files": [],
-            "diagnostics": settings_result["diagnostics"],
+            "status_detail": settings_result["status_detail"],
             "region_name": None,
             "env_path": settings_result["env_path"],
         }
@@ -210,7 +185,7 @@ def upload_run_outputs(run_id, file_paths):
             "message": "Cloud storage unavailable, using local only",
             "bucket_name": settings["bucket_name"],
             "files": [],
-            "diagnostics": settings_result["diagnostics"] + ["S3 client initialization failed. Check logs for the exception message."],
+            "status_detail": settings_result["status_detail"],
             "region_name": settings["region_name"],
             "env_path": settings_result["env_path"],
         }
@@ -240,7 +215,7 @@ def upload_run_outputs(run_id, file_paths):
         "message": message,
         "bucket_name": settings["bucket_name"],
         "files": uploaded_files,
-        "diagnostics": settings_result["diagnostics"],
+        "status_detail": settings_result["status_detail"],
         "region_name": settings["region_name"],
         "env_path": settings_result["env_path"],
     }

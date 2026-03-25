@@ -2464,10 +2464,9 @@ with tab2:
         if export_package:
             cloud_outputs = export_package.get("cloud_outputs", [])
             cloud_message = export_package.get("cloud_message")
-            cloud_diagnostics = export_package.get("cloud_diagnostics", [])
+            cloud_status_detail = export_package.get("cloud_status_detail")
             cloud_region = export_package.get("cloud_region_name")
             cloud_bucket = export_package.get("s3_bucket_name")
-            cloud_env_path = export_package.get("cloud_env_path")
 
             if cloud_outputs:
                 if cloud_bucket or cloud_region:
@@ -2497,10 +2496,8 @@ with tab2:
             else:
                 st.caption("No cloud-saved outputs available for this run.")
 
-            if cloud_env_path:
-                st.caption(f"Env file used: {cloud_env_path}")
-            for diagnostic in cloud_diagnostics:
-                st.caption(diagnostic)
+            if cloud_status_detail:
+                st.caption(cloud_status_detail)
         else:
             st.info("Run the optimizer to generate the structured CSV export package.")
 
