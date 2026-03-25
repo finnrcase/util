@@ -5,7 +5,7 @@ from functools import lru_cache
 from pathlib import Path
 from typing import Any
 
-from src.runtime_config import get_setting
+from src.runtime_config import get_project_root, get_setting, load_project_env
 
 try:
     import boto3
@@ -28,43 +28,98 @@ AWS_ENV_VARS = (
 )
 
 
+def _normalize_value(value: Any, *, strip_inline_comment: bool = False) -> str:
+    text = str(value or "").strip()
+    if strip_inline_comment and " #" in text:
+        text = text.split(" #", 1)[0].rstrip()
+    return text.strip().strip('"').strip("'")
+
+
 @lru_cache(maxsize=1)
-def _log_s3_env_detection() -> None:
+def _log_s3_env_detection() -> tuple[str, list[str]]:
+    env_path = load_project_env()
+    diagnostics: list[str] = [
+        f"Project root detected: {get_project_root()}",
+        f"Env file path: {env_path}",
+    ]
+
     for env_name in AWS_ENV_VARS:
-        detected = bool(str(get_setting(env_name, "")).strip())
-        logger.info("S3 env detected: %s=%s", env_name, "yes" if detected else "no")
+        raw_value = get_setting(env_name, "")
+        strip_inline_comment = env_name in {"AWS_REGION", "S3_BUCKET_NAME"}
+        normalized = _normalize_value(raw_value, strip_inline_comment=strip_inline_comment)
+        detected = bool(normalized)
+        message = f"{env_name} detected: {'yes' if detected else 'no'}"
+        diagnostics.append(message)
+        logger.warning(message)
+
+    return str(env_path), diagnostics
+
+
+def _build_s3_settings_result() -> dict[str, Any]:
+    env_path, diagnostics = _log_s3_env_detection()
+    access_key = _normalize_value(get_setting("AWS_ACCESS_KEY_ID", ""))
+    secret_key = _normalize_value(get_setting("AWS_SECRET_ACCESS_KEY", ""))
+    region = _normalize_value(get_setting("AWS_REGION", ""), strip_inline_comment=True)
+    bucket_name = _normalize_value(get_setting("S3_BUCKET_NAME", ""), strip_inline_comment=True)
+
+    logger.warning("AWS region in use: %s", region or "<missing>")
+    logger.warning("S3 bucket in use: %s", bucket_name or "<missing>")
+    diagnostics.append(f"AWS region in use: {region or '<missing>'}")
+    diagnostics.append(f"S3 bucket in use: {bucket_name or '<missing>'}")
+
+    if not all([access_key, secret_key, region, bucket_name]):
+        return {
+            "configured": False,
+            "settings": None,
+            "message": "Cloud storage not configured, using local only",
+            "diagnostics": diagnostics,
+            "env_path": env_path,
+        }
+
+    return {
+        "configured": True,
+        "settings": {
+            "aws_access_key_id": access_key,
+            "aws_secret_access_key": secret_key,
+            "region_name": region,
+            "bucket_name": bucket_name,
+        },
+        "message": "",
+        "diagnostics": diagnostics,
+        "env_path": env_path,
+    }
 
 
 def _get_s3_settings() -> dict[str, str] | None:
-    _log_s3_env_detection()
-    access_key = str(get_setting("AWS_ACCESS_KEY_ID", "")).strip()
-    secret_key = str(get_setting("AWS_SECRET_ACCESS_KEY", "")).strip()
-    region = str(get_setting("AWS_REGION", "")).strip()
-    bucket_name = str(get_setting("S3_BUCKET_NAME", "")).strip()
-
-    if not all([access_key, secret_key, region, bucket_name]):
-        return None
-
-    return {
-        "aws_access_key_id": access_key,
-        "aws_secret_access_key": secret_key,
-        "region_name": region,
-        "bucket_name": bucket_name,
-    }
+    result = _build_s3_settings_result()
+    return result["settings"]
 
 
 @lru_cache(maxsize=1)
 def create_s3_client():
-    settings = _get_s3_settings()
+    settings_result = _build_s3_settings_result()
+    settings = settings_result["settings"]
     if settings is None or boto3 is None:
+        if boto3 is None:
+            logger.warning("S3 client initialization skipped: boto3 is not installed.")
         return None
 
-    return boto3.client(
-        "s3",
-        aws_access_key_id=settings["aws_access_key_id"],
-        aws_secret_access_key=settings["aws_secret_access_key"],
-        region_name=settings["region_name"],
-    )
+    try:
+        client = boto3.client(
+            "s3",
+            aws_access_key_id=settings["aws_access_key_id"],
+            aws_secret_access_key=settings["aws_secret_access_key"],
+            region_name=settings["region_name"],
+        )
+        logger.warning(
+            "S3 client initialized for bucket=%s region=%s",
+            settings["bucket_name"],
+            settings["region_name"],
+        )
+        return client
+    except Exception as exc:
+        logger.exception("S3 client initialization failed: %s", exc)
+        return None
 
 
 def upload_file_to_s3(local_path, s3_key):
@@ -112,13 +167,28 @@ def create_presigned_download_url(s3_key, expires_in=3600):
 
 
 def upload_run_outputs(run_id, file_paths):
-    settings = _get_s3_settings()
-    if settings is None or create_s3_client() is None:
+    settings_result = _build_s3_settings_result()
+    settings = settings_result["settings"]
+    client = create_s3_client()
+    if settings is None:
         return {
             "configured": False,
             "message": "Cloud storage not configured, using local only",
             "bucket_name": None,
             "files": [],
+            "diagnostics": settings_result["diagnostics"],
+            "region_name": None,
+            "env_path": settings_result["env_path"],
+        }
+    if client is None:
+        return {
+            "configured": False,
+            "message": "Cloud storage unavailable, using local only",
+            "bucket_name": settings["bucket_name"],
+            "files": [],
+            "diagnostics": settings_result["diagnostics"] + ["S3 client initialization failed. Check logs for the exception message."],
+            "region_name": settings["region_name"],
+            "env_path": settings_result["env_path"],
         }
 
     uploaded_files: list[dict[str, Any]] = []
@@ -146,4 +216,7 @@ def upload_run_outputs(run_id, file_paths):
         "message": message,
         "bucket_name": settings["bucket_name"],
         "files": uploaded_files,
+        "diagnostics": settings_result["diagnostics"],
+        "region_name": settings["region_name"],
+        "env_path": settings_result["env_path"],
     }

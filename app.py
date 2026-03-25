@@ -2464,8 +2464,16 @@ with tab2:
         if export_package:
             cloud_outputs = export_package.get("cloud_outputs", [])
             cloud_message = export_package.get("cloud_message")
+            cloud_diagnostics = export_package.get("cloud_diagnostics", [])
+            cloud_region = export_package.get("cloud_region_name")
+            cloud_bucket = export_package.get("s3_bucket_name")
+            cloud_env_path = export_package.get("cloud_env_path")
 
             if cloud_outputs:
+                if cloud_bucket or cloud_region:
+                    st.caption(
+                        f"Cloud target: bucket={cloud_bucket or '<missing>'}, region={cloud_region or '<missing>'}"
+                    )
                 for cloud_output in cloud_outputs:
                     file_name = cloud_output.get("file_name", "download")
                     download_url = cloud_output.get("download_url")
@@ -2482,8 +2490,17 @@ with tab2:
                         st.caption(f"S3 key: {s3_key}")
             elif cloud_message:
                 st.info(cloud_message)
+                if cloud_bucket or cloud_region:
+                    st.caption(
+                        f"Cloud target: bucket={cloud_bucket or '<missing>'}, region={cloud_region or '<missing>'}"
+                    )
             else:
                 st.caption("No cloud-saved outputs available for this run.")
+
+            if cloud_env_path:
+                st.caption(f"Env file used: {cloud_env_path}")
+            for diagnostic in cloud_diagnostics:
+                st.caption(diagnostic)
         else:
             st.info("Run the optimizer to generate the structured CSV export package.")
 

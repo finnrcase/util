@@ -16,10 +16,39 @@ except ModuleNotFoundError:
     st = None
 
 
-PROJECT_ROOT = Path(__file__).resolve().parents[1]
+def _candidate_project_roots() -> list[Path]:
+    candidates: list[Path] = []
+    module_path = Path(__file__).resolve()
+    cwd_path = Path.cwd().resolve()
+
+    for base in [module_path.parent, *module_path.parents, cwd_path, *cwd_path.parents]:
+        if base not in candidates:
+            candidates.append(base)
+
+    return candidates
+
+
+@lru_cache(maxsize=1)
+def get_project_root() -> Path:
+    for candidate in _candidate_project_roots():
+        if (candidate / "app.py").exists() and (candidate / "src").is_dir():
+            return candidate
+
+    return Path(__file__).resolve().parents[1]
+
+
+@lru_cache(maxsize=1)
+def load_project_env() -> Path:
+    project_root = get_project_root()
+    env_path = project_root / ".env"
+
+    if load_dotenv is not None:
+        load_dotenv(env_path, override=True)
+
+    return env_path
 
 if load_dotenv is not None:
-    load_dotenv(PROJECT_ROOT / ".env")
+    load_project_env()
 
 
 @lru_cache(maxsize=1)

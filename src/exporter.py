@@ -615,4 +615,7 @@ def generate_export_package(
         "cloud_storage_configured": cloud_uploads["configured"],
         "cloud_message": cloud_uploads["message"],
         "s3_bucket_name": cloud_uploads["bucket_name"],
+        "cloud_region_name": cloud_uploads["region_name"],
+        "cloud_diagnostics": cloud_uploads["diagnostics"],
+        "cloud_env_path": cloud_uploads["env_path"],
     }

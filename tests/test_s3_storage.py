@@ -19,12 +19,15 @@ def test_upload_run_outputs_returns_local_only_when_unconfigured(monkeypatch) ->
     monkeypatch.setattr(s3_storage, "get_setting", lambda name, default=None: default)
     s3_storage.create_s3_client.cache_clear()
     s3_storage._log_s3_env_detection.cache_clear()
+    monkeypatch.setattr(s3_storage, "load_project_env", lambda: Path("C:/dev/util/.env"))
+    monkeypatch.setattr(s3_storage, "get_project_root", lambda: Path("C:/dev/util"))
 
     result = s3_storage.upload_run_outputs("util-test-run", [])
 
     assert result["configured"] is False
     assert result["message"] == "Cloud storage not configured, using local only"
     assert result["files"] == []
+    assert result["region_name"] is None
 
 
 def test_upload_run_outputs_builds_s3_keys_and_urls(monkeypatch) -> None:
@@ -39,6 +42,8 @@ def test_upload_run_outputs_builds_s3_keys_and_urls(monkeypatch) -> None:
     monkeypatch.setattr(s3_storage, "get_setting", lambda name, default=None: settings.get(name, default))
     monkeypatch.setattr(s3_storage, "create_s3_client", lambda: object())
     s3_storage._log_s3_env_detection.cache_clear()
+    monkeypatch.setattr(s3_storage, "load_project_env", lambda: Path("C:/dev/util/.env"))
+    monkeypatch.setattr(s3_storage, "get_project_root", lambda: Path("C:/dev/util"))
 
     def fake_upload_file_to_s3(local_path, s3_key):
         uploads.append(s3_key)
@@ -68,6 +73,8 @@ def test_upload_run_outputs_builds_s3_keys_and_urls(monkeypatch) -> None:
         ]
         assert result["files"][0]["download_url"] == "https://signed/runs/util-test-run/util_run_summary.csv"
         assert result["files"][1]["download_url"] == "https://signed/runs/util-test-run/util_input_assumptions.csv"
+        assert result["bucket_name"] == "util-private-bucket"
+        assert result["region_name"] == "us-west-2"
     finally:
         shutil.rmtree(temp_dir, ignore_errors=True)
 
@@ -79,6 +86,9 @@ def test_generate_export_package_includes_cloud_metadata(monkeypatch) -> None:
             "configured": True,
             "message": "Uploaded 6 files to cloud storage.",
             "bucket_name": "util-private-bucket",
+            "region_name": "us-west-2",
+            "diagnostics": ["AWS_ACCESS_KEY_ID detected: yes"],
+            "env_path": "C:/dev/util/.env",
             "files": [
                 {
                     "file_name": Path(file_paths[0]).name,
@@ -146,13 +156,37 @@ def test_s3_env_detection_logs_presence_without_secret_values(monkeypatch, caplo
 
     monkeypatch.setattr(s3_storage, "get_setting", lambda name, default=None: settings.get(name, default))
     s3_storage._log_s3_env_detection.cache_clear()
+    monkeypatch.setattr(s3_storage, "load_project_env", lambda: Path("C:/dev/util/.env"))
+    monkeypatch.setattr(s3_storage, "get_project_root", lambda: Path("C:/dev/util"))
 
     with caplog.at_level("INFO"):
-        s3_storage._get_s3_settings()
+        s3_storage._build_s3_settings_result()
 
     log_text = "\n".join(caplog.messages)
-    assert "AWS_ACCESS_KEY_ID=yes" in log_text
-    assert "AWS_SECRET_ACCESS_KEY=yes" in log_text
-    assert "AWS_REGION=no" in log_text
-    assert "S3_BUCKET_NAME=yes" in log_text
+    assert "AWS_ACCESS_KEY_ID detected: yes" in log_text
+    assert "AWS_SECRET_ACCESS_KEY detected: yes" in log_text
+    assert "AWS_REGION detected: no" in log_text
+    assert "S3_BUCKET_NAME detected: yes" in log_text
+    assert "S3 bucket in use: util-private-bucket" in log_text
+    assert "AWS region in use: <missing>" in log_text
     assert "super-secret-value" not in log_text
+
+
+def test_build_s3_settings_strips_bucket_comment_suffix(monkeypatch) -> None:
+    settings = {
+        "AWS_ACCESS_KEY_ID": "key",
+        "AWS_SECRET_ACCESS_KEY": "secret",
+        "AWS_REGION": "us-west-2 # west",
+        "S3_BUCKET_NAME": "util-private-bucket # prod",
+    }
+
+    monkeypatch.setattr(s3_storage, "get_setting", lambda name, default=None: settings.get(name, default))
+    monkeypatch.setattr(s3_storage, "load_project_env", lambda: Path("C:/dev/util/.env"))
+    monkeypatch.setattr(s3_storage, "get_project_root", lambda: Path("C:/dev/util"))
+    s3_storage._log_s3_env_detection.cache_clear()
+
+    result = s3_storage._build_s3_settings_result()
+
+    assert result["configured"] is True
+    assert result["settings"]["region_name"] == "us-west-2"
+    assert result["settings"]["bucket_name"] == "util-private-bucket"
