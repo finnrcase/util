@@ -16,6 +16,13 @@ try:
 except ModuleNotFoundError:
     st = None
 
+AWS_CLOUD_SETTING_NAMES = (
+    "AWS_ACCESS_KEY_ID",
+    "AWS_SECRET_ACCESS_KEY",
+    "AWS_REGION",
+    "S3_BUCKET_NAME",
+)
+
 
 def _candidate_project_roots() -> list[Path]:
     candidates: list[Path] = []
@@ -87,6 +94,39 @@ def _streamlit_secrets_dict() -> dict[str, Any]:
         return {}
 
 
+def _clean_setting_value(value: Any) -> str:
+    return str(value or "").strip()
+
+
+def get_env_setting(name: str, default: Any = None) -> Any:
+    if name in os.environ:
+        return os.environ[name]
+    return default
+
+
+@lru_cache(maxsize=1)
+def resolve_cloud_config() -> dict[str, Any]:
+    secrets = _streamlit_secrets_dict()
+    secret_values = {name: _clean_setting_value(secrets.get(name, "")) for name in AWS_CLOUD_SETTING_NAMES}
+    env_values = {name: _clean_setting_value(get_env_setting(name, "")) for name in AWS_CLOUD_SETTING_NAMES}
+
+    secrets_complete = all(secret_values.values())
+    env_complete = all(env_values.values())
+
+    if secrets_complete:
+        return {
+            "source": "streamlit secrets",
+            "values": secret_values,
+            "configured": True,
+        }
+
+    return {
+        "source": "environment variables / .env",
+        "values": env_values,
+        "configured": env_complete,
+    }
+
+
 def get_setting(name: str, default: Any = None) -> Any:
     if name in os.environ:
         return os.environ[name]
@@ -120,6 +160,7 @@ def get_app_mode() -> str:
 
 
 def get_runtime_diagnostics() -> dict[str, Any]:
+    cloud_config = resolve_cloud_config()
     return {
         "app_mode": get_app_mode(),
         "python_env": str(get_setting("PYTHON_ENV", "")) or "unset",
@@ -129,5 +170,7 @@ def get_runtime_diagnostics() -> dict[str, Any]:
         "clean_energy_credit_configured": get_setting("UTIL_CLEAN_ENERGY_CREDIT_USD") is not None,
         "electricity_adder_configured": get_setting("UTIL_ELECTRICITY_PRICE_ADDER_PCT") is not None,
         "streamlit_secrets_available": bool(_streamlit_secrets_dict()),
+        "cloud_config_source": cloud_config["source"],
+        "cloud_configured": cloud_config["configured"],
         "show_runtime_diagnostics": get_bool_setting("UTIL_SHOW_RUNTIME_DIAGNOSTICS", False),
     }

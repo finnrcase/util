@@ -1899,6 +1899,9 @@ if "last_schedule_mode_label" not in st.session_state:
 if "last_export_package" not in st.session_state:
     st.session_state["last_export_package"] = None
 
+if "save_outputs_to_cloud" not in st.session_state:
+    st.session_state["save_outputs_to_cloud"] = False
+
 FORECAST_MODE_LABEL = "Live Carbon"
 FORECAST_MODE = "live_carbon"
 
@@ -2042,6 +2045,11 @@ with tab1:
             value=default_deadline
         )
 
+        save_outputs_to_cloud = st.checkbox(
+            "Save outputs to AWS cloud",
+            key="save_outputs_to_cloud",
+        )
+
         run_button = st.button("Run Optimization")
 
         estimated_machine_watts = st.session_state.get("estimated_machine_watts")
@@ -2121,6 +2129,7 @@ with tab1:
                     export_package = generate_export_package(
                         result=result,
                         export_root=EXPORTS_DIR,
+                        enable_cloud_upload=save_outputs_to_cloud,
                     )
                     result["export_package"] = export_package
                     st.session_state["last_export_package"] = export_package
@@ -2290,7 +2299,7 @@ with tab1:
                         f"<strong>{export_package['export_dir']}</strong>."
                     ),
                 )
-                if export_package.get("cloud_storage_configured") and export_package.get("cloud_outputs"):
+                if export_package.get("cloud_save_enabled") and export_package.get("cloud_storage_configured") and export_package.get("cloud_outputs"):
                     render_info_card(
                         "Cloud Saved Outputs",
                         (
@@ -2298,7 +2307,7 @@ with tab1:
                             f"for run <strong>{export_package['run_id']}</strong>."
                         ),
                     )
-                elif export_package.get("cloud_message"):
+                elif export_package.get("cloud_save_enabled") and export_package.get("cloud_message"):
                     st.caption(export_package["cloud_message"])
             elif (
                 st.session_state.get("last_export_package")
@@ -2462,13 +2471,16 @@ with tab2:
 
         st.subheader("Cloud Saved Outputs")
         if export_package:
+            cloud_save_enabled = export_package.get("cloud_save_enabled", False)
             cloud_outputs = export_package.get("cloud_outputs", [])
             cloud_message = export_package.get("cloud_message")
             cloud_status_detail = export_package.get("cloud_status_detail")
             cloud_region = export_package.get("cloud_region_name")
             cloud_bucket = export_package.get("s3_bucket_name")
+            cloud_failure_reason = export_package.get("cloud_failure_reason")
+            cloud_error_detail = export_package.get("cloud_error_detail")
 
-            if cloud_outputs:
+            if cloud_save_enabled and cloud_outputs:
                 if cloud_bucket or cloud_region:
                     st.caption(
                         f"Cloud target: bucket={cloud_bucket or '<missing>'}, region={cloud_region or '<missing>'}"
@@ -2487,17 +2499,27 @@ with tab2:
 
                     if s3_key:
                         st.caption(f"S3 key: {s3_key}")
-            elif cloud_message:
-                st.info(cloud_message)
+            elif cloud_save_enabled and cloud_message:
+                if cloud_failure_reason == "missing configuration":
+                    st.warning(cloud_message)
+                else:
+                    st.info(cloud_message)
                 if cloud_bucket or cloud_region:
                     st.caption(
                         f"Cloud target: bucket={cloud_bucket or '<missing>'}, region={cloud_region or '<missing>'}"
                     )
             else:
-                st.caption("No cloud-saved outputs available for this run.")
+                st.caption("Enable \"Save outputs to AWS cloud\" to publish run outputs to S3.")
 
-            if cloud_status_detail:
+            if cloud_save_enabled and cloud_status_detail:
                 st.caption(cloud_status_detail)
+            if cloud_save_enabled and cloud_failure_reason:
+                failure_message = (
+                    f"Cloud failure: {'s3 client init' if cloud_failure_reason in {'boto3 not installed', 's3 client initialization failure'} else 'bucket validation' if cloud_failure_reason in {'bucket not found', 'access denied', 'wrong region', 'aws client error'} else cloud_failure_reason}"
+                )
+                if cloud_error_detail:
+                    failure_message += f" - {cloud_error_detail}"
+                st.caption(failure_message)
         else:
             st.info("Run the optimizer to generate the structured CSV export package.")
 

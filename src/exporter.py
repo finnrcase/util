@@ -589,6 +589,7 @@ def generate_export_package(
     result: dict[str, Any],
     *,
     export_root: str | Path,
+    enable_cloud_upload: bool = False,
     run_id: str | None = None,
     case_name: str | None = None,
     workload_name: str | None = None,
@@ -605,12 +606,27 @@ def generate_export_package(
         workload_type=workload_type,
     )
     files = write_export_frames(export_dir, frames)
-    cloud_uploads = upload_run_outputs(resolved_run_id, files)
+    if enable_cloud_upload:
+        cloud_uploads = upload_run_outputs(resolved_run_id, files)
+    else:
+        cloud_uploads = {
+            "configured": False,
+            "message": "",
+            "bucket_name": None,
+            "files": [],
+            "status_detail": "",
+            "env_path": "",
+            "failure_reason": None,
+            "error_detail": None,
+            "region_name": None,
+            "debug_detail": "",
+        }
 
     return {
         "run_id": resolved_run_id,
         "export_dir": str(export_dir),
         "files": [str(path) for path in files],
+        "cloud_save_enabled": enable_cloud_upload,
         "cloud_outputs": cloud_uploads["files"],
         "cloud_storage_configured": cloud_uploads["configured"],
         "cloud_message": cloud_uploads["message"],
@@ -618,4 +634,6 @@ def generate_export_package(
         "cloud_region_name": cloud_uploads["region_name"],
         "cloud_status_detail": cloud_uploads["status_detail"],
         "cloud_env_path": cloud_uploads["env_path"],
+        "cloud_failure_reason": cloud_uploads["failure_reason"],
+        "cloud_error_detail": cloud_uploads["error_detail"],
     }
