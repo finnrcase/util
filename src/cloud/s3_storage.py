@@ -5,7 +5,12 @@ from functools import lru_cache
 from pathlib import Path
 from typing import Any
 
-from src.runtime_config import get_project_root, get_setting, load_project_env
+from src.runtime_config import (
+    get_project_env_diagnostics,
+    get_project_root,
+    get_setting,
+    load_project_env,
+)
 
 try:
     import boto3
@@ -38,10 +43,21 @@ def _normalize_value(value: Any, *, strip_inline_comment: bool = False) -> str:
 @lru_cache(maxsize=1)
 def _log_s3_env_detection() -> tuple[str, list[str]]:
     env_path = load_project_env()
+    env_diagnostics = get_project_env_diagnostics()
     diagnostics: list[str] = [
         f"Project root detected: {get_project_root()}",
         f"Env file path: {env_path}",
+        f"Env file exists: {'yes' if env_diagnostics['exists'] else 'no'}",
+        f"Env file empty: {'yes' if env_diagnostics['is_empty'] else 'no'}",
+        f"Parsed env keys: {', '.join(env_diagnostics['parsed_keys']) if env_diagnostics['parsed_keys'] else '<none>'}",
+        f"AWS_ACCESS_KEY_ID key present in file: {'yes' if env_diagnostics['has_aws_access_key_id'] else 'no'}",
+        f"AWS_SECRET_ACCESS_KEY key present in file: {'yes' if env_diagnostics['has_aws_secret_access_key'] else 'no'}",
+        f"AWS_REGION key present in file: {'yes' if env_diagnostics['has_aws_region'] else 'no'}",
+        f"S3_BUCKET_NAME key present in file: {'yes' if env_diagnostics['has_s3_bucket_name'] else 'no'}",
     ]
+
+    for message in diagnostics[2:]:
+        logger.warning(message)
 
     for env_name in AWS_ENV_VARS:
         raw_value = get_setting(env_name, "")

@@ -21,6 +21,20 @@ def test_upload_run_outputs_returns_local_only_when_unconfigured(monkeypatch) ->
     s3_storage._log_s3_env_detection.cache_clear()
     monkeypatch.setattr(s3_storage, "load_project_env", lambda: Path("C:/dev/util/.env"))
     monkeypatch.setattr(s3_storage, "get_project_root", lambda: Path("C:/dev/util"))
+    monkeypatch.setattr(
+        s3_storage,
+        "get_project_env_diagnostics",
+        lambda: {
+            "env_path": "C:/dev/util/.env",
+            "exists": True,
+            "is_empty": False,
+            "parsed_keys": ["WATTTIME_USERNAME"],
+            "has_aws_access_key_id": False,
+            "has_aws_secret_access_key": False,
+            "has_aws_region": False,
+            "has_s3_bucket_name": False,
+        },
+    )
 
     result = s3_storage.upload_run_outputs("util-test-run", [])
 
@@ -44,6 +58,20 @@ def test_upload_run_outputs_builds_s3_keys_and_urls(monkeypatch) -> None:
     s3_storage._log_s3_env_detection.cache_clear()
     monkeypatch.setattr(s3_storage, "load_project_env", lambda: Path("C:/dev/util/.env"))
     monkeypatch.setattr(s3_storage, "get_project_root", lambda: Path("C:/dev/util"))
+    monkeypatch.setattr(
+        s3_storage,
+        "get_project_env_diagnostics",
+        lambda: {
+            "env_path": "C:/dev/util/.env",
+            "exists": True,
+            "is_empty": False,
+            "parsed_keys": list(settings.keys()),
+            "has_aws_access_key_id": True,
+            "has_aws_secret_access_key": True,
+            "has_aws_region": True,
+            "has_s3_bucket_name": True,
+        },
+    )
 
     def fake_upload_file_to_s3(local_path, s3_key):
         uploads.append(s3_key)
@@ -158,11 +186,28 @@ def test_s3_env_detection_logs_presence_without_secret_values(monkeypatch, caplo
     s3_storage._log_s3_env_detection.cache_clear()
     monkeypatch.setattr(s3_storage, "load_project_env", lambda: Path("C:/dev/util/.env"))
     monkeypatch.setattr(s3_storage, "get_project_root", lambda: Path("C:/dev/util"))
+    monkeypatch.setattr(
+        s3_storage,
+        "get_project_env_diagnostics",
+        lambda: {
+            "env_path": "C:/dev/util/.env",
+            "exists": True,
+            "is_empty": False,
+            "parsed_keys": ["AWS_ACCESS_KEY_ID", "AWS_SECRET_ACCESS_KEY", "AWS_REGION", "S3_BUCKET_NAME"],
+            "has_aws_access_key_id": True,
+            "has_aws_secret_access_key": True,
+            "has_aws_region": True,
+            "has_s3_bucket_name": True,
+        },
+    )
 
     with caplog.at_level("INFO"):
         s3_storage._build_s3_settings_result()
 
     log_text = "\n".join(caplog.messages)
+    assert "Env file exists: yes" in log_text
+    assert "Env file empty: no" in log_text
+    assert "Parsed env keys: AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY, AWS_REGION, S3_BUCKET_NAME" in log_text
     assert "AWS_ACCESS_KEY_ID detected: yes" in log_text
     assert "AWS_SECRET_ACCESS_KEY detected: yes" in log_text
     assert "AWS_REGION detected: no" in log_text
@@ -183,6 +228,20 @@ def test_build_s3_settings_strips_bucket_comment_suffix(monkeypatch) -> None:
     monkeypatch.setattr(s3_storage, "get_setting", lambda name, default=None: settings.get(name, default))
     monkeypatch.setattr(s3_storage, "load_project_env", lambda: Path("C:/dev/util/.env"))
     monkeypatch.setattr(s3_storage, "get_project_root", lambda: Path("C:/dev/util"))
+    monkeypatch.setattr(
+        s3_storage,
+        "get_project_env_diagnostics",
+        lambda: {
+            "env_path": "C:/dev/util/.env",
+            "exists": True,
+            "is_empty": False,
+            "parsed_keys": ["AWS_ACCESS_KEY_ID", "AWS_SECRET_ACCESS_KEY", "AWS_REGION", "S3_BUCKET_NAME"],
+            "has_aws_access_key_id": True,
+            "has_aws_secret_access_key": True,
+            "has_aws_region": True,
+            "has_s3_bucket_name": True,
+        },
+    )
     s3_storage._log_s3_env_detection.cache_clear()
 
     result = s3_storage._build_s3_settings_result()

@@ -6,8 +6,9 @@ from pathlib import Path
 from typing import Any
 
 try:
-    from dotenv import load_dotenv
+    from dotenv import dotenv_values, load_dotenv
 except ModuleNotFoundError:
+    dotenv_values = None
     load_dotenv = None
 
 try:
@@ -46,6 +47,30 @@ def load_project_env() -> Path:
         load_dotenv(env_path, override=True)
 
     return env_path
+
+
+@lru_cache(maxsize=1)
+def get_project_env_diagnostics() -> dict[str, Any]:
+    env_path = load_project_env()
+    exists = env_path.exists()
+    raw_text = env_path.read_text(encoding="utf-8") if exists else ""
+    is_empty = not raw_text.strip()
+
+    parsed_values: dict[str, Any] = {}
+    if dotenv_values is not None and exists:
+        parsed_values = dict(dotenv_values(env_path))
+
+    parsed_keys = [key for key in parsed_values.keys() if key]
+    return {
+        "env_path": str(env_path),
+        "exists": exists,
+        "is_empty": is_empty,
+        "parsed_keys": parsed_keys,
+        "has_aws_access_key_id": "AWS_ACCESS_KEY_ID" in parsed_values,
+        "has_aws_secret_access_key": "AWS_SECRET_ACCESS_KEY" in parsed_values,
+        "has_aws_region": "AWS_REGION" in parsed_values,
+        "has_s3_bucket_name": "S3_BUCKET_NAME" in parsed_values,
+    }
 
 if load_dotenv is not None:
     load_project_env()
