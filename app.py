@@ -56,32 +56,30 @@ st.set_page_config(
 )
 
 THEME_TOKENS = {
-    "bg": "#07080f",
-    "bg_top": "#0d0920",
-    "surface": "rgba(16, 10, 30, 0.85)",
-    "surface_strong": "rgba(12, 8, 24, 0.94)",
-    "surface_soft": "rgba(255, 255, 255, 0.038)",
-    "surface_elevated": "rgba(22, 14, 42, 0.96)",
-    "border": "rgba(150, 110, 255, 0.18)",
-    "border_strong": "rgba(150, 110, 255, 0.36)",
-    "border_inner": "rgba(255, 255, 255, 0.06)",
-    "text": "#f3eeff",
-    "text_muted": "#a296bc",
-    "text_soft": "#d6ccee",
-    "accent_blue": "#6c8dff",
-    "accent_blue_soft": "rgba(108, 141, 255, 0.18)",
-    "accent_violet": "#9b71f5",
-    "accent_violet_soft": "rgba(155, 113, 245, 0.22)",
-    "accent_silver": "#e6deff",
-    "success": "#5cd8a8",
-    "success_soft": "rgba(92, 216, 168, 0.15)",
-    "warning": "#f4a44a",
-    "warning_soft": "rgba(244, 164, 74, 0.14)",
-    "shadow": "0 24px 64px rgba(0, 0, 0, 0.52)",
-    "shadow_soft": "0 8px 32px rgba(0, 0, 0, 0.32)",
-    "radius_lg": "24px",
-    "radius_md": "18px",
-    "radius_sm": "13px",
+    "bg": "#090b13",
+    "bg_top": "#140f26",
+    "surface": "rgba(22, 16, 38, 0.76)",
+    "surface_strong": "rgba(20, 14, 34, 0.9)",
+    "surface_soft": "rgba(255, 255, 255, 0.045)",
+    "surface_elevated": "rgba(28, 19, 45, 0.92)",
+    "border": "rgba(184, 145, 255, 0.2)",
+    "border_strong": "rgba(184, 145, 255, 0.38)",
+    "border_inner": "rgba(255, 255, 255, 0.08)",
+    "text": "#fbf8ff",
+    "text_muted": "#b3a8cf",
+    "text_soft": "#e2daf3",
+    "accent_blue": "#7b6dff",
+    "accent_blue_soft": "rgba(123, 109, 255, 0.22)",
+    "accent_violet": "#a77bff",
+    "accent_violet_soft": "rgba(167, 123, 255, 0.26)",
+    "accent_silver": "#efe7ff",
+    "success": "#6ee7b7",
+    "success_soft": "rgba(110, 231, 183, 0.18)",
+    "shadow": "0 28px 80px rgba(0, 0, 0, 0.42)",
+    "shadow_soft": "0 18px 48px rgba(2, 6, 23, 0.28)",
+    "radius_lg": "28px",
+    "radius_md": "22px",
+    "radius_sm": "16px",
 }
 
 
@@ -129,50 +127,56 @@ def render_runtime_diagnostics() -> None:
 def build_theme_css(tokens: dict[str, str]) -> str:
     return """
     <style>
-    @import url('https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=Space+Grotesk:wght@400;500;600;700&display=swap');
+    @import url('https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=Space+Grotesk:wght@500;700&display=swap');
 
-    /* ═══ ROOT VARS ═════════════════════════════════════════════ */
     :root {{
-        --bg: {bg};
-        --bg-top: {bg_top};
-        --surface: {surface};
-        --surface-strong: {surface_strong};
-        --surface-elevated: {surface_elevated};
-        --border: {border};
-        --border-strong: {border_strong};
-        --text: {text};
-        --muted: {text_muted};
-        --text-soft: {text_soft};
-        --accent: {accent_violet};
-        --accent-blue: {accent_blue};
-        --accent-soft: {accent_violet_soft};
-        --success: {success};
-        --success-soft: {success_soft};
-        --warning: {warning};
-        --shadow: {shadow};
-        --shadow-soft: {shadow_soft};
-        --r-lg: {radius_lg};
-        --r-md: {radius_md};
-        --r-sm: {radius_sm};
+        --util-bg: {bg};
+        --util-bg-top: {bg_top};
+        --util-surface: {surface};
+        --util-surface-strong: {surface_strong};
+        --util-surface-soft: {surface_soft};
+        --util-surface-elevated: {surface_elevated};
+        --util-border: {border};
+        --util-border-strong: {border_strong};
+        --util-border-inner: {border_inner};
+        --util-text: {text};
+        --util-muted: {text_muted};
+        --util-text-soft: {text_soft};
+        --util-accent-blue: {accent_blue};
+        --util-accent-blue-soft: {accent_blue_soft};
+        --util-accent-violet: {accent_violet};
+        --util-accent-violet-soft: {accent_violet_soft};
+        --util-accent-silver: {accent_silver};
+        --util-good: {success};
+        --util-good-soft: {success_soft};
+        --util-shadow: {shadow};
+        --util-shadow-soft: {shadow_soft};
+        --util-radius-lg: {radius_lg};
+        --util-radius-md: {radius_md};
+        --util-radius-sm: {radius_sm};
     }}
 
-    /* ═══ APP BACKGROUND ════════════════════════════════════════ */
     .stApp {{
         background:
-            radial-gradient(ellipse at 18% 0%,  rgba(110, 50, 220, 0.22) 0%, transparent 44%),
-            radial-gradient(ellipse at 82% 8%,  rgba(50,  90, 240, 0.14) 0%, transparent 40%),
-            radial-gradient(ellipse at 50% 82%, rgba(70,  30, 150, 0.08) 0%, transparent 55%),
-            linear-gradient(180deg, {bg_top} 0%, {bg} 55%, #040508 100%);
-        font-family: 'Manrope', -apple-system, sans-serif;
-        color: {text};
+            radial-gradient(circle at top left, rgba(167, 123, 255, 0.22), transparent 28%),
+            radial-gradient(circle at 78% 10%, rgba(123, 109, 255, 0.16), transparent 24%),
+            radial-gradient(circle at 50% 32%, rgba(255, 255, 255, 0.035), transparent 22%),
+            linear-gradient(180deg, var(--util-bg-top) 0%, var(--util-bg) 58%, #05070d 100%);
+        color: var(--util-text);
+        font-family: 'Manrope', sans-serif;
     }}
 
-    /* ═══ HIDE STREAMLIT CHROME ══════════════════════════════ */
-    #MainMenu, footer, header,
-    [data-testid="stToolbar"],
-    [data-testid="stDecoration"],
-    [data-testid="stStatusWidget"] {{
-        display: none !important;
+    .stApp::before {{
+        content: "";
+        position: fixed;
+        inset: 0;
+        pointer-events: none;
+        background:
+            radial-gradient(circle at 16% 22%, rgba(167, 123, 255, 0.18), transparent 20%),
+            radial-gradient(circle at 82% 18%, rgba(123, 109, 255, 0.12), transparent 16%),
+            radial-gradient(circle at 50% 60%, rgba(255, 255, 255, 0.04), transparent 28%);
+        filter: blur(18px);
+        opacity: 0.9;
     }}
 
     /* Keep sidebar collapse/expand toggle always accessible */
@@ -182,636 +186,673 @@ def build_theme_css(tokens: dict[str, str]) -> str:
     }}
 
     .block-container {{
-        padding: 1.6rem 2.2rem 3rem !important;
-        max-width: 1300px !important;
+        padding-top: 1.4rem;
+        padding-bottom: 2.8rem;
+        max-width: 1360px;
     }}
 
-    html, body, [class*="css"] {{
-        font-family: 'Manrope', -apple-system, sans-serif !important;
+    html, body, [class*="css"], [data-testid="stAppViewContainer"] {{
+        font-family: 'Manrope', sans-serif;
     }}
 
-    /* ═══ SIDEBAR ════════════════════════════════════════════ */
-    [data-testid="stSidebar"] {{
+    h1, h2, h3, .util-brand-title, .util-section-title {{
+        color: var(--util-text);
+        font-family: 'Space Grotesk', sans-serif;
+        letter-spacing: -0.04em;
+    }}
+
+    h1 {{
+        font-size: clamp(2.65rem, 5vw, 4.65rem);
+        line-height: 0.92;
+        margin-bottom: 0.4rem;
+    }}
+
+    h2 {{
+        font-size: 1.35rem;
+        margin-bottom: 0.5rem;
+    }}
+
+    h3 {{
+        font-size: 1.02rem;
+        margin-bottom: 0.45rem;
+    }}
+
+    p, label, .stMarkdown, .stCaption, .stTextInput label, .stNumberInput label {{
+        color: var(--util-text) !important;
+    }}
+
+    [data-testid="stToolbar"] {{
+        visibility: hidden;
+        height: 0;
+        position: fixed;
+    }}
+
+    .util-hero {{
+        position: relative;
+        overflow: hidden;
         background:
-            radial-gradient(ellipse at 60% 0%, rgba(100, 50, 220, 0.16) 0%, transparent 55%),
-            linear-gradient(180deg, rgba(11, 7, 24, 0.99) 0%, rgba(6, 4, 14, 0.99) 100%) !important;
-        border-right: 1px solid rgba(130, 90, 240, 0.13) !important;
-        min-width: 218px !important;
-        max-width: 236px !important;
+            linear-gradient(140deg, rgba(25, 18, 42, 0.94), rgba(12, 9, 24, 0.86)),
+            radial-gradient(circle at 18% 18%, rgba(167, 123, 255, 0.26), transparent 30%),
+            radial-gradient(circle at 82% 22%, rgba(123, 109, 255, 0.12), transparent 26%);
+        border: 1px solid var(--util-border);
+        border-radius: 30px;
+        padding: 1rem 1.25rem;
+        box-shadow: var(--util-shadow);
+        backdrop-filter: blur(22px);
+        margin-bottom: 0.9rem;
+        isolation: isolate;
     }}
 
-    [data-testid="stSidebar"] > div:first-child {{
-        padding: 1.35rem 0.78rem 1.5rem !important;
+    .util-hero::before {{
+        content: "";
+        position: absolute;
+        inset: 1px;
+        border-radius: inherit;
+        border: 1px solid rgba(255, 255, 255, 0.06);
+        pointer-events: none;
+        mask: linear-gradient(180deg, rgba(255,255,255,0.8), transparent 46%);
     }}
 
-    [data-testid="stSidebar"] .stRadio > label {{
-        display: none !important;
+    .util-hero::after {{
+        content: "";
+        position: absolute;
+        inset: auto -8% -60% auto;
+        width: 240px;
+        height: 240px;
+        border-radius: 50%;
+        background: radial-gradient(circle, rgba(167, 123, 255, 0.24), transparent 70%);
+        pointer-events: none;
+        filter: blur(12px);
+        opacity: 0.9;
     }}
 
-    [data-testid="stSidebar"] .stRadio [role="radiogroup"] {{
-        background: transparent !important;
-        border: none !important;
-        padding: 0 !important;
-        gap: 0.13rem !important;
-        backdrop-filter: none !important;
-        overflow: visible !important;
-        border-radius: 0 !important;
-    }}
-
-    [data-testid="stSidebar"] .stRadio label {{
-        background: transparent !important;
-        border: 1px solid transparent !important;
-        border-radius: 10px !important;
-        padding: 0.56rem 0.82rem !important;
-        min-height: 2.5rem !important;
-        color: rgba(170, 148, 215, 0.6) !important;
-        font-size: 0.86rem !important;
-        font-weight: 600 !important;
-        letter-spacing: 0.005em !important;
-        transition: all 0.16s ease !important;
-        display: flex !important;
-        align-items: center !important;
-        cursor: pointer !important;
-    }}
-
-    [data-testid="stSidebar"] .stRadio label:hover {{
-        background: rgba(130, 90, 240, 0.1) !important;
-        color: rgba(212, 195, 255, 0.9) !important;
-        border-color: rgba(130, 90, 240, 0.2) !important;
-    }}
-
-    [data-testid="stSidebar"] .stRadio label:has(input:checked) {{
-        background: linear-gradient(135deg,
-            rgba(110, 50, 220, 0.2) 0%,
-            rgba(60, 100, 240, 0.14) 100%) !important;
-        color: rgba(228, 215, 255, 1) !important;
-        border-color: rgba(130, 90, 240, 0.34) !important;
-        box-shadow: inset 0 1px 0 rgba(255,255,255,0.06) !important;
-    }}
-
-    [data-testid="stSidebar"] .stRadio span[data-baseweb="radio"] {{
-        display: none !important;
-    }}
-
-    .sb-logo-area {{
+    .util-hero-grid {{
         display: flex;
         align-items: center;
-        gap: 0.68rem;
-        padding: 0 0.22rem 1.3rem;
-        border-bottom: 1px solid rgba(130, 90, 240, 0.12);
-        margin-bottom: 0.85rem;
+        justify-content: flex-start;
+        gap: 0.95rem;
+        position: relative;
+        z-index: 1;
     }}
 
-    .sb-logo-shell {{
-        width: 35px;
-        height: 35px;
-        border-radius: 9px;
-        background: linear-gradient(135deg, rgba(140,80,255,0.3) 0%, rgba(80,120,255,0.16) 100%);
-        border: 1px solid rgba(140,80,255,0.3);
+    .util-brand-row {{
+        display: flex;
+        align-items: center;
+        gap: 0.95rem;
+        margin-bottom: 0;
+    }}
+
+    .util-logo-shell {{
+        width: 62px;
+        height: 62px;
+        border-radius: 18px;
+        background:
+            linear-gradient(180deg, rgba(255, 255, 255, 0.08), rgba(255,255,255,0.02)),
+            linear-gradient(135deg, rgba(167, 123, 255, 0.24), rgba(123, 109, 255, 0.12));
+        border: 1px solid rgba(184, 145, 255, 0.28);
         display: flex;
         align-items: center;
         justify-content: center;
-        box-shadow: 0 4px 12px rgba(0,0,0,0.3), inset 0 1px 0 rgba(255,255,255,0.1);
-        flex-shrink: 0;
+        box-shadow:
+            inset 0 1px 0 rgba(255,255,255,0.1),
+            0 18px 38px rgba(11, 16, 35, 0.45);
+        backdrop-filter: blur(16px);
     }}
 
-    .sb-brand {{
-        font-family: 'Space Grotesk', sans-serif;
-        font-size: 1.1rem;
-        font-weight: 700;
-        color: {text};
-        letter-spacing: -0.02em;
-        line-height: 1.1;
-    }}
-
-    .sb-brand-sub {{
-        font-size: 0.66rem;
-        color: rgba(140,100,220,0.58);
-        font-weight: 600;
-        letter-spacing: 0.04em;
-    }}
-
-    .sb-nav-section {{
-        font-size: 0.60rem;
-        font-weight: 700;
-        letter-spacing: 0.17em;
+    .util-brand-kicker,
+    .util-section-kicker {{
+        color: #d9c8ff;
         text-transform: uppercase;
-        color: rgba(130,90,200,0.4);
-        padding: 0.65rem 0.82rem 0.32rem;
+        letter-spacing: 0.18em;
+        font-size: 0.75rem;
+        font-weight: 700;
+        margin-bottom: 0.35rem;
     }}
 
-    .sb-footer {{
-        padding: 0.85rem 0.82rem 0;
-        border-top: 1px solid rgba(130,90,240,0.1);
+    .util-brand-title {{
+        margin: 0;
+        font-size: clamp(2rem, 4vw, 3rem);
+        line-height: 1;
+    }}
+
+    .util-header-pills,
+    .util-pill-row {{
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.6rem;
         margin-top: 1rem;
     }}
 
-    .sb-footer-text {{
-        font-size: 0.67rem;
-        color: rgba(130,90,200,0.4);
-        line-height: 1.55;
+    .util-header-pill,
+    .util-pill,
+    .util-good-pill,
+    .util-warning-pill {{
+        display: inline-flex;
+        align-items: center;
+        gap: 0.38rem;
+        padding: 0.5rem 0.78rem;
+        border-radius: 999px;
+        font-size: 0.82rem;
+        font-weight: 600;
+        letter-spacing: 0.01em;
+        backdrop-filter: blur(12px);
+        box-shadow: inset 0 1px 0 rgba(255,255,255,0.05);
     }}
 
-    /* ═══ TYPOGRAPHY ══════════════════════════════════════════ */
-    h1, h2, h3 {{
-        font-family: 'Space Grotesk', sans-serif !important;
-        color: {text} !important;
-        letter-spacing: -0.03em;
-    }}
-    h1 {{ font-size: 1.95rem; line-height: 1.1; font-weight: 700; margin-bottom: 0.25rem; }}
-    h2 {{ font-size: 1.18rem; font-weight: 700; margin-bottom: 0.38rem; }}
-    h3 {{ font-size: 0.96rem; font-weight: 600; margin-bottom: 0.3rem; }}
-
-    p, label, .stMarkdown, .stCaption {{
-        color: {text} !important;
-        font-family: 'Manrope', sans-serif !important;
+    .util-header-pill,
+    .util-pill,
+    .util-warning-pill {{
+        background: rgba(255, 255, 255, 0.05);
+        color: var(--util-text-soft);
+        border: 1px solid rgba(157, 180, 255, 0.16);
     }}
 
-    /* ═══ PAGE HEADER ════════════════════════════════════════ */
-    .pg-header {{
-        padding-bottom: 1.5rem;
-        border-bottom: 1px solid rgba(130,90,240,0.1);
-        margin-bottom: 1.75rem;
-    }}
-    .pg-kicker {{
-        font-size: 0.67rem; font-weight: 700;
-        letter-spacing: 0.18em; text-transform: uppercase;
-        color: rgba(140,95,240,0.76); margin-bottom: 0.38rem;
-    }}
-    .pg-title {{
-        font-family: 'Space Grotesk', sans-serif;
-        font-size: 1.82rem; font-weight: 700;
-        letter-spacing: -0.04em; color: {text};
-        margin: 0 0 0.36rem 0; line-height: 1.1;
-    }}
-    .pg-description {{
-        color: {text_muted}; font-size: 0.9rem;
-        line-height: 1.65; max-width: 580px;
+    .util-good-pill {{
+        background: var(--util-good-soft);
+        color: #dcfff0;
+        border: 1px solid rgba(110, 231, 183, 0.26);
     }}
 
-    /* ═══ KPI TILES ══════════════════════════════════════════ */
-    .kpi-tile {{
+    .util-glass-card,
+    .util-card {{
         position: relative;
-        background: linear-gradient(170deg, rgba(20,12,40,0.94) 0%, rgba(9,7,20,0.9) 100%);
-        border: 1px solid {border};
-        border-radius: var(--r-md);
-        padding: 1.25rem 1.4rem 1.3rem;
-        box-shadow: 0 4px 20px rgba(0,0,0,0.38), inset 0 1px 0 rgba(255,255,255,0.05);
         overflow: hidden;
+        background:
+            linear-gradient(180deg, rgba(255,255,255,0.05), rgba(255,255,255,0.015)),
+            linear-gradient(140deg, rgba(18, 23, 38, 0.86), rgba(10, 13, 22, 0.76));
+        border: 1px solid var(--util-border);
+        border-radius: var(--util-radius-md);
+        padding: 1.2rem 1.2rem;
+        box-shadow: var(--util-shadow-soft);
+        backdrop-filter: blur(18px);
+        margin-bottom: 1rem;
+    }}
+
+    .util-glass-card::before,
+    .util-card::before {{
+        content: "";
+        position: absolute;
+        inset: 0;
+        border-radius: inherit;
+        border: 1px solid rgba(255, 255, 255, 0.05);
+        pointer-events: none;
+        mask: linear-gradient(180deg, rgba(255,255,255,0.75), transparent 48%);
+    }}
+
+    .util-card-highlight {{
+        background:
+            linear-gradient(180deg, rgba(255,255,255,0.08), rgba(255,255,255,0.02)),
+            linear-gradient(135deg, rgba(167, 123, 255, 0.26), rgba(123, 109, 255, 0.18)),
+            linear-gradient(140deg, rgba(18, 23, 38, 0.9), rgba(10, 13, 22, 0.8));
+        border: 1px solid rgba(157, 180, 255, 0.28);
+        box-shadow:
+            inset 0 1px 0 rgba(255,255,255,0.08),
+            0 20px 38px rgba(34, 50, 95, 0.34);
+    }}
+
+    .util-card-highlight::after {{
+        content: "";
+        position: absolute;
+        inset: auto -10% -55% auto;
+        width: 180px;
+        height: 180px;
+        border-radius: 50%;
+        background: radial-gradient(circle, rgba(139, 92, 246, 0.22), transparent 72%);
+        filter: blur(10px);
+        pointer-events: none;
+    }}
+
+    .util-loading-card {{
+        display: flex;
+        align-items: center;
+        gap: 0.95rem;
+        min-height: 96px;
+    }}
+
+    .util-loading-spinner {{
+        width: 22px;
+        height: 22px;
+        border-radius: 999px;
+        border: 2px solid rgba(167, 123, 255, 0.22);
+        border-top-color: var(--util-accent-violet);
+        border-right-color: var(--util-accent-blue);
+        box-shadow: 0 0 0 6px rgba(139, 92, 246, 0.08);
+        animation: util-spin 0.8s linear infinite;
+        flex: 0 0 auto;
+    }}
+
+    .util-loading-copy {{
+        color: var(--util-text-soft);
+        font-size: 0.96rem;
+        line-height: 1.6;
+    }}
+
+    @keyframes util-spin {{
+        from {{ transform: rotate(0deg); }}
+        to {{ transform: rotate(360deg); }}
+    }}
+
+    .util-section-shell {{
+        position: relative;
+        overflow: hidden;
+        background:
+            linear-gradient(180deg, rgba(255,255,255,0.035), rgba(255,255,255,0.01)),
+            linear-gradient(145deg, rgba(12, 16, 28, 0.94), rgba(9, 12, 22, 0.86));
+        border: 1px solid rgba(157, 180, 255, 0.16);
+        border-radius: 30px;
+        padding: 1.15rem 1.15rem 1.25rem;
+        margin-top: 0.35rem;
+        margin-bottom: 1rem;
+        box-shadow: var(--util-shadow);
+        backdrop-filter: blur(20px);
+    }}
+
+    .util-section-shell::after {{
+        content: "";
+        position: absolute;
+        inset: auto 10% -55% auto;
+        width: 240px;
+        height: 240px;
+        border-radius: 50%;
+        background: radial-gradient(circle, rgba(139, 92, 246, 0.14), transparent 72%);
+        filter: blur(8px);
+        pointer-events: none;
+    }}
+
+    .util-section-heading {{
+        position: relative;
+        z-index: 1;
+        display: flex;
+        justify-content: space-between;
+        gap: 1rem;
+        align-items: end;
+        margin-bottom: 1rem;
+    }}
+
+    .util-section-copy {{
+        max-width: 48rem;
+    }}
+
+    .util-section-description {{
+        color: var(--util-muted);
+        font-size: 0.98rem;
+        line-height: 1.7;
+    }}
+
+    .util-side-note {{
+        min-width: 220px;
+        padding: 0.85rem 1rem;
+        border-radius: 20px;
+        background: linear-gradient(180deg, rgba(88, 166, 255, 0.14), rgba(255,255,255,0.02));
+        border: 1px solid rgba(120, 164, 255, 0.2);
+        color: var(--util-text-soft);
+        font-size: 0.9rem;
+        line-height: 1.55;
+        box-shadow: inset 0 1px 0 rgba(255,255,255,0.06);
+    }}
+
+    .util-callout-grid {{
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 1rem;
+    }}
+
+    .util-callout {{
+        padding: 1rem 1.05rem;
+        border-radius: 22px;
+        background:
+            linear-gradient(180deg, rgba(255,255,255,0.05), rgba(255,255,255,0.015)),
+            linear-gradient(140deg, rgba(14, 18, 30, 0.9), rgba(10, 12, 22, 0.76));
+        border: 1px solid rgba(157, 180, 255, 0.16);
+        box-shadow: var(--util-shadow-soft);
         min-height: 106px;
+        margin-bottom: 0.9rem;
         display: flex;
         flex-direction: column;
         justify-content: space-between;
-        margin-bottom: 0.82rem;
-    }}
-    .kpi-tile::after {{
-        content: "";
-        position: absolute; top: 0; left: 0; right: 0; height: 2px;
-        background: linear-gradient(90deg, rgba(140,80,255,0.55) 0%, rgba(80,120,255,0.28) 60%, transparent 100%);
-        border-radius: var(--r-md) var(--r-md) 0 0;
-        pointer-events: none;
-    }}
-    .kpi-tile.kpi-hi {{
-        background: linear-gradient(160deg, rgba(28,15,55,0.96) 0%, rgba(12,8,26,0.92) 100%);
-        border-color: rgba(140,80,255,0.32);
-        box-shadow: 0 4px 20px rgba(0,0,0,0.38), 0 0 28px rgba(90,40,200,0.1), inset 0 1px 0 rgba(255,255,255,0.06);
-    }}
-    .kpi-label {{
-        font-size: 0.68rem; font-weight: 700;
-        letter-spacing: 0.13em; text-transform: uppercase;
-        color: rgba(150,118,202,0.68); margin-bottom: 0.48rem; line-height: 1.3;
-    }}
-    .kpi-value {{
-        font-family: 'Space Grotesk', sans-serif;
-        font-size: 1.88rem; font-weight: 700;
-        color: {text}; line-height: 1;
-        letter-spacing: -0.025em; margin-bottom: 0.26rem;
-    }}
-    .kpi-delta {{
-        font-size: 0.77rem; font-weight: 500;
-        color: rgba(148,188,255,0.58); line-height: 1.4;
+        gap: 0.5rem;
     }}
 
-    /* ═══ GLASS CARD ══════════════════════════════════════════ */
-    .gc {{
-        position: relative;
-        background:
-            linear-gradient(180deg, rgba(255,255,255,0.04) 0%, rgba(255,255,255,0.013) 100%),
-            rgba(14,9,26,0.88);
-        border: 1px solid {border};
-        border-radius: var(--r-md);
-        padding: 1.32rem 1.48rem;
-        box-shadow: {shadow_soft}, inset 0 1px 0 rgba(255,255,255,0.04);
-        backdrop-filter: blur(20px);
-        overflow: hidden;
-        margin-bottom: 0.95rem;
-    }}
-    .gc::before {{
-        content: "";
-        position: absolute; top: 0; left: 0; right: 0; height: 1px;
-        background: linear-gradient(90deg, rgba(140,80,255,0.35) 0%, transparent 70%);
-        pointer-events: none;
-    }}
-
-    /* ═══ INFO CARD ═══════════════════════════════════════════ */
-    .ic {{
-        background:
-            linear-gradient(180deg, rgba(255,255,255,0.03) 0%, rgba(255,255,255,0.01) 100%),
-            rgba(12,8,22,0.9);
-        border: 1px solid rgba(130,90,240,0.15);
-        border-radius: var(--r-md);
-        padding: 1.12rem 1.32rem;
-        box-shadow: 0 4px 16px rgba(0,0,0,0.22);
-        margin-bottom: 0.88rem;
-    }}
-    .ic-label {{
-        font-size: 0.68rem; font-weight: 700;
-        letter-spacing: 0.13em; text-transform: uppercase;
-        color: rgba(140,95,240,0.68); margin-bottom: 0.5rem;
-    }}
-    .ic-body {{
-        color: {text_soft}; font-size: 0.89rem; line-height: 1.68;
-    }}
-
-    /* ═══ LOADING CARD ════════════════════════════════════════ */
-    .lc {{
-        background: linear-gradient(135deg, rgba(22,12,42,0.92) 0%, rgba(10,7,22,0.88) 100%);
-        border: 1px solid rgba(140,95,240,0.24);
-        border-radius: var(--r-md);
-        padding: 1.32rem 1.48rem;
-        display: flex; align-items: center; gap: 1.2rem;
-        box-shadow: 0 4px 24px rgba(0,0,0,0.28);
-        margin-bottom: 0.95rem;
-    }}
-    .lc-spin {{
-        width: 22px; height: 22px; border-radius: 50%;
-        border: 2.5px solid rgba(140,95,240,0.18);
-        border-top-color: rgba(140,95,240,0.9);
-        border-right-color: rgba(80,120,255,0.7);
-        animation: spin 0.82s linear infinite;
-        flex-shrink: 0;
-    }}
-    @keyframes spin {{ to {{ transform: rotate(360deg); }} }}
-    .lc-title {{
-        font-size: 0.78rem; font-weight: 700;
-        letter-spacing: 0.1em; text-transform: uppercase;
-        color: rgba(140,95,240,0.7); margin-bottom: 0.16rem;
-    }}
-    .lc-body {{ font-size: 0.87rem; color: {text_soft}; line-height: 1.5; }}
-
-    /* ═══ CALLOUT ITEMS ═══════════════════════════════════════ */
-    .callout-item {{
-        background: linear-gradient(160deg, rgba(18,11,34,0.94) 0%, rgba(9,7,20,0.9) 100%);
-        border: 1px solid rgba(130,90,240,0.15);
-        border-radius: var(--r-sm);
-        padding: 0.85rem 0.98rem;
-        min-height: 72px;
-        display: flex; flex-direction: column; justify-content: space-between;
-        margin-bottom: 0.72rem;
-    }}
-    .callout-label {{
-        font-size: 0.66rem; font-weight: 700;
-        letter-spacing: 0.13em; text-transform: uppercase;
-        color: rgba(128,98,190,0.62); margin-bottom: 0.26rem;
-    }}
-    .callout-value {{
-        font-family: 'Space Grotesk', sans-serif;
-        font-size: 0.94rem; font-weight: 700;
-        color: {text}; word-break: break-word;
-    }}
-
-    /* ═══ STATUS PILLS ════════════════════════════════════════ */
-    .util-pill-row, .pill-row {{
-        display: flex; flex-wrap: wrap; gap: 0.4rem; margin: 0.68rem 0;
-    }}
-    .util-pill, .util-header-pill, .util-warning-pill {{
-        display: inline-flex; align-items: center;
-        padding: 0.3rem 0.65rem; border-radius: 999px;
-        font-size: 0.73rem; font-weight: 600;
-        background: rgba(255,255,255,0.04);
-        border: 1px solid rgba(130,90,240,0.16);
-        color: {text_soft}; backdrop-filter: blur(8px);
-    }}
-    .util-good-pill {{
-        display: inline-flex; align-items: center;
-        padding: 0.3rem 0.65rem; border-radius: 999px;
-        font-size: 0.73rem; font-weight: 600;
-        background: {success_soft};
-        border: 1px solid rgba(80,200,155,0.28);
-        color: rgba(172,255,222,0.9);
-    }}
-
-    /* ═══ CHART SECTIONS ══════════════════════════════════════ */
-    .chart-header {{
-        margin-bottom: 0.52rem;
-        padding-bottom: 0.52rem;
-        border-bottom: 1px solid rgba(130,90,240,0.1);
-    }}
-    .chart-title {{
-        font-family: 'Space Grotesk', sans-serif;
-        font-size: 0.87rem; font-weight: 700;
-        color: {text}; letter-spacing: -0.01em; margin-bottom: 0.1rem;
-    }}
-    .chart-subtitle {{ font-size: 0.75rem; color: {text_muted}; }}
-
-    [data-testid="stArrowAltairChart"],
-    [data-testid="stVegaLiteChart"] {{
-        background: rgba(8,6,17,0.68) !important;
-        border: 1px solid rgba(130,90,240,0.14) !important;
-        border-radius: 16px !important;
-        padding: 0.62rem !important;
-        box-shadow: 0 4px 18px rgba(0,0,0,0.3) !important;
-        overflow: hidden !important;
-        margin-bottom: 0.95rem !important;
-    }}
-
-    /* ═══ BACKWARD-COMPAT: old class names upgraded ═══════════ */
-    .util-glass-card, .util-card {{
-        position: relative;
-        background:
-            linear-gradient(180deg, rgba(255,255,255,0.038) 0%, rgba(255,255,255,0.013) 100%),
-            rgba(14,9,26,0.88);
-        border: 1px solid {border};
-        border-radius: var(--r-md);
-        padding: 1.18rem 1.32rem;
-        box-shadow: {shadow_soft}, inset 0 1px 0 rgba(255,255,255,0.04);
-        backdrop-filter: blur(20px);
-        margin-bottom: 0.95rem;
-        overflow: hidden;
-    }}
-    .util-card-highlight {{
-        background: linear-gradient(160deg, rgba(28,15,55,0.96) 0%, rgba(12,8,26,0.92) 100%);
-        border-color: rgba(140,80,255,0.32) !important;
-        box-shadow: 0 4px 20px rgba(0,0,0,0.38), 0 0 28px rgba(90,40,200,0.1), inset 0 1px 0 rgba(255,255,255,0.06) !important;
-    }}
-    .util-card-title, .util-metric-label {{
-        color: rgba(150,118,202,0.68); font-size: 0.68rem;
-        text-transform: uppercase; letter-spacing: 0.13em; margin-bottom: 0.48rem;
-    }}
-    .util-metric-value {{
-        font-family: 'Space Grotesk', sans-serif;
-        font-size: 1.88rem; font-weight: 700;
-        color: {text}; line-height: 1; letter-spacing: -0.025em;
-    }}
-    .util-metric-delta, .util-card-copy {{
-        font-size: 0.79rem; color: rgba(148,188,255,0.58); line-height: 1.55;
-    }}
-    .util-callout {{
-        background: linear-gradient(160deg, rgba(18,11,34,0.94) 0%, rgba(9,7,20,0.9) 100%);
-        border: 1px solid rgba(130,90,240,0.15);
-        border-radius: var(--r-sm);
-        padding: 0.85rem 0.98rem;
-        min-height: 78px;
-        display: flex; flex-direction: column; justify-content: space-between;
-        gap: 0.38rem; margin-bottom: 0.72rem;
-    }}
     .util-callout-label {{
-        color: rgba(128,98,190,0.62);
-        text-transform: uppercase; letter-spacing: 0.13em;
-        font-size: 0.66rem; font-weight: 700; margin-bottom: 0.26rem;
+        color: var(--util-muted);
+        text-transform: uppercase;
+        letter-spacing: 0.14em;
+        font-size: 0.76rem;
+        margin-bottom: 0.35rem;
+        line-height: 1.35;
+        overflow-wrap: anywhere;
     }}
+
     .util-callout-value {{
+        color: var(--util-text);
+        font-size: 1.1rem;
+        font-weight: 700;
         font-family: 'Space Grotesk', sans-serif;
-        font-size: 0.96rem; font-weight: 700; color: {text}; word-break: break-word;
+        line-height: 1.15;
+        overflow-wrap: anywhere;
+        word-break: break-word;
     }}
-    .util-section-kicker {{
-        color: rgba(140,95,240,0.76);
-        text-transform: uppercase; letter-spacing: 0.18em;
-        font-size: 0.67rem; font-weight: 700; margin-bottom: 0.38rem;
+
+    .util-card-title,
+    .util-metric-label {{
+        color: var(--util-muted);
+        font-size: 0.79rem;
+        text-transform: uppercase;
+        letter-spacing: 0.14em;
+        margin-bottom: 0.5rem;
     }}
-    .util-section-title {{
-        font-family: 'Space Grotesk', sans-serif;
-        font-size: 1.82rem; font-weight: 700; letter-spacing: -0.04em; color: {text};
+
+    .util-card-copy,
+    .util-metric-delta {{
+        color: #c8d3eb;
+        font-size: 0.93rem;
+        line-height: 1.6;
     }}
-    .util-section-description {{
-        color: {text_muted}; font-size: 0.9rem; line-height: 1.65;
-        max-width: 580px; margin-bottom: 1.15rem;
+
+    .util-spacer-sm {{
+        height: 0.85rem;
     }}
-    .util-hero {{
-        position: relative; overflow: hidden;
-        background:
-            linear-gradient(140deg, rgba(22,14,42,0.94) 0%, rgba(10,7,22,0.88) 100%),
-            radial-gradient(ellipse at 18% 18%, rgba(140,80,255,0.2) 0%, transparent 48%);
-        border: 1px solid {border};
-        border-radius: 22px; padding: 1rem 1.2rem;
-        box-shadow: {shadow}; backdrop-filter: blur(22px); margin-bottom: 0.88rem;
+
+    .util-spacer-xs {{
+        height: 0.45rem;
     }}
-    .util-section-shell {{
-        position: relative; overflow: hidden;
-        background:
-            linear-gradient(180deg, rgba(255,255,255,0.027) 0%, rgba(255,255,255,0.009) 100%),
-            rgba(12,8,22,0.92);
-        border: 1px solid rgba(130,90,240,0.14);
-        border-radius: 24px; padding: 1.08rem 1.08rem 1.18rem;
-        margin-top: 0.32rem; margin-bottom: 0.95rem;
-        box-shadow: {shadow}; backdrop-filter: blur(20px);
+
+    .util-spacer-md {{
+        height: 1.2rem;
     }}
-    .util-loading-card {{
-        display: flex; align-items: center; gap: 1rem; min-height: 86px;
-    }}
-    .util-loading-spinner {{
-        width: 22px; height: 22px; border-radius: 50%;
-        border: 2.5px solid rgba(140,95,240,0.18);
-        border-top-color: rgba(140,95,240,0.9);
-        border-right-color: rgba(80,120,255,0.7);
-        animation: spin 0.82s linear infinite; flex-shrink: 0;
-    }}
-    .util-loading-copy {{ color: {text_soft}; font-size: 0.89rem; line-height: 1.5; }}
-    .util-spacer-xs {{ height: 0.38rem; }}
-    .util-spacer-sm {{ height: 0.78rem; }}
-    .util-spacer-md {{ height: 1.18rem; }}
+
     .util-summary-divider {{
         height: 1px;
-        background: linear-gradient(90deg, rgba(130,90,240,0.22) 0%, rgba(130,90,240,0.05) 100%);
-        border-radius: 999px; margin: 0.38rem 0 0.95rem;
-    }}
-    .util-section-heading {{
-        display: flex; justify-content: space-between; gap: 1rem;
-        align-items: flex-end; margin-bottom: 0.95rem;
+        margin: 0.35rem 0 1rem 0;
+        background: linear-gradient(90deg, rgba(157, 180, 255, 0.22), rgba(157, 180, 255, 0.05));
+        border-radius: 999px;
     }}
 
-    /* ═══ INPUT SECTION LABELS ════════════════════════════════ */
-    .input-sec-label {{
-        font-size: 0.65rem; font-weight: 700;
-        letter-spacing: 0.15em; text-transform: uppercase;
-        color: rgba(130,90,220,0.6);
-        margin-bottom: 0.48rem; margin-top: 0.95rem;
-        padding-bottom: 0.36rem;
-        border-bottom: 1px solid rgba(130,90,240,0.1);
-    }}
-    .section-div {{
-        height: 1px;
-        background: linear-gradient(90deg, rgba(130,90,240,0.2) 0%, rgba(130,90,240,0.05) 100%);
-        border-radius: 999px; margin: 1.05rem 0;
+    .util-metric-value {{
+        color: var(--util-text);
+        font-size: 2rem;
+        font-family: 'Space Grotesk', sans-serif;
+        font-weight: 700;
+        line-height: 1.05;
     }}
 
-    /* ═══ FORM WIDGETS ════════════════════════════════════════ */
+    div[data-baseweb="tab-list"] {{
+        gap: 0.65rem;
+        background:
+            linear-gradient(180deg, rgba(255,255,255,0.04), rgba(255,255,255,0.012)),
+            rgba(10, 14, 25, 0.76);
+        border: 1px solid rgba(157, 180, 255, 0.14);
+        padding: 0.48rem;
+        border-radius: 24px;
+        backdrop-filter: blur(18px);
+        box-shadow: var(--util-shadow-soft);
+    }}
+
+    button[data-baseweb="tab"] {{
+        background: transparent !important;
+        color: var(--util-muted) !important;
+        border-radius: 16px;
+        padding: 0.72rem 1.08rem;
+        border: 1px solid transparent;
+        font-size: 0.95rem;
+        transition: all 0.25s ease;
+    }}
+
+    button[data-baseweb="tab"]:hover {{
+        color: var(--util-text) !important;
+        background: rgba(255, 255, 255, 0.04) !important;
+    }}
+
+    button[data-baseweb="tab"][aria-selected="true"] {{
+        background:
+            linear-gradient(180deg, rgba(255,255,255,0.08), rgba(255,255,255,0.02)),
+            linear-gradient(135deg, rgba(139, 92, 246, 0.26), rgba(88, 166, 255, 0.16)) !important;
+        color: #f8fbff !important;
+        border: 1px solid var(--util-border-strong) !important;
+        box-shadow:
+            inset 0 1px 0 rgba(255,255,255,0.07),
+            0 12px 28px rgba(18, 24, 42, 0.34);
+    }}
+
+    div.stButton > button,
+    div.stDownloadButton > button {{
+        border-radius: 16px;
+        font-weight: 700;
+        padding: 0.72rem 1rem;
+        min-height: 2.9rem;
+        transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease, background 0.2s ease;
+    }}
+
+    div.stButton > button {{
+        background:
+            linear-gradient(180deg, rgba(255,255,255,0.08), rgba(255,255,255,0.02)),
+            linear-gradient(135deg, var(--util-accent-violet) 0%, var(--util-accent-blue) 100%);
+        color: white !important;
+        border: 1px solid rgba(157, 180, 255, 0.28);
+        box-shadow: 0 20px 38px rgba(34, 50, 95, 0.34);
+    }}
+
+    div.stButton > button:hover,
+    div.stDownloadButton > button:hover {{
+        transform: translateY(-1px);
+    }}
+
+    div.stButton > button:hover {{
+        box-shadow: 0 24px 42px rgba(34, 50, 95, 0.4);
+    }}
+
+    div.stDownloadButton > button {{
+        background:
+            linear-gradient(180deg, rgba(255,255,255,0.04), rgba(255,255,255,0.01)),
+            rgba(12, 16, 28, 0.86);
+        color: var(--util-text-soft) !important;
+        border: 1px solid rgba(157, 180, 255, 0.18);
+        box-shadow: inset 0 1px 0 rgba(255,255,255,0.05);
+        backdrop-filter: blur(12px);
+    }}
+
+    div.stDownloadButton > button:hover {{
+        background:
+            linear-gradient(180deg, rgba(255,255,255,0.06), rgba(255,255,255,0.02)),
+            rgba(16, 20, 34, 0.94);
+        border-color: rgba(157, 180, 255, 0.3);
+    }}
+
+    div.stButton,
+    div.stDownloadButton {{
+        margin-top: 0.32rem;
+        margin-bottom: 0.38rem;
+    }}
+
+    div[data-testid="stDataFrame"],
+    div[data-testid="stAlert"] {{
+        border-radius: 22px;
+        overflow: hidden;
+        box-shadow: var(--util-shadow-soft);
+    }}
+
+    div[data-testid="stDataFrame"] {{
+        border: 1px solid rgba(157, 180, 255, 0.16);
+        background:
+            linear-gradient(180deg, rgba(255,255,255,0.03), rgba(255,255,255,0.01)),
+            rgba(10, 13, 23, 0.9);
+    }}
+
+    div[data-testid="stDataFrame"] [role="grid"] {{
+        background: transparent !important;
+    }}
+
+    div[data-testid="stAlert"] {{
+        background:
+            linear-gradient(180deg, rgba(255,255,255,0.04), rgba(255,255,255,0.01)),
+            rgba(22, 15, 40, 0.86);
+        border: 1px solid rgba(139, 92, 246, 0.24);
+        color: var(--util-text);
+    }}
+
+    div[data-testid="stAlert"] svg {{
+        fill: var(--util-accent-violet);
+        color: var(--util-accent-violet);
+    }}
+
     div[data-baseweb="select"] > div,
     .stDateInput > div > div,
     .stTextInput > div > div,
     .stTextArea textarea {{
-        background: rgba(10,6,20,0.92) !important;
-        border: 1px solid rgba(130,90,240,0.18) !important;
-        border-radius: 12px !important;
-        color: {text} !important;
-        box-shadow: inset 0 1px 0 rgba(255,255,255,0.03) !important;
-        transition: border-color 0.2s ease !important;
+        background:
+            linear-gradient(180deg, rgba(255,255,255,0.045), rgba(255,255,255,0.015)),
+            rgba(11, 15, 26, 0.9) !important;
+        border: 1px solid rgba(157, 180, 255, 0.18) !important;
+        color: var(--util-text) !important;
+        border-radius: 16px !important;
+        box-shadow: inset 0 1px 0 rgba(255,255,255,0.04);
     }}
+
     div[data-baseweb="select"] > div:hover,
-    .stTextInput > div > div:hover {{
-        border-color: rgba(130,90,240,0.3) !important;
+    .stDateInput > div > div:hover,
+    .stTextInput > div > div:hover,
+    .stTextArea textarea:hover {{
+        border-color: rgba(157, 180, 255, 0.28) !important;
     }}
+
     div[data-testid="stNumberInput"] [data-baseweb="input"] {{
-        background: rgba(10,6,20,0.92) !important;
-        border: 1px solid rgba(130,90,240,0.18) !important;
-        border-radius: 12px !important;
-        box-shadow: inset 0 1px 0 rgba(255,255,255,0.03) !important;
-        min-height: 2.82rem; overflow: hidden !important;
-        align-items: stretch !important; transition: border-color 0.2s ease;
+        background:
+            linear-gradient(180deg, rgba(255,255,255,0.045), rgba(255,255,255,0.015)),
+            rgba(11, 15, 26, 0.9) !important;
+        border: 1px solid rgba(157, 180, 255, 0.18) !important;
+        border-radius: 16px !important;
+        box-shadow: inset 0 1px 0 rgba(255,255,255,0.04);
+        overflow: hidden !important;
+        min-height: 3rem;
+        align-items: stretch !important;
+        transition: border-color 0.2s ease, box-shadow 0.2s ease;
     }}
+
+    div[data-testid="stNumberInput"] [data-baseweb="input"]:hover {{
+        border-color: rgba(157, 180, 255, 0.28) !important;
+    }}
+
     div[data-testid="stNumberInput"] [data-baseweb="input"]:focus-within {{
-        border-color: rgba(140,80,255,0.42) !important;
-        box-shadow: inset 0 1px 0 rgba(255,255,255,0.04), 0 0 0 1px rgba(140,80,255,0.1) !important;
+        border-color: rgba(184, 145, 255, 0.38) !important;
+        box-shadow:
+            inset 0 1px 0 rgba(255,255,255,0.05),
+            0 0 0 1px rgba(167, 123, 255, 0.12) !important;
     }}
+
     div[data-testid="stNumberInput"] [data-baseweb="input"] > div {{
-        background: transparent !important; border: none !important;
-        box-shadow: none !important; border-radius: 0 !important; min-height: 2.82rem;
+        background: transparent !important;
+        border: none !important;
+        box-shadow: none !important;
+        border-radius: 0 !important;
+        min-height: 3rem;
     }}
+
     div[data-testid="stNumberInput"] [data-baseweb="input"] input {{
-        background: transparent !important; color: {text} !important;
-        height: 2.82rem !important; padding-left: 0.9rem !important;
+        background: transparent !important;
+        color: var(--util-text) !important;
+        height: 3rem !important;
+        padding-left: 0.95rem !important;
+        padding-right: 0.75rem !important;
     }}
+
     div[data-testid="stNumberInput"] [data-baseweb="input"] button {{
-        background: rgba(255,255,255,0.025) !important; border: none !important;
-        border-left: 1px solid rgba(130,90,240,0.14) !important;
-        border-radius: 0 !important; color: {text_muted} !important;
-        transition: background 0.14s ease;
+        background: rgba(255,255,255,0.03) !important;
+        border: none !important;
+        border-left: 1px solid rgba(157, 180, 255, 0.14) !important;
+        border-radius: 0 !important;
+        min-width: 2.8rem !important;
+        box-shadow: none !important;
+        color: var(--util-text-soft) !important;
+        transition: background 0.2s ease, color 0.2s ease;
     }}
+
     div[data-testid="stNumberInput"] [data-baseweb="input"] button:hover {{
-        background: rgba(140,80,255,0.1) !important; color: {text} !important;
+        background: rgba(167, 123, 255, 0.12) !important;
+        color: var(--util-text) !important;
     }}
+
     div[data-testid="stNumberInput"] [data-baseweb="input"] button:first-of-type {{
-        border-top-right-radius: 12px !important;
+        border-top-right-radius: 16px !important;
     }}
+
     div[data-testid="stNumberInput"] [data-baseweb="input"] button:last-of-type {{
-        border-bottom-right-radius: 12px !important;
+        border-bottom-right-radius: 16px !important;
     }}
+
     div[data-testid="stDateInput"] [data-baseweb="input"],
     div[data-testid="stTextInput"] [data-baseweb="input"] {{
-        overflow: hidden !important; border-radius: 12px !important;
+        overflow: hidden !important;
+        border-radius: 16px !important;
     }}
 
-    /* ═══ RADIO (MAIN AREA) ═══════════════════════════════════ */
-    .stRadio {{ margin-bottom: 0.08rem; }}
+    .stRadio {{
+        margin-bottom: 0.1rem;
+    }}
+
     .stRadio [role="radiogroup"] {{
-        gap: 0.38rem;
-        background: rgba(9,6,18,0.82);
-        border: 1px solid rgba(130,90,240,0.12);
-        padding: 0.33rem; border-radius: 14px;
-        backdrop-filter: blur(12px); overflow: hidden;
+        gap: 0.5rem;
+        background:
+            linear-gradient(180deg, rgba(255,255,255,0.035), rgba(255,255,255,0.01)),
+            rgba(9, 13, 22, 0.76);
+        padding: 0.4rem;
+        border: 1px solid rgba(157, 180, 255, 0.12);
+        border-radius: 18px;
+        backdrop-filter: blur(16px);
+        overflow: hidden;
     }}
+
     .stRadio [role="radiogroup"] label {{
-        background: transparent; border: 1px solid transparent;
-        border-radius: 10px; padding: 0.4rem 0.66rem;
-        min-height: 2.56rem; align-items: center !important; transition: all 0.17s ease;
+        background: rgba(255,255,255,0.02);
+        border: 1px solid transparent;
+        border-radius: 14px;
+        padding: 0.45rem 0.7rem;
+        min-height: 2.75rem;
+        align-items: center !important;
     }}
 
-    /* ═══ SLIDERS ═════════════════════════════════════════════ */
-    .stSlider [data-baseweb="slider"] {{ padding-top: 0.78rem; padding-bottom: 0.42rem; }}
+    .stSlider [data-baseweb="slider"] {{
+        padding-top: 0.8rem;
+        padding-bottom: 0.45rem;
+    }}
+
     .stSlider [data-baseweb="thumb"] {{
-        background: linear-gradient(135deg, {accent_violet}, {accent_blue}) !important;
-        box-shadow: 0 0 0 5px rgba(110,50,200,0.14);
+        background: linear-gradient(135deg, var(--util-accent-violet), var(--util-accent-blue)) !important;
+        box-shadow: 0 0 0 6px rgba(139, 92, 246, 0.14);
     }}
 
-    /* ═══ BUTTONS ═════════════════════════════════════════════ */
-    div.stButton > button {{
-        background:
-            linear-gradient(180deg, rgba(255,255,255,0.072) 0%, rgba(255,255,255,0.019) 100%),
-            linear-gradient(135deg, {accent_violet} 0%, {accent_blue} 100%);
-        color: white !important;
-        border: 1px solid rgba(140,80,255,0.32); border-radius: 12px;
-        font-weight: 700; padding: 0.66rem 1rem; min-height: 2.72rem;
-        box-shadow: 0 4px 16px rgba(70,30,200,0.28), inset 0 1px 0 rgba(255,255,255,0.08);
-        transition: transform 0.17s ease, box-shadow 0.17s ease; letter-spacing: 0.01em;
-    }}
-    div.stButton > button:hover {{
-        transform: translateY(-1px);
-        box-shadow: 0 7px 22px rgba(70,30,200,0.38), inset 0 1px 0 rgba(255,255,255,0.08);
-    }}
-    div.stDownloadButton > button {{
-        background: rgba(12,8,22,0.9) !important;
-        color: {text_soft} !important;
-        border: 1px solid rgba(130,90,240,0.18) !important;
-        border-radius: 12px; font-weight: 600; padding: 0.6rem 1rem; min-height: 2.56rem;
-        transition: all 0.17s ease; box-shadow: inset 0 1px 0 rgba(255,255,255,0.04);
-    }}
-    div.stDownloadButton > button:hover {{
-        border-color: rgba(130,90,240,0.34) !important;
-        background: rgba(16,10,28,0.96) !important; transform: translateY(-1px);
-    }}
-    div.stButton, div.stDownloadButton {{ margin-top: 0.26rem; margin-bottom: 0.33rem; }}
-
-    /* ═══ TABS ════════════════════════════════════════════════ */
-    div[data-baseweb="tab-list"] {{
-        gap: 0.52rem; background: rgba(9,6,18,0.82);
-        border: 1px solid rgba(130,90,240,0.13); padding: 0.4rem;
-        border-radius: 20px; backdrop-filter: blur(16px);
-    }}
-    button[data-baseweb="tab"] {{
-        background: transparent !important; color: {text_muted} !important;
-        border-radius: 14px; padding: 0.65rem 0.95rem;
-        border: 1px solid transparent; font-size: 0.91rem; transition: all 0.2s ease;
-    }}
-    button[data-baseweb="tab"][aria-selected="true"] {{
-        background:
-            linear-gradient(180deg, rgba(255,255,255,0.072) 0%, rgba(255,255,255,0.019) 100%),
-            linear-gradient(135deg, rgba(120,60,240,0.26) 0%, rgba(60,100,240,0.17) 100%) !important;
-        color: #f3eeff !important;
-        border: 1px solid rgba(140,80,255,0.3) !important;
-        box-shadow: inset 0 1px 0 rgba(255,255,255,0.07);
+    .stTabs {{
+        margin-top: 0.55rem;
     }}
 
-    /* ═══ DATAFRAMES ══════════════════════════════════════════ */
-    div[data-testid="stDataFrame"] {{
-        border: 1px solid rgba(130,90,240,0.14);
-        border-radius: 16px; overflow: hidden;
-        box-shadow: 0 4px 16px rgba(0,0,0,0.26);
-        background:
-            linear-gradient(180deg, rgba(255,255,255,0.024) 0%, rgba(255,255,255,0.009) 100%),
-            rgba(9,6,18,0.92);
-    }}
-    div[data-testid="stDataFrame"] [role="grid"] {{ background: transparent !important; }}
-
-    /* ═══ ALERTS ══════════════════════════════════════════════ */
-    div[data-testid="stAlert"] {{
-        background:
-            linear-gradient(180deg, rgba(255,255,255,0.033) 0%, rgba(255,255,255,0.01) 100%),
-            rgba(18,10,34,0.9);
-        border: 1px solid rgba(140,80,255,0.22); border-radius: 14px;
-        color: {text}; box-shadow: 0 2px 12px rgba(0,0,0,0.2);
-    }}
-    div[data-testid="stAlert"] svg {{ fill: {accent_violet}; color: {accent_violet}; }}
-
-    /* ═══ EXPANDER ════════════════════════════════════════════ */
     [data-testid="stExpander"] {{
-        background: rgba(10,7,20,0.88);
-        border: 1px solid rgba(130,90,240,0.12) !important; border-radius: 14px;
+        background: rgba(10, 13, 23, 0.82);
+        border-radius: 18px;
+        border: 1px solid rgba(157, 180, 255, 0.12);
     }}
 
-    /* ═══ RESPONSIVE ══════════════════════════════════════════ */
     @media (max-width: 1050px) {{
-        .util-hero-grid, .util-callout-grid {{ grid-template-columns: 1fr; }}
-        .util-section-heading {{ flex-direction: column; align-items: flex-start; }}
-    }}
-    @media (max-width: 900px) {{
-        .util-hero {{ padding: 1.08rem; }}
-        .block-container {{ padding: 1rem 1.2rem 2.5rem !important; }}
+        .util-hero-grid,
+        .util-callout-grid {{
+            grid-template-columns: 1fr;
+        }}
+
+        .util-section-heading {{
+            flex-direction: column;
+            align-items: flex-start;
+        }}
     }}
 
+    @media (max-width: 900px) {{
+        .util-hero {{
+            padding: 1.2rem;
+        }}
+    }}
     </style>
     """.format(**tokens)
 
+
 st.markdown(build_theme_css(THEME_TOKENS), unsafe_allow_html=True)
+
 # ---------------------------------------------------
 # Helpers
 # ---------------------------------------------------
@@ -822,17 +863,17 @@ def render_metric_card(
     delta: str | None = None,
     highlighted: bool = False,
 ):
-    hi_class = " kpi-hi" if highlighted else ""
-    delta_html = f'<div class="kpi-delta">{delta}</div>' if delta else ""
+    delta_html = f'<div class="util-metric-delta">{delta}</div>' if delta else ""
+    card_class = "util-card util-card-highlight" if highlighted else "util-card"
     st.markdown(
         f"""
-        <div class="kpi-tile{hi_class}">
-            <div class="kpi-label">{label}</div>
-            <div class="kpi-value">{value}</div>
+        <div class="{card_class}">
+            <div class="util-metric-label">{label}</div>
+            <div class="util-metric-value">{value}</div>
             {delta_html}
         </div>
         """,
-        unsafe_allow_html=True,
+        unsafe_allow_html=True
     )
 
 
@@ -842,18 +883,11 @@ def render_section_shell_start(
     description: str,
     side_note: str | None = None,
 ):
-    st.markdown(
-        f"""
-        <div class="pg-header">
-            <div class="pg-kicker">{kicker}</div>
-            <div class="pg-title">{title}</div>
-            <div class="pg-description">{description}</div>
-        </div>
-        """,
-        unsafe_allow_html=True,
-    )
+    st.markdown(f'<div class="util-section-kicker">{kicker}</div>', unsafe_allow_html=True)
+    st.markdown(f'<h2 class="util-section-title">{title}</h2>', unsafe_allow_html=True)
+    st.markdown(f'<div class="util-section-description">{description}</div>', unsafe_allow_html=True)
     if side_note:
-        st.markdown(f'<div class="ic"><div class="ic-body">{side_note}</div></div>', unsafe_allow_html=True)
+        st.markdown(f'<div class="util-side-note">{side_note}</div>', unsafe_allow_html=True)
 
 
 def render_section_shell_end():
@@ -863,9 +897,9 @@ def render_section_shell_end():
 def render_info_card(title: str, body: str):
     st.markdown(
         f"""
-        <div class="ic">
-            <div class="ic-label">{title}</div>
-            <div class="ic-body">{body}</div>
+        <div class="util-card">
+            <div class="util-card-title">{title}</div>
+            <div class="util-card-copy">{body}</div>
         </div>
         """,
         unsafe_allow_html=True,
@@ -875,16 +909,18 @@ def render_info_card(title: str, body: str):
 def render_loading_card(title: str, body: str):
     st.markdown(
         f"""
-        <div class="lc">
-            <div class="lc-spin"></div>
+        <div class="util-card util-loading-card">
+            <div class="util-loading-spinner"></div>
             <div>
-                <div class="lc-title">{title}</div>
-                <div class="lc-body">{body}</div>
+                <div class="util-card-title">{title}</div>
+                <div class="util-loading-copy">{body}</div>
             </div>
         </div>
         """,
         unsafe_allow_html=True,
     )
+
+
 def build_workload_input(
     *,
     zip_code: str,
@@ -1021,13 +1057,15 @@ def render_callout_grid(items: list[tuple[str, str]], gap: str = "large"):
             with column:
                 st.markdown(
                     f"""
-                    <div class="callout-item">
-                        <div class="callout-label">{label}</div>
-                        <div class="callout-value">{value}</div>
+                    <div class="util-callout">
+                        <div class="util-callout-label">{label}</div>
+                        <div class="util-callout-value">{value}</div>
                     </div>
                     """,
                     unsafe_allow_html=True,
                 )
+
+
 def apply_estimator_value_to_optimizer():
     estimated_machine_watts = st.session_state.get("estimated_machine_watts")
     if estimated_machine_watts is not None:
@@ -1873,87 +1911,83 @@ if "save_outputs_to_cloud" not in st.session_state:
 
 FORECAST_MODE_LABEL = "Live Carbon"
 FORECAST_MODE = "live_carbon"
+
 # ---------------------------------------------------
-# Sidebar Navigation
+# Header
 # ---------------------------------------------------
 
-with st.sidebar:
-    st.markdown(
-        f"""
-        <div class="sb-logo-area">
-            <div class="sb-logo-shell">
-                <img src="data:image/png;base64,{logo_base64}" width="22" />
-            </div>
-            <div>
-                <div class="sb-brand">Util</div>
-                <div class="sb-brand-sub">Compute Optimizer</div>
+st.markdown(
+    """
+    <div class="util-hero">
+        <div class="util-hero-grid">
+            <div class="util-brand-row">
+                <div class="util-logo-shell">
+                    <img src="data:image/png;base64,{}" width="40" />
+                </div>
+                <div>
+                    <h1 class="util-brand-title">Util</h1>
+                </div>
             </div>
         </div>
-        """,
-        unsafe_allow_html=True,
-    )
-
-    st.markdown('<div class="sb-nav-section">Navigation</div>', unsafe_allow_html=True)
-
-    selected_page = st.radio(
-        "nav",
-        [
-            "⚡  Optimizer",
-            "📊  Savings Analysis",
-            "📈  Forecast Signals",
-            "📋  Run Timeline",
-            "🔌  Power Estimator",
-            "🗺  Multi-Location",
-            "ℹ  About Util",
-        ],
-        label_visibility="collapsed",
-        key="_nav_page",
-    )
-
-    st.markdown(
-        '<div class="sb-footer"><div class="sb-footer-text">Util · MVP · Live Carbon</div></div>',
-        unsafe_allow_html=True,
-    )
+    </div>
+    """
+    .format(logo_base64),
+    unsafe_allow_html=True
+)
 
 render_runtime_diagnostics()
 
+# ---------------------------------------------------
+# Tabs
+# ---------------------------------------------------
+
+tab_labels = [
+    "Optimizer",
+    "Savings Analysis",
+    "Forecast Signals",
+    "Run Timeline",
+    "Power Estimator",
+    "Multi-Location",
+    "About Util",
+]
+tabs = st.tabs(tab_labels)
+tab1, tab2, tab3, tab4, tab5, tab6, tab7 = tabs
+
 # ====================================================
-# PAGE: OPTIMIZER
+# TAB 1 — OPTIMIZER
 # ====================================================
 
-if "Optimizer" in selected_page:
+with tab1:
     render_section_shell_start(
         kicker="Optimization Studio",
-        title="Workload Optimizer",
+        title="Workload Optimization",
         description=(
-            "Configure your workload constraints and run the optimizer to get a "
-            "carbon- and cost-efficient schedule recommendation."
+            "Set workload constraints, choose how Util estimates carbon signals, and generate a "
+            "recommended run window without changing the optimization logic underneath."
         ),
     )
 
-    col_in, col_out = st.columns([1, 1.9], gap="large")
+    col_input, col_output = st.columns([1, 2], gap="large")
 
-    with col_in:
-        st.markdown('<div class="input-sec-label">📍 Location & Workload</div>', unsafe_allow_html=True)
+    with col_input:
+        st.subheader("Inputs")
 
-        zip_code = st.text_input("ZIP Code", "93106", key="_z")
-        st.caption("Location-based forecasting is in progress. Use the provided ZIP for now.")
+        zip_code = st.text_input("ZIP Code", "93106")
+        st.caption(
+            "Location-based forecasting is still in progress. For now, please use the provided ZIP code."
+        )
 
         compute_hours = st.number_input(
             "Compute Hours Required",
             min_value=1,
             max_value=72,
-            value=st.session_state.get("_ch", 8),
-            step=1,
-            key="_ch",
+            value=8,
+            step=1
         )
-
-        st.markdown('<div class="input-sec-label">🎯 Objective</div>', unsafe_allow_html=True)
 
         objective = st.selectbox(
             "Optimization Objective",
-            ["Minimize Carbon", "Minimize Price", "Balanced"],
-            key="_obj",
+            ["Minimize Carbon", "Minimize Price", "Balanced"]
         )
         objective_value = {
             "Minimize Carbon": "carbon",
@@ -1965,12 +1999,16 @@ if "Optimizer" in selected_page:
         price_weight_pct = 50
         if objective_value == "balanced":
             carbon_weight_pct = st.slider(
-                "Carbon Weight", min_value=0, max_value=100, value=50, step=1,
+                "Carbon Weight",
+                min_value=0,
+                max_value=100,
+                value=50,
+                step=1,
             )
             price_weight_pct = 100 - carbon_weight_pct
-            st.caption(f"Price Weight: {price_weight_pct}%")
-
-        st.markdown('<div class="input-sec-label">📡 Carbon Signal</div>', unsafe_allow_html=True)
+            st.caption(
+                f"Price Weight: {price_weight_pct}%"
+            )
 
         carbon_estimation_mode_label = st.radio(
             "Carbon Estimate Type",
@@ -1978,84 +2016,78 @@ if "Optimizer" in selected_page:
                 "Short-Term (Live Data - 24 hour access)",
                 "Extended (Historical-Pattern Estimate)",
             ],
-            horizontal=True,
+            horizontal=True
         )
         st.caption(
-            "Extended mode keeps live forecast where available and fills remaining horizon "
-            "from recent historical patterns."
+            "Extended mode keeps the live forecast where available and estimates the remaining horizon from recent historical patterns."
         )
 
         historical_days = st.slider(
-            "Historical Lookback (days)", min_value=1, max_value=14, value=7, step=1,
+            "Historical Lookback (days)",
+            min_value=1,
+            max_value=14,
+            value=7,
+            step=1
         )
-
-        st.markdown('<div class="input-sec-label">⚙  Scheduling</div>', unsafe_allow_html=True)
-
         schedule_mode_label = st.radio(
             "Scheduling Strategy",
             ["Flexible", "Continuous Block"],
-            horizontal=True,
-            key="_sm",
+            horizontal=True
         )
         st.caption(
-            "Flexible: optimal 5-minute intervals. "
-            "Continuous Block: one uninterrupted run window."
+            "Flexible is optimal 5 minute chunks. Continuous Block selects one continuous run window for the requested duration."
         )
-
-        st.markdown('<div class="input-sec-label">⚡ Hardware</div>', unsafe_allow_html=True)
 
         machine_watts = st.number_input(
             "Machine Wattage (Watts)",
             min_value=50,
             max_value=500000,
             step=10,
-            key="optimizer_machine_watts",
+            key="optimizer_machine_watts"
         )
+
+        default_deadline = (get_local_now() + timedelta(hours=24)).to_pydatetime()
+        deadline = st.datetime_input(
+            "Deadline",
+            value=default_deadline
+        )
+
+        save_outputs_to_cloud = st.checkbox(
+            "Save outputs to AWS cloud",
+            key="save_outputs_to_cloud",
+        )
+        cloud_save_enabled = bool(st.session_state.get("save_outputs_to_cloud", False))
+
+        run_button = st.button("Run Optimization")
 
         estimated_machine_watts = st.session_state.get("estimated_machine_watts")
         if estimated_machine_watts is None:
             render_info_card(
                 "Input Tip",
-                "Use the Power Estimator page to generate a wattage recommendation, "
-                "then apply it here.",
+                "Use the Power Estimator tab to generate a machine wattage recommendation, then copy it here only when you want to."
             )
         else:
             render_info_card(
                 "Estimator Recommendation",
-                f"Latest estimate: <strong>{int(estimated_machine_watts):,} W</strong>. "
-                "Your optimizer input stays editable until you apply it.",
+                (
+                    f"Latest estimator recommendation: <strong>{int(estimated_machine_watts):,} W</strong>."
+                    " Your optimizer input stays editable and will only change if you use the estimator button."
+                ),
             )
-
-        st.markdown('<div class="input-sec-label">🕐 Timing</div>', unsafe_allow_html=True)
-
-        default_deadline = (get_local_now() + timedelta(hours=24)).to_pydatetime()
-        deadline = st.datetime_input("Deadline", value=default_deadline, key="_dl")
-
-        save_outputs_to_cloud = st.checkbox(
-            "Save outputs to AWS cloud", key="save_outputs_to_cloud",
-        )
-        cloud_save_enabled = bool(st.session_state.get("save_outputs_to_cloud", False))
-
         carbon_estimation_mode = (
-            "forecast_plus_historical_expectation"
-            if carbon_estimation_mode_label == "Extended (Historical-Pattern Estimate)"
-            else "forecast_only"
-        )
-
-        st.markdown('<div class="util-spacer-sm"></div>', unsafe_allow_html=True)
-        run_button = st.button("⚡  Run Optimization", use_container_width=True)
-
-    with col_out:
+                    "forecast_plus_historical_expectation"
+                    if carbon_estimation_mode_label == "Extended (Historical-Pattern Estimate)"
+                    else "forecast_only"
+                )  
+    with col_output:
         st.markdown('<div class="util-spacer-sm"></div>', unsafe_allow_html=True)
         loading_placeholder = st.empty()
-
         if run_button:
             st.session_state["result"] = None
             with loading_placeholder.container():
                 render_loading_card(
                     "Running Optimization",
-                    "Util is fetching signals, evaluating feasible intervals, "
-                    "and preparing your recommendation.",
+                    "Util is fetching signals, evaluating feasible intervals, and preparing your recommendation.",
                 )
             try:
                 forecast_mode = FORECAST_MODE
@@ -2110,8 +2142,9 @@ if "Optimizer" in selected_page:
                     result["export_package"] = export_package
                     st.session_state["last_export_package"] = export_package
                 except Exception as export_error:
-                    st.session_state["last_export_package"] = {"error": str(export_error)}
-
+                    st.session_state["last_export_package"] = {
+                        "error": str(export_error),
+                    }
                 loading_placeholder.empty()
 
             except Exception as e:
@@ -2146,32 +2179,27 @@ if "Optimizer" in selected_page:
 
         if result is None:
             st.markdown('<div class="util-spacer-xs"></div>', unsafe_allow_html=True)
-            render_info_card(
-                "Ready",
-                "Enter workload inputs on the left and click <strong>Run Optimization</strong> "
-                "to get your schedule recommendation.",
-            )
+            st.markdown('<div class="util-spacer-sm"></div>', unsafe_allow_html=True)
+            st.info("Enter workload inputs and click Run Optimization.")
         else:
+            st.markdown('<div class="util-spacer-xs"></div>', unsafe_allow_html=True)
             region = result["region"]
             schedule = result["schedule"].copy()
             metrics = result["metrics"]
             forecast = result["forecast"].copy()
             optimized = result["optimized"].copy()
-
+            
             selected_schedule = schedule[schedule["run_flag"] == 1].copy()
             run_window = build_run_window_summary(schedule)
             comparison = build_run_now_comparison(
                 optimized_df=optimized,
-                machine_watts=int(result["workload_input"].machine_watts),
+                machine_watts=int(result["workload_input"].machine_watts)
             )
 
-            st.markdown(
-                '<div class="util-section-kicker">Optimization Summary</div>',
-                unsafe_allow_html=True,
-            )
+            st.subheader("Optimization Summary")
+
             st.markdown('<div class="util-spacer-xs"></div>', unsafe_allow_html=True)
-
-            k1, k2, k3, k4 = st.columns(4, gap="small")
+            k1, k2, k3, k4 = st.columns(4, gap="medium")
             with k1:
                 render_metric_card(
                     "Optimized Carbon",
@@ -2180,9 +2208,9 @@ if "Optimizer" in selected_page:
                 )
             with k2:
                 render_metric_card(
-                    "Carbon Reduction",
+                    "Carbon Reduction vs Baseline",
                     f"{metrics['carbon_reduction_pct']:.1f}%",
-                    f"Saved {metrics['carbon_savings_kg']:.2f} kg",
+                    f"Saved: {metrics['carbon_savings_kg']:.2f} kg",
                     highlighted=True,
                 )
             with k3:
@@ -2193,48 +2221,37 @@ if "Optimizer" in selected_page:
                 )
             with k4:
                 render_metric_card(
-                    "Cost Savings",
+                    "Cost Savings vs Baseline",
                     f"${metrics['cost_savings']:.2f}",
                     f"{metrics['cost_reduction_pct']:.1f}% lower",
                     highlighted=True,
                 )
 
             st.markdown('<div class="util-spacer-xs"></div>', unsafe_allow_html=True)
-            st.markdown(
-                '<div class="util-section-kicker">vs Run Immediately</div>',
-                unsafe_allow_html=True,
-            )
+            st.subheader("Compared with Running Immediately")
 
-            rn1, rn2 = st.columns(2, gap="small")
+            st.markdown('<div class="util-spacer-xs"></div>', unsafe_allow_html=True)
+            rn1, rn2 = st.columns(2, gap="medium")
             with rn1:
                 render_metric_card(
-                    "Carbon Saved vs Now",
+                    "Carbon Saved vs Run Now",
                     f"{comparison['carbon_saved_vs_now_kg']:.2f} kg",
                     f"Run now: {comparison['run_now_carbon_kg']:.2f} kg",
                     highlighted=True,
                 )
             with rn2:
                 render_metric_card(
-                    "Cost Saved vs Now",
+                    "Cost Saved vs Run Now",
                     f"${comparison['cost_saved_vs_now']:.2f}",
                     f"Run now: ${comparison['run_now_cost']:.2f}",
                     highlighted=True,
                 )
 
-            render_info_card(
-                "Recommended Window",
-                (
-                    f"Run from <strong>{run_window['start']}</strong> to "
-                    f"<strong>{run_window['end']}</strong> based on the selected "
-                    f"forecast and scheduling strategy."
-                ),
-            )
-
             render_status_pills(
                 forecast_mode_label=st.session_state["last_forecast_mode_label"],
                 schedule_mode_label=st.session_state["last_schedule_mode_label"],
                 region=region,
-                forecast_df=forecast,
+                forecast_df=forecast
             )
 
             if "pricing_message" in forecast.columns:
@@ -2242,8 +2259,7 @@ if "Optimizer" in selected_page:
                 if not pricing_notes.empty:
                     pricing_status = (
                         forecast["pricing_status"].dropna().iloc[0]
-                        if "pricing_status" in forecast.columns
-                        and not forecast["pricing_status"].dropna().empty
+                        if "pricing_status" in forecast.columns and not forecast["pricing_status"].dropna().empty
                         else ""
                     )
                     if pricing_status == "placeholder":
@@ -2273,22 +2289,31 @@ if "Optimizer" in selected_page:
                 )
 
             st.markdown('<div class="util-summary-divider"></div>', unsafe_allow_html=True)
+            render_info_card(
+                "Recommended Window",
+                (
+                    f"Run from <strong>{run_window['start']}</strong> to "
+                    f"<strong>{run_window['end']}</strong> based on the selected forecast "
+                    f"and scheduling strategy."
+                ),
+            )
 
             export_package = result.get("export_package")
             if export_package and export_package.get("export_dir"):
                 render_info_card(
                     "Structured Export Package",
-                    f"Run outputs saved to <strong>{export_package['export_dir']}</strong>.",
+                    (
+                        "Run outputs were saved as a structured CSV package in "
+                        f"<strong>{export_package['export_dir']}</strong>."
+                    ),
                 )
-                if (
-                    export_package.get("cloud_save_enabled")
-                    and export_package.get("cloud_storage_configured")
-                    and export_package.get("cloud_outputs")
-                ):
+                if export_package.get("cloud_save_enabled") and export_package.get("cloud_storage_configured") and export_package.get("cloud_outputs"):
                     render_info_card(
                         "Cloud Saved Outputs",
-                        f"{len(export_package['cloud_outputs'])} files uploaded to S3 for "
-                        f"run <strong>{export_package['run_id']}</strong>.",
+                        (
+                            f"{len(export_package['cloud_outputs'])} files were uploaded to private S3 storage "
+                            f"for run <strong>{export_package['run_id']}</strong>."
+                        ),
                     )
                 elif export_package.get("cloud_save_enabled") and export_package.get("cloud_message"):
                     st.caption(export_package["cloud_message"])
@@ -2297,13 +2322,13 @@ if "Optimizer" in selected_page:
                 and st.session_state["last_export_package"].get("error")
             ):
                 st.caption(
-                    f"Export note: {st.session_state['last_export_package']['error']}"
+                    "Export package note: "
+                    f"{st.session_state['last_export_package']['error']}"
                 )
 
-            st.markdown(
-                '<div class="util-section-kicker" style="margin-top:0.6rem;">Recommended Schedule</div>',
-                unsafe_allow_html=True,
-            )
+            st.markdown('<div class="util-spacer-sm"></div>', unsafe_allow_html=True)
+            st.subheader("Recommended Schedule")
+
             st.markdown('<div class="util-spacer-xs"></div>', unsafe_allow_html=True)
             if selected_schedule.empty:
                 st.warning("No run intervals were selected.")
@@ -2313,10 +2338,10 @@ if "Optimizer" in selected_page:
     render_section_shell_end()
 
 # ====================================================
-# PAGE: SAVINGS ANALYSIS
+# TAB 2 — SAVINGS ANALYSIS
 # ====================================================
 
-elif "Savings" in selected_page:
+with tab2:
     render_section_shell_start(
         kicker="Impact Review",
         title="Savings Analysis",
@@ -2335,7 +2360,7 @@ elif "Savings" in selected_page:
         schedule_mode_label = st.session_state.get("last_schedule_mode_label", "Flexible")
         comparison = build_run_now_comparison(
             optimized_df=optimized,
-            machine_watts=int(workload.machine_watts),
+            machine_watts=int(workload.machine_watts)
         )
         interpretation = build_interpretation_content(
             result=result,
@@ -2343,62 +2368,53 @@ elif "Savings" in selected_page:
             schedule_mode_label=schedule_mode_label,
         )
 
-        total_energy_kwh = comparison["optimized_df"].shape[0] * (workload.machine_watts / 1000) * (
-            infer_interval_minutes(result["forecast"]) / 60
-        )
+        total_energy_kwh = comparison["optimized_df"].shape[0] * (workload.machine_watts / 1000) * (infer_interval_minutes(result["forecast"]) / 60)
 
-        st.markdown(
-            '<div class="util-section-kicker">Key Metrics</div>',
-            unsafe_allow_html=True,
-        )
-        st.markdown('<div class="util-spacer-xs"></div>', unsafe_allow_html=True)
-
-        c1, c2, c3, c4 = st.columns(4, gap="small")
+        c1, c2, c3, c4 = st.columns(4)
         with c1:
             render_metric_card("Workload Energy", f"{total_energy_kwh:.2f} kWh")
         with c2:
             render_metric_card(
                 "Cost Outcome",
                 f"${metrics['cost_savings']:.2f}",
-                f"{metrics['cost_reduction_pct']:.1f}% lower than baseline",
+                f"{metrics['cost_reduction_pct']:.1f}% lower than baseline"
             )
         with c3:
             render_metric_card(
                 "Carbon Outcome",
                 f"{metrics['carbon_savings_kg']:.2f} kg",
-                f"{metrics['carbon_reduction_pct']:.1f}% lower than baseline",
+                f"{metrics['carbon_reduction_pct']:.1f}% lower than baseline"
             )
         with c4:
             render_metric_card(
                 "Saved vs Run Now",
                 f"{comparison['carbon_saved_vs_now_kg']:.2f} kg CO₂",
-                f"${comparison['cost_saved_vs_now']:.2f} lower cost",
+                f"${comparison['cost_saved_vs_now']:.2f} lower cost"
             )
 
         st.caption(objective_context["summary_note"])
         if workload.objective == "balanced":
             st.caption(
-                f"Carbon weight: {workload.carbon_weight:.0%}. "
-                f"Price weight: {workload.price_weight:.0%}."
+                f"Carbon weight: {workload.carbon_weight:.0%}. Price weight: {workload.price_weight:.0%}."
             )
 
-        st.markdown('<div class="util-spacer-xs"></div>', unsafe_allow_html=True)
-        st.markdown(
-            '<div class="chart-header"><div class="chart-title">Baseline vs Optimized</div></div>',
-            unsafe_allow_html=True,
-        )
+        st.subheader("Baseline vs Optimized")
 
         comparison_df = pd.DataFrame({
             "Metric": ["Cost", "Carbon"],
-            "Baseline": [metrics["baseline_cost"], metrics["baseline_carbon_kg"]],
-            "Optimized": [metrics["optimized_cost"], metrics["optimized_carbon_kg"]],
+            "Baseline": [
+                metrics["baseline_cost"],
+                metrics["baseline_carbon_kg"]
+            ],
+            "Optimized": [
+                metrics["optimized_cost"],
+                metrics["optimized_carbon_kg"]
+            ]
         })
+
         st.altair_chart(build_metric_comparison_chart(comparison_df), use_container_width=True)
 
-        st.markdown(
-            '<div class="chart-header"><div class="chart-title">Tradeoff Outcomes</div></div>',
-            unsafe_allow_html=True,
-        )
+        st.subheader("Tradeoff Outcomes")
         tradeoff_col1, tradeoff_col2 = st.columns(2, gap="medium")
         with tradeoff_col1:
             st.caption(objective_context["cost_title"])
@@ -2425,9 +2441,6 @@ elif "Savings" in selected_page:
                 use_container_width=True,
             )
 
-        st.markdown('<div class="util-section-kicker" style="margin-top:0.5rem;">Export Package</div>', unsafe_allow_html=True)
-        st.markdown('<div class="util-spacer-xs"></div>', unsafe_allow_html=True)
-
         export_package = result.get("export_package") or st.session_state.get("last_export_package")
         export_button_specs = [
             ("Recommendation CSV", EXPORT_FILENAMES["recommendation"]),
@@ -2438,14 +2451,14 @@ elif "Savings" in selected_page:
             ("Run Summary CSV", EXPORT_FILENAMES["run_summary"]),
         ]
 
+        st.subheader("Export Package")
+
         if export_package and export_package.get("export_dir"):
             export_dir = Path(export_package["export_dir"])
             export_cols_row1 = st.columns(3, gap="medium")
             export_cols_row2 = st.columns(3, gap="medium")
 
-            for column, (label, filename) in zip(
-                export_cols_row1 + export_cols_row2, export_button_specs
-            ):
+            for column, (label, filename) in zip(export_cols_row1 + export_cols_row2, export_button_specs):
                 with column:
                     file_path = export_dir / filename
                     if file_path.exists():
@@ -2464,7 +2477,7 @@ elif "Savings" in selected_page:
         else:
             st.info("Run the optimizer to generate the structured CSV export package.")
 
-        st.markdown('<div class="util-section-kicker" style="margin-top:0.5rem;">Cloud Saved Outputs</div>', unsafe_allow_html=True)
+        st.subheader("Cloud Saved Outputs")
         if export_package:
             cloud_save_enabled = export_package.get(
                 "cloud_save_enabled",
@@ -2481,8 +2494,7 @@ elif "Savings" in selected_page:
             if cloud_save_enabled and cloud_outputs:
                 if cloud_bucket or cloud_region:
                     st.caption(
-                        f"Cloud target: bucket={cloud_bucket or '<missing>'}, "
-                        f"region={cloud_region or '<missing>'}"
+                        f"Cloud target: bucket={cloud_bucket or '<missing>'}, region={cloud_region or '<missing>'}"
                     )
                 for cloud_output in cloud_outputs:
                     file_name = cloud_output.get("file_name", "download")
@@ -2491,14 +2503,11 @@ elif "Savings" in selected_page:
                     if download_url:
                         st.markdown(f"- [{file_name}]({download_url})")
                     elif cloud_output.get("error"):
-                        logger.warning(
-                            "Cloud upload unavailable for %s: %s",
-                            file_name,
-                            cloud_output["error"],
-                        )
+                        logger.warning("Cloud upload unavailable for %s: %s", file_name, cloud_output["error"])
                         st.caption(f"{file_name}: upload failed")
                     else:
                         st.caption(f"{file_name}: link unavailable")
+
                     if s3_key:
                         st.caption(f"S3 key: {s3_key}")
             elif cloud_save_enabled and cloud_message:
@@ -2508,18 +2517,16 @@ elif "Savings" in selected_page:
                     st.info(cloud_message)
                 if cloud_bucket or cloud_region:
                     st.caption(
-                        f"Cloud target: bucket={cloud_bucket or '<missing>'}, "
-                        f"region={cloud_region or '<missing>'}"
+                        f"Cloud target: bucket={cloud_bucket or '<missing>'}, region={cloud_region or '<missing>'}"
                     )
             else:
-                st.caption('Enable "Save outputs to AWS cloud" to publish run outputs to S3.')
+                st.caption("Enable \"Save outputs to AWS cloud\" to publish run outputs to S3.")
 
             if cloud_save_enabled and cloud_status_detail:
                 st.caption(cloud_status_detail)
             if cloud_save_enabled and cloud_failure_reason:
                 failure_message = (
-                    f"Cloud failure: "
-                    f"{'s3 client init' if cloud_failure_reason in {'boto3 not installed', 's3 client initialization failure'} else 'bucket validation' if cloud_failure_reason in {'bucket not found', 'access denied', 'wrong region', 'aws client error'} else cloud_failure_reason}"
+                    f"Cloud failure: {'s3 client init' if cloud_failure_reason in {'boto3 not installed', 's3 client initialization failure'} else 'bucket validation' if cloud_failure_reason in {'bucket not found', 'access denied', 'wrong region', 'aws client error'} else cloud_failure_reason}"
                 )
                 if cloud_error_detail:
                     failure_message += f" - {cloud_error_detail}"
@@ -2527,61 +2534,57 @@ elif "Savings" in selected_page:
         else:
             st.info("Run the optimizer to generate the structured CSV export package.")
 
-        st.markdown('<div class="util-section-kicker" style="margin-top:0.5rem;">Interpretation</div>', unsafe_allow_html=True)
-        st.markdown('<div class="util-spacer-xs"></div>', unsafe_allow_html=True)
+        st.subheader("Interpretation")
 
         interpretation_html = _format_interpretation_html(
             [interpretation["driver"], interpretation["constraint"]]
         )
         st.markdown(
             f"""
-            <div class="ic">
-                <div class="ic-label">Recommendation Summary</div>
-                <div class="ic-body">{interpretation["summary"]}</div>
+            <div class="util-card">
+                <div class="util-card-title">Recommendation Summary</div>
+                <div class="util-card-copy">{interpretation["summary"]}</div>
                 {interpretation_html}
             </div>
             """,
-            unsafe_allow_html=True,
+            unsafe_allow_html=True
         )
 
         st.markdown(
             f"""
-            <div class="ic">
-                <div class="ic-body">
-                    This run uses approximately <strong>{total_energy_kwh:.2f} kWh</strong>
-                    of electricity. The current recommendation reduces cost by
-                    <strong>${metrics['cost_savings']:.2f}</strong> and reduces emissions by
-                    <strong>{metrics['carbon_savings_kg']:.2f} kg CO₂</strong> versus a naive
-                    baseline schedule.<br><br>
-                    Compared with starting immediately, the optimized schedule saves
-                    <strong>{comparison['carbon_saved_vs_now_kg']:.2f} kg CO₂</strong>
-                    and <strong>${comparison['cost_saved_vs_now']:.2f}</strong>.
-                </div>
+            <div class="util-card">
+                This run uses approximately <strong>{total_energy_kwh:.2f} kWh</strong> of electricity.
+                The current recommendation reduces cost by <strong>${metrics['cost_savings']:.2f}</strong>
+                and reduces emissions by <strong>{metrics['carbon_savings_kg']:.2f} kg CO₂</strong>
+                versus a naive baseline schedule.
+                <br><br>
+                Compared with starting immediately, the optimized schedule saves
+                <strong>{comparison['carbon_saved_vs_now_kg']:.2f} kg CO₂</strong>
+                and <strong>${comparison['cost_saved_vs_now']:.2f}</strong>.
             </div>
             """,
-            unsafe_allow_html=True,
+            unsafe_allow_html=True
         )
 
         st.caption(
-            "Carbon estimates are based on marginal emissions (MOER), which measure the impact "
-            "of additional electricity demand on the grid. Values near zero indicate periods "
-            "where extra load does not increase total emissions, often due to excess renewable energy."
+            "Carbon estimates are based on marginal emissions (MOER), which measure the impact of "
+            "additional electricity demand on the grid. Values near zero indicate periods where extra "
+            "load does not increase total emissions, often due to excess renewable energy."
         )
 
     render_section_shell_end()
 
 # ====================================================
-# PAGE: FORECAST SIGNALS
+# TAB 3 — FORECAST SIGNALS
 # ====================================================
 
-elif "Forecast" in selected_page:
+with tab3:
     render_section_shell_start(
         kicker="Signal View",
         title="Forecast Signals",
         description=(
-            "Inspect the carbon and price curves that drive the recommendation, "
-            "with the same selection logic and datasets shown in a more cinematic "
-            "charting environment."
+            "Inspect the carbon and price curves that drive the recommendation, with the same "
+            "selection logic and datasets shown in a more cinematic charting environment."
         ),
     )
 
@@ -2599,101 +2602,25 @@ elif "Forecast" in selected_page:
             forecast_mode_label=st.session_state["last_forecast_mode_label"],
             schedule_mode_label=st.session_state["last_schedule_mode_label"],
             region=result["region"],
-            forecast_df=forecast,
+            forecast_df=forecast
         )
 
-        st.markdown(
-            '<div class="chart-header">'
-            '<div class="chart-title">Carbon Forecast with Recommended Intervals</div>'
-            '<div class="chart-subtitle">Green dots mark selected run intervals</div>'
-            '</div>',
-            unsafe_allow_html=True,
-        )
-        st.altair_chart(build_carbon_chart(display_df), use_container_width=True)
-
-        st.markdown(
-            '<div class="chart-header">'
-            '<div class="chart-title">Electricity Price Forecast</div>'
-            '<div class="chart-subtitle">Green dots mark selected run intervals</div>'
-            '</div>',
-            unsafe_allow_html=True,
-        )
-        st.altair_chart(build_price_chart(display_df), use_container_width=True)
-
-        selected_rows = display_df[display_df["run_flag"] == 1][[
-            "hour_label", "carbon_g_per_kwh", "carbon_source",
-            "price_per_kwh", "price_signal_source",
-        ]].rename(columns={
-            "hour_label": "Selected Run Time",
-            "carbon_g_per_kwh": "Carbon (g/kWh)",
-            "carbon_source": "Carbon Signal Type",
-            "price_per_kwh": "Price ($/kWh)",
-            "price_signal_source": "Price Signal Type",
-        })
-
-        st.markdown(
-            '<div class="util-section-kicker">Selected Schedule</div>',
-            unsafe_allow_html=True,
-        )
-        st.dataframe(selected_rows, use_container_width=True)
-
-        st.markdown(
-            '<div class="util-section-kicker" style="margin-top:0.6rem;">Full Forecast Table</div>',
-            unsafe_allow_html=True,
-        )
-
-        forecast_table = display_df[[
-            "hour_label", "carbon_g_per_kwh", "carbon_source",
-            "price_per_kwh", "price_signal_source", "recommended_action",
-        ]].rename(columns={
-            "hour_label": "Time",
-            "carbon_g_per_kwh": "Carbon (g/kWh)",
-            "carbon_source": "Carbon Signal Type",
-            "price_per_kwh": "Price ($/kWh)",
-            "price_signal_source": "Price Signal Type",
-            "recommended_action": "Recommended Action",
-        })
-        st.dataframe(forecast_table, use_container_width=True)
-
-        workload = result["workload_input"]
-        run_window = build_run_window_summary(result["schedule"])
-        if workload.objective == "carbon":
-            objective_label = "carbon emissions"
-        elif workload.objective == "cost":
-            objective_label = "electricity cost"
-        else:
-            objective_label = (
-                f"a weighted balance of carbon and electricity cost "
-                f"({workload.carbon_weight:.0%} carbon / {workload.price_weight:.0%} price)"
-            )
-
-        render_info_card(
-            "Recommendation",
-            (
-                f"Run your workload from <strong>{run_window['start']}</strong> to "
-                f"<strong>{run_window['end']}</strong> to minimize "
-                f"<strong>{objective_label}</strong>."
-                f"<br><br><strong>Selected Intervals:</strong> {run_window['intervals']}"
-                f"<br><strong>Machine Wattage:</strong> {int(workload.machine_watts):,} W"
-                f"<br><strong>Compute Hours Required:</strong> {int(workload.compute_hours_required)} hours"
-            ),
-        )
-
+        render_recommendation_card(result, result["schedule"], display_df)
         render_location_access_card(result)
 
     render_section_shell_end()
 
 # ====================================================
-# PAGE: RUN TIMELINE
+# TAB 4 — RUN TIMELINE
 # ====================================================
 
-elif "Timeline" in selected_page:
+with tab4:
     render_section_shell_start(
         kicker="Execution Map",
         title="Run Timeline",
         description=(
-            "See the full interval-by-interval plan for the recommended schedule "
-            "without losing any of the existing timeline data."
+            "See the full interval-by-interval plan for the recommended schedule without losing "
+            "any of the existing timeline data."
         ),
     )
 
@@ -2705,9 +2632,14 @@ elif "Timeline" in selected_page:
         schedule = result["schedule"]
         timeline_df = build_timeline_df(schedule)
 
-        render_info_card(
-            "Selected Run Intervals",
-            build_run_hours_summary(schedule),
+        st.markdown(
+            f"""
+            <div class="util-card">
+                <strong>Selected run intervals:</strong><br><br>
+                {build_run_hours_summary(schedule)}
+            </div>
+            """,
+            unsafe_allow_html=True
         )
 
         st.dataframe(timeline_df, use_container_width=True)
@@ -2715,16 +2647,16 @@ elif "Timeline" in selected_page:
     render_section_shell_end()
 
 # ====================================================
-# PAGE: POWER ESTIMATOR
+# TAB 5 — POWER ESTIMATOR
 # ====================================================
 
-elif "Estimator" in selected_page:
+with tab5:
     render_section_shell_start(
         kicker="Power Model",
         title="System Power Estimator",
         description=(
-            "Estimate approximate system power draw under compute load when you "
-            "do not know your machine wattage directly."
+            "Estimate approximate system power draw under compute load when you do not know your "
+            "machine wattage directly."
         ),
     )
 
@@ -2738,7 +2670,7 @@ elif "Estimator" in selected_page:
         "RTX 4090": 450,
         "A100": 400,
         "H100": 700,
-        "B200": 1000,
+        "B200": 1000
     }
 
     intel_cpu_options = {
@@ -2746,7 +2678,7 @@ elif "Estimator" in selected_page:
         "Intel i7 / equivalent": 125,
         "Intel i9 / equivalent": 180,
         "Intel Xeon (single socket)": 250,
-        "Intel Xeon (dual socket)": 400,
+        "Intel Xeon (dual socket)": 400
     }
 
     amd_cpu_options = {
@@ -2755,20 +2687,24 @@ elif "Estimator" in selected_page:
         "AMD Ryzen 9 / equivalent": 170,
         "AMD Threadripper": 280,
         "AMD EPYC (single socket)": 280,
-        "AMD EPYC (dual socket)": 450,
+        "AMD EPYC (dual socket)": 450
     }
 
     left, right = st.columns(2, gap="large")
 
     with left:
-        st.markdown('<div class="input-sec-label">🎮 GPU</div>', unsafe_allow_html=True)
         gpu = st.selectbox("GPU Model", list(gpu_models.keys()))
+
         num_gpus = st.number_input(
-            "Number of GPUs", min_value=1, max_value=100000, value=1, step=1,
+            "Number of GPUs",
+            min_value=1,
+            max_value=100000,
+            value=1,
+            step=1
         )
 
-        st.markdown('<div class="input-sec-label">🧠 CPU</div>', unsafe_allow_html=True)
         cpu_brand = st.selectbox("CPU Brand", ["Intel", "AMD"])
+
         if cpu_brand == "Intel":
             cpu_model = st.selectbox("CPU Type", list(intel_cpu_options.keys()))
             cpu_watts = intel_cpu_options[cpu_model]
@@ -2777,21 +2713,20 @@ elif "Estimator" in selected_page:
             cpu_watts = amd_cpu_options[cpu_model]
 
     with right:
-        st.markdown('<div class="input-sec-label">⚙  System</div>', unsafe_allow_html=True)
         overhead = st.slider(
             "System Overhead (RAM, motherboard, storage, cooling)",
             min_value=50,
             max_value=5000,
             value=150,
-            step=10,
+            step=10
         )
-        st.markdown('<div class="input-sec-label">📈 Utilization</div>', unsafe_allow_html=True)
+
         utilization_factor = st.slider(
             "Estimated Workload Intensity",
             min_value=0.10,
             max_value=1.00,
             value=1.00,
-            step=0.05,
+            step=0.05
         )
 
     gpu_total_nameplate = gpu_models[gpu] * num_gpus
@@ -2800,91 +2735,74 @@ elif "Estimator" in selected_page:
     st.session_state["estimated_machine_watts"] = estimated_power
     estimated_kwh_per_hour = estimated_power / 1000
 
-    st.markdown('<div class="util-spacer-sm"></div>', unsafe_allow_html=True)
-    st.markdown(
-        '<div class="util-section-kicker">Estimated Power Output</div>',
-        unsafe_allow_html=True,
-    )
-    st.markdown('<div class="util-spacer-xs"></div>', unsafe_allow_html=True)
-
-    p1, p2, p3 = st.columns(3, gap="small")
+    p1, p2, p3 = st.columns(3)
     with p1:
-        render_metric_card("Estimated Load", f"{estimated_power:,} W", highlighted=True)
+        render_metric_card("Estimated Load", f"{estimated_power:,} W")
     with p2:
         render_metric_card("Energy Per Hour", f"{estimated_kwh_per_hour:.2f} kWh")
     with p3:
         render_metric_card("GPU Power Component", f"{int(gpu_total_estimated):,} W")
 
-    st.markdown('<div class="util-spacer-sm"></div>', unsafe_allow_html=True)
-
     render_info_card(
         "Estimator Recommendation",
         (
-            f"The current estimator recommends <strong>{estimated_power:,} W</strong>. "
-            "This stays separate from the optimizer until you explicitly copy it over."
+            f"The current estimator recommends <strong>{estimated_power:,} W</strong>."
+            " This stays separate from the optimizer until you explicitly copy it over."
         ),
     )
 
     if st.button("Use estimator value in optimizer", on_click=apply_estimator_value_to_optimizer):
-        st.success(f"Copied {estimated_power:,} W into the optimizer input.")
+        st.success(
+            f"Copied {estimated_power:,} W into the optimizer input."
+        )
 
     breakdown_df = pd.DataFrame({
         "Component": [
-            "GPU model", "GPU count", "CPU brand", "CPU type",
-            "CPU watts", "Overhead watts", "Workload intensity", "Estimated total watts",
+            "GPU model",
+            "GPU count",
+            "CPU brand",
+            "CPU type",
+            "CPU watts",
+            "Overhead watts",
+            "Workload intensity",
+            "Estimated total watts"
         ],
         "Value": [
-            gpu, f"{num_gpus:,}", cpu_brand, cpu_model,
-            f"{cpu_watts:,} W", f"{overhead:,} W",
-            f"{utilization_factor:.2f}", f"{estimated_power:,} W",
-        ],
+            gpu,
+            f"{num_gpus:,}",
+            cpu_brand,
+            cpu_model,
+            f"{cpu_watts:,} W",
+            f"{overhead:,} W",
+            f"{utilization_factor:.2f}",
+            f"{estimated_power:,} W"
+        ]
     })
 
-    st.markdown(
-        '<div class="util-section-kicker" style="margin-top:0.5rem;">Estimator Breakdown</div>',
-        unsafe_allow_html=True,
-    )
+    st.subheader("Estimator Breakdown")
     st.dataframe(breakdown_df, use_container_width=True)
 
     render_section_shell_end()
 
 # ====================================================
-# PAGE: MULTI-LOCATION
+# TAB 6 — MULTI-LOCATION
 # ====================================================
 
-elif "Multi" in selected_page:
+with tab6:
     render_section_shell_start(
         kicker="Location Scan",
         title="Multi-Location",
         description=(
-            "Compare the same workload across multiple ZIP codes and surface the "
-            "strongest cost and carbon outcomes."
+            "Compare the same workload across multiple ZIP codes and surface the strongest "
+            "cost and carbon outcomes in the same glassy product language."
         ),
     )
 
     multi_location_input = st.text_input(
         "Enter ZIP codes (comma separated)",
-        "93106, 10001, 60601",
+        "93106, 10001, 60601"
     )
     zip_codes = [z.strip() for z in multi_location_input.split(",") if z.strip()]
-
-    # Read shared optimizer settings from session state
-    compute_hours = int(st.session_state.get("_ch", 8))
-    deadline = st.session_state.get("_dl", (get_local_now() + timedelta(hours=24)).to_pydatetime())
-    objective = st.session_state.get("_obj", "Minimize Carbon")
-    machine_watts = int(st.session_state.get("optimizer_machine_watts", 300))
-    schedule_mode_label = st.session_state.get("_sm", "Flexible")
-
-    render_info_card(
-        "Using Optimizer Settings",
-        (
-            f"Compute hours: <strong>{compute_hours}h</strong> · "
-            f"Objective: <strong>{objective}</strong> · "
-            f"Machine: <strong>{machine_watts:,} W</strong> · "
-            f"Schedule: <strong>{schedule_mode_label}</strong>. "
-            "Adjust these on the Optimizer page."
-        ),
-    )
 
     compare_locations_button = st.button("Compare Locations")
 
@@ -2926,13 +2844,8 @@ elif "Multi" in selected_page:
                         multi_location_results["optimized_carbon_kg"].idxmin()
                     ]
 
-                    render_callout_grid(
-                        [
-                            ("Lowest Cost Location", f"ZIP {lowest_cost_row['zip_code']}"),
-                            ("Lowest Carbon Location", f"ZIP {lowest_carbon_row['zip_code']}"),
-                        ],
-                        gap="medium",
-                    )
+                    st.write(f"Lowest Cost Location: ZIP {lowest_cost_row['zip_code']}")
+                    st.write(f"Lowest Carbon Location: ZIP {lowest_carbon_row['zip_code']}")
 
             except Exception as e:
                 error_message = str(e)
@@ -2951,29 +2864,27 @@ elif "Multi" in selected_page:
     render_section_shell_end()
 
 # ====================================================
-# PAGE: ABOUT UTIL
+# TAB 7 — ABOUT
 # ====================================================
 
-elif "About" in selected_page:
+with tab7:
     render_section_shell_start(
         kicker="Product Context",
         title="About Util",
         description=(
-            "A concise overview of what the product does today and where the roadmap "
-            "can expand next."
+            "A concise overview of what the product does today and where the roadmap can expand next."
         ),
     )
 
     render_info_card(
         "Current Product",
         (
-            "<strong>Util</strong> is a compute scheduling and optimization product designed to "
-            "help users run workloads at the best possible times and locations in order to "
-            "minimize electricity costs and carbon emissions.<br><br>"
-            "The current MVP is recommendation-only. It does not yet automatically control "
-            "workloads or locations. Instead, it shows users when to run, how much they can "
-            "save, what forecast signals drive the recommendation, and how much power their "
-            "system is likely using."
+            "<strong>Util</strong> is a compute scheduling and optimization product designed to help users "
+            "run workloads at the best possible times and locations in order to minimize electricity costs "
+            "and carbon emissions.<br><br>"
+            "The current MVP is recommendation-only. It does not yet automatically control workloads or "
+            "locations. Instead, it shows users when to run, how much they can save, what forecast signals "
+            "drive the recommendation, and how much power their system is likely using."
         ),
     )
     render_callout_grid(
@@ -2987,9 +2898,8 @@ elif "About" in selected_page:
     render_info_card(
         "Future Expansion",
         (
-            "Future versions can add live telemetry, multi-region scheduling, and deeper "
-            "partnerships with electricity providers to solve the issue from the supply side "
-            "as well as the workload side."
+            "Future versions can add live telemetry, multi-region scheduling, and deeper partnerships with "
+            "electricity providers to solve the issue from the supply side as well as the workload side."
         ),
     )
 
