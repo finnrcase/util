@@ -1,4 +1,5 @@
 import base64
+import html
 import inspect
 import logging
 import streamlit as st
@@ -55,23 +56,23 @@ st.set_page_config(
 )
 
 THEME_TOKENS = {
-    "bg": "#090b13",
-    "bg_top": "#140f26",
-    "surface": "rgba(22, 16, 38, 0.76)",
-    "surface_strong": "rgba(20, 14, 34, 0.9)",
+    "bg": "#060912",
+    "bg_top": "#0b1020",
+    "surface": "rgba(12, 18, 31, 0.82)",
+    "surface_strong": "rgba(10, 15, 28, 0.94)",
     "surface_soft": "rgba(255, 255, 255, 0.045)",
-    "surface_elevated": "rgba(28, 19, 45, 0.92)",
-    "border": "rgba(184, 145, 255, 0.2)",
-    "border_strong": "rgba(184, 145, 255, 0.38)",
+    "surface_elevated": "rgba(14, 22, 38, 0.96)",
+    "border": "rgba(120, 151, 255, 0.18)",
+    "border_strong": "rgba(120, 151, 255, 0.34)",
     "border_inner": "rgba(255, 255, 255, 0.08)",
-    "text": "#fbf8ff",
-    "text_muted": "#b3a8cf",
-    "text_soft": "#e2daf3",
-    "accent_blue": "#7b6dff",
-    "accent_blue_soft": "rgba(123, 109, 255, 0.22)",
-    "accent_violet": "#a77bff",
-    "accent_violet_soft": "rgba(167, 123, 255, 0.26)",
-    "accent_silver": "#efe7ff",
+    "text": "#f7fbff",
+    "text_muted": "#9aa7c2",
+    "text_soft": "#dfe8f5",
+    "accent_blue": "#4f8cff",
+    "accent_blue_soft": "rgba(79, 140, 255, 0.24)",
+    "accent_violet": "#7f6bff",
+    "accent_violet_soft": "rgba(127, 107, 255, 0.24)",
+    "accent_silver": "#eef5ff",
     "success": "#6ee7b7",
     "success_soft": "rgba(110, 231, 183, 0.18)",
     "shadow": "0 28px 80px rgba(0, 0, 0, 0.42)",
@@ -569,6 +570,284 @@ def build_theme_css(tokens: dict[str, str]) -> str:
         line-height: 1.05;
     }}
 
+    [data-testid="stSidebar"] {{
+        background:
+            linear-gradient(180deg, rgba(8, 12, 22, 0.96), rgba(5, 8, 16, 0.96)),
+            radial-gradient(circle at top, rgba(79, 140, 255, 0.18), transparent 32%);
+        border-right: 1px solid rgba(120, 151, 255, 0.12);
+    }}
+
+    [data-testid="stSidebar"] > div:first-child {{
+        background: transparent;
+    }}
+
+    [data-testid="stSidebar"] .block-container {{
+        padding-top: 1rem;
+        padding-bottom: 1.25rem;
+        padding-left: 1rem;
+        padding-right: 1rem;
+    }}
+
+    .util-sidebar-brand {{
+        position: relative;
+        overflow: hidden;
+        padding: 1rem 1rem 1.05rem;
+        border-radius: 24px;
+        margin-bottom: 1rem;
+        background:
+            linear-gradient(180deg, rgba(255,255,255,0.06), rgba(255,255,255,0.015)),
+            linear-gradient(145deg, rgba(12, 18, 32, 0.96), rgba(8, 12, 22, 0.94));
+        border: 1px solid rgba(120, 151, 255, 0.16);
+        box-shadow: var(--util-shadow-soft);
+    }}
+
+    .util-sidebar-brand::after {{
+        content: "";
+        position: absolute;
+        inset: auto -10% -65% auto;
+        width: 140px;
+        height: 140px;
+        border-radius: 50%;
+        background: radial-gradient(circle, rgba(79, 140, 255, 0.2), transparent 70%);
+        filter: blur(10px);
+        pointer-events: none;
+    }}
+
+    .util-sidebar-brand-top {{
+        display: flex;
+        align-items: center;
+        gap: 0.8rem;
+        margin-bottom: 0.7rem;
+    }}
+
+    .util-sidebar-logo {{
+        width: 46px;
+        height: 46px;
+        border-radius: 14px;
+        padding: 0.45rem;
+        background: linear-gradient(145deg, rgba(127, 107, 255, 0.22), rgba(79, 140, 255, 0.12));
+        border: 1px solid rgba(120, 151, 255, 0.2);
+        box-shadow: inset 0 1px 0 rgba(255,255,255,0.06);
+    }}
+
+    .util-sidebar-kicker,
+    .util-page-kicker,
+    .util-flow-kicker {{
+        color: #bfd1ff;
+        text-transform: uppercase;
+        letter-spacing: 0.16em;
+        font-size: 0.72rem;
+        font-weight: 700;
+    }}
+
+    .util-sidebar-title {{
+        font-family: 'Space Grotesk', sans-serif;
+        color: var(--util-text);
+        font-size: 1.2rem;
+        font-weight: 700;
+        letter-spacing: -0.03em;
+        margin: 0.08rem 0 0;
+    }}
+
+    .util-sidebar-copy,
+    .util-sidebar-note {{
+        color: var(--util-muted);
+        font-size: 0.9rem;
+        line-height: 1.6;
+    }}
+
+    .util-sidebar-note {{
+        padding-top: 0.9rem;
+        border-top: 1px solid rgba(120, 151, 255, 0.12);
+        margin-top: 0.95rem;
+    }}
+
+    [data-testid="stSidebar"] .stRadio [role="radiogroup"] {{
+        display: grid;
+        gap: 0.45rem;
+        background: transparent;
+        border: none;
+        padding: 0;
+    }}
+
+    [data-testid="stSidebar"] .stRadio [role="radiogroup"] label {{
+        min-height: 3.1rem;
+        border-radius: 16px;
+        background: rgba(255,255,255,0.025);
+        border: 1px solid rgba(120, 151, 255, 0.08);
+        padding: 0.75rem 0.8rem;
+        transition: border-color 0.2s ease, background 0.2s ease, transform 0.2s ease;
+    }}
+
+    [data-testid="stSidebar"] .stRadio [role="radiogroup"] label:hover {{
+        border-color: rgba(120, 151, 255, 0.18);
+        background: rgba(255,255,255,0.045);
+        transform: translateX(2px);
+    }}
+
+    [data-testid="stSidebar"] .stRadio [role="radiogroup"] label:has(input:checked) {{
+        background:
+            linear-gradient(180deg, rgba(255,255,255,0.08), rgba(255,255,255,0.02)),
+            linear-gradient(135deg, rgba(79, 140, 255, 0.18), rgba(127, 107, 255, 0.14));
+        border-color: rgba(120, 151, 255, 0.26);
+        box-shadow: inset 0 1px 0 rgba(255,255,255,0.05), 0 14px 28px rgba(6, 12, 28, 0.26);
+    }}
+
+    .util-page-hero {{
+        position: relative;
+        overflow: hidden;
+        padding: 1.5rem 1.55rem;
+        margin-bottom: 1rem;
+        border-radius: 30px;
+        background:
+            linear-gradient(180deg, rgba(255,255,255,0.05), rgba(255,255,255,0.015)),
+            linear-gradient(145deg, rgba(10, 16, 29, 0.96), rgba(6, 10, 20, 0.94));
+        border: 1px solid rgba(120, 151, 255, 0.16);
+        box-shadow: var(--util-shadow);
+        isolation: isolate;
+    }}
+
+    .util-page-hero::before {{
+        content: "";
+        position: absolute;
+        inset: 0;
+        background:
+            radial-gradient(circle at 12% 18%, rgba(127, 107, 255, 0.18), transparent 28%),
+            radial-gradient(circle at 88% 24%, rgba(79, 140, 255, 0.14), transparent 24%);
+        pointer-events: none;
+    }}
+
+    .util-page-title {{
+        margin: 0.2rem 0 0.55rem;
+        font-size: clamp(2rem, 4vw, 3.25rem);
+        line-height: 0.96;
+    }}
+
+    .util-page-description {{
+        color: var(--util-text-soft);
+        font-size: 1rem;
+        line-height: 1.7;
+        max-width: 48rem;
+    }}
+
+    .util-page-meta {{
+        display: grid;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: 0.85rem;
+        margin-top: 1rem;
+    }}
+
+    .util-page-meta-card {{
+        padding: 0.9rem 1rem;
+        border-radius: 20px;
+        background: rgba(255,255,255,0.03);
+        border: 1px solid rgba(120, 151, 255, 0.12);
+    }}
+
+    .util-page-meta-label {{
+        color: var(--util-muted);
+        text-transform: uppercase;
+        letter-spacing: 0.14em;
+        font-size: 0.72rem;
+        margin-bottom: 0.35rem;
+    }}
+
+    .util-page-meta-value {{
+        color: var(--util-text);
+        font-weight: 700;
+        font-size: 0.98rem;
+        line-height: 1.45;
+    }}
+
+    .util-flow-grid {{
+        display: grid;
+        grid-template-columns: repeat(5, minmax(0, 1fr));
+        gap: 0.8rem;
+        margin-bottom: 1rem;
+    }}
+
+    .util-flow-step {{
+        padding: 0.95rem 1rem;
+        border-radius: 20px;
+        background: rgba(255,255,255,0.025);
+        border: 1px solid rgba(120, 151, 255, 0.12);
+        min-height: 124px;
+    }}
+
+    .util-flow-step-active {{
+        background:
+            linear-gradient(180deg, rgba(255,255,255,0.08), rgba(255,255,255,0.02)),
+            linear-gradient(135deg, rgba(79, 140, 255, 0.18), rgba(127, 107, 255, 0.16));
+        border-color: rgba(120, 151, 255, 0.26);
+        box-shadow: inset 0 1px 0 rgba(255,255,255,0.06), 0 16px 30px rgba(10, 18, 34, 0.26);
+    }}
+
+    .util-flow-index {{
+        color: var(--util-accent-silver);
+        font-family: 'Space Grotesk', sans-serif;
+        font-size: 1.15rem;
+        font-weight: 700;
+        margin: 0.2rem 0 0.45rem;
+    }}
+
+    .util-flow-title {{
+        color: var(--util-text);
+        font-weight: 700;
+        font-size: 0.98rem;
+        margin-bottom: 0.32rem;
+    }}
+
+    .util-flow-copy {{
+        color: var(--util-muted);
+        font-size: 0.88rem;
+        line-height: 1.55;
+    }}
+
+    .util-subsection-title {{
+        color: var(--util-text);
+        font-family: 'Space Grotesk', sans-serif;
+        font-size: 1.08rem;
+        font-weight: 700;
+        letter-spacing: -0.02em;
+        margin: 0.2rem 0 0.2rem;
+    }}
+
+    .util-subsection-copy {{
+        color: var(--util-muted);
+        font-size: 0.92rem;
+        line-height: 1.65;
+        margin-bottom: 0.85rem;
+    }}
+
+    .util-kpi-strip {{
+        display: grid;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: 0.8rem;
+        margin-bottom: 0.95rem;
+    }}
+
+    .util-chart-note {{
+        color: var(--util-muted);
+        font-size: 0.9rem;
+        line-height: 1.6;
+        margin-bottom: 0.6rem;
+    }}
+
+    div[data-testid="stVegaLiteChart"] {{
+        border-radius: 24px;
+        padding: 0.9rem 0.9rem 0.4rem;
+        background:
+            linear-gradient(180deg, rgba(255,255,255,0.04), rgba(255,255,255,0.012)),
+            rgba(9, 13, 23, 0.92);
+        border: 1px solid rgba(120, 151, 255, 0.14);
+        box-shadow: var(--util-shadow-soft);
+        margin-bottom: 0.85rem;
+    }}
+
+    div[data-testid="stCaptionContainer"] p {{
+        color: var(--util-muted) !important;
+    }}
+
     div[data-baseweb="tab-list"] {{
         gap: 0.65rem;
         background:
@@ -825,7 +1104,10 @@ def build_theme_css(tokens: dict[str, str]) -> str:
 
     @media (max-width: 1050px) {{
         .util-hero-grid,
-        .util-callout-grid {{
+        .util-callout-grid,
+        .util-page-meta,
+        .util-flow-grid,
+        .util-kpi-strip {{
             grid-template-columns: 1fr;
         }}
 
@@ -907,6 +1189,122 @@ def render_loading_card(title: str, body: str):
             <div>
                 <div class="util-card-title">{title}</div>
                 <div class="util-loading-copy">{body}</div>
+            </div>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+
+
+def render_page_hero(
+    *,
+    kicker: str,
+    title: str,
+    description: str,
+    meta_items: list[tuple[str, str]] | None = None,
+):
+    meta_html = ""
+    if meta_items:
+        meta_cards = "".join(
+            f"""
+            <div class="util-page-meta-card">
+                <div class="util-page-meta-label">{html.escape(label)}</div>
+                <div class="util-page-meta-value">{html.escape(value)}</div>
+            </div>
+            """
+            for label, value in meta_items
+        )
+        meta_html = f'<div class="util-page-meta">{meta_cards}</div>'
+
+    st.markdown(
+        f"""
+        <div class="util-page-hero">
+            <div class="util-page-kicker">{html.escape(kicker)}</div>
+            <h1 class="util-page-title">{html.escape(title)}</h1>
+            <div class="util-page-description">{html.escape(description)}</div>
+            {meta_html}
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+
+
+def render_workflow_map(active_step: int):
+    steps = [
+        ("Enter scenario inputs", "Define the workload, location, and runtime target."),
+        ("Review assumptions", "Choose the objective, carbon mode, and scheduling style."),
+        ("Run optimization", "Launch the existing Util optimization pipeline."),
+        ("Review results", "Interpret the recommended window, savings, and charts."),
+        ("Export or save", "Download structured outputs or publish them to cloud storage."),
+    ]
+    cards = []
+    for index, (title, copy) in enumerate(steps, start=1):
+        classes = "util-flow-step util-flow-step-active" if index == active_step else "util-flow-step"
+        cards.append(
+            f"""
+            <div class="{classes}">
+                <div class="util-flow-kicker">Step {index}</div>
+                <div class="util-flow-index">0{index}</div>
+                <div class="util-flow-title">{html.escape(title)}</div>
+                <div class="util-flow-copy">{html.escape(copy)}</div>
+            </div>
+            """
+        )
+
+    st.markdown(f'<div class="util-flow-grid">{"".join(cards)}</div>', unsafe_allow_html=True)
+
+
+def render_subsection_intro(kicker: str, title: str, description: str):
+    st.markdown(f'<div class="util-page-kicker">{html.escape(kicker)}</div>', unsafe_allow_html=True)
+    st.markdown(f'<div class="util-subsection-title">{html.escape(title)}</div>', unsafe_allow_html=True)
+    st.markdown(f'<div class="util-subsection-copy">{html.escape(description)}</div>', unsafe_allow_html=True)
+
+
+def render_sidebar_brand():
+    st.sidebar.markdown(
+        """
+        <div class="util-sidebar-brand">
+            <div class="util-sidebar-brand-top">
+                <img class="util-sidebar-logo" src="data:image/png;base64,{}" />
+                <div>
+                    <div class="util-sidebar-kicker">Decision Platform</div>
+                    <div class="util-sidebar-title">Util</div>
+                </div>
+            </div>
+            <div class="util-sidebar-copy">
+                Premium scheduling intelligence for compute cost, carbon, and run-window planning.
+            </div>
+        </div>
+        """.format(logo_base64),
+        unsafe_allow_html=True,
+    )
+
+
+def render_sidebar_status():
+    result = st.session_state.get("result")
+    if result is None:
+        st.sidebar.markdown(
+            """
+            <div class="util-sidebar-note">
+                Start in <strong>Optimization Studio</strong>, enter a scenario, then run the model to unlock the rest of the dashboard.
+            </div>
+            """,
+            unsafe_allow_html=True,
+        )
+        return
+
+    run_window = build_run_window_summary(result["schedule"])
+    objective_label = format_objective_label(result["workload_input"].objective)
+    region = result.get("region", "Unknown")
+    st.sidebar.markdown(
+        f"""
+        <div class="util-sidebar-note">
+            <div class="util-sidebar-kicker">Last Run</div>
+            <div class="util-sidebar-title" style="font-size:1rem; margin-top:0.2rem;">{html.escape(objective_label)}</div>
+            <div class="util-sidebar-copy" style="margin-top:0.45rem;">
+                Region {html.escape(str(region))}<br>
+                Recommended window starts {html.escape(run_window["start"])}<br>
+                {int(run_window["intervals"])} selected intervals ready for review or export.
             </div>
         </div>
         """,
@@ -1875,6 +2273,772 @@ def render_recommendation_card(
             f"<br><strong>Compute Hours Required:</strong> {int(workload.compute_hours_required)} hours"
         ),
     )
+
+
+# Premium navigation refactor lives above the legacy tab UI.
+DEFAULT_DEADLINE = (get_local_now() + timedelta(hours=24)).to_pydatetime()
+
+SESSION_DEFAULTS = {
+    "estimated_machine_watts": None,
+    "optimizer_zip_code": "93106",
+    "optimizer_compute_hours": 8,
+    "optimizer_objective": "Minimize Carbon",
+    "optimizer_carbon_weight_pct": 50,
+    "optimizer_carbon_estimation_mode_label": "Extended (Historical-Pattern Estimate)",
+    "optimizer_historical_days": 7,
+    "optimizer_schedule_mode_label": "Flexible",
+    "optimizer_machine_watts": 300,
+    "optimizer_deadline": DEFAULT_DEADLINE,
+    "multi_location_input": "93106, 10001, 60601",
+    "result": None,
+    "last_forecast_mode_label": "Live Carbon",
+    "last_schedule_mode_label": "Flexible",
+    "last_export_package": None,
+    "save_outputs_to_cloud": False,
+    "active_page": "Optimization Studio",
+}
+
+for session_key, session_value in SESSION_DEFAULTS.items():
+    if session_key not in st.session_state:
+        st.session_state[session_key] = session_value
+
+FORECAST_MODE_LABEL = "Live Carbon"
+FORECAST_MODE = "live_carbon"
+NAV_ITEMS = [
+    "Optimization Studio",
+    "Savings Analysis",
+    "Forecast Signals",
+    "Run Timeline",
+    "Power Estimator",
+    "Multi-Location",
+    "About Util",
+]
+
+
+def get_optimizer_state() -> dict[str, object]:
+    objective_label = st.session_state.get("optimizer_objective", "Minimize Carbon")
+    objective_value = {
+        "Minimize Carbon": "carbon",
+        "Minimize Price": "cost",
+        "Balanced": "balanced",
+    }[objective_label]
+    return {
+        "zip_code": st.session_state.get("optimizer_zip_code", "93106"),
+        "compute_hours": int(st.session_state.get("optimizer_compute_hours", 8)),
+        "objective_label": objective_label,
+        "objective_value": objective_value,
+        "carbon_weight_pct": int(st.session_state.get("optimizer_carbon_weight_pct", 50)),
+        "carbon_estimation_mode_label": st.session_state.get(
+            "optimizer_carbon_estimation_mode_label",
+            "Extended (Historical-Pattern Estimate)",
+        ),
+        "historical_days": int(st.session_state.get("optimizer_historical_days", 7)),
+        "schedule_mode_label": st.session_state.get("optimizer_schedule_mode_label", "Flexible"),
+        "machine_watts": int(st.session_state.get("optimizer_machine_watts", 300)),
+        "deadline": st.session_state.get("optimizer_deadline", DEFAULT_DEADLINE),
+    }
+
+
+def render_optimizer_page():
+    result = st.session_state.get("result")
+    active_step = 4 if result is not None else 1
+    settings = get_optimizer_state()
+    render_page_hero(
+        kicker="Optimization Studio",
+        title="Carbon-aware workload scheduling, framed like a premium decision platform.",
+        description=(
+            "Enter a workload scenario, review the operating assumptions, run Util's existing optimization pipeline, "
+            "and inspect a cleaner recommendation package without touching backend logic."
+        ),
+        meta_items=[
+            ("Objective", str(settings["objective_label"])),
+            ("Scenario window", f"{settings['compute_hours']} compute hrs before deadline"),
+            ("Exports", "Structured CSV package and optional S3 save"),
+        ],
+    )
+    render_workflow_map(active_step)
+
+    col_input, col_output = st.columns([1.02, 1.48], gap="large")
+    with col_input:
+        render_subsection_intro(
+            "Step 1",
+            "Scenario Inputs",
+            "Define the workload, location, and system load so the recommendation starts with the right operating context.",
+        )
+        zip_code = st.text_input("ZIP Code", key="optimizer_zip_code")
+        st.caption("Location-based forecasting is still in progress. For now, use the provided ZIP code.")
+        compute_hours = st.number_input(
+            "Compute Hours Required",
+            min_value=1,
+            max_value=72,
+            step=1,
+            key="optimizer_compute_hours",
+        )
+        machine_watts = st.number_input(
+            "Machine Wattage (Watts)",
+            min_value=50,
+            max_value=500000,
+            step=10,
+            key="optimizer_machine_watts",
+        )
+        deadline = st.datetime_input("Deadline", key="optimizer_deadline")
+
+        render_subsection_intro(
+            "Step 2",
+            "Decision Framing",
+            "Choose how Util should score the schedule and how much signal history it can use for forecast extension.",
+        )
+        objective = st.selectbox(
+            "Optimization Objective",
+            ["Minimize Carbon", "Minimize Price", "Balanced"],
+            key="optimizer_objective",
+        )
+        objective_value = {
+            "Minimize Carbon": "carbon",
+            "Minimize Price": "cost",
+            "Balanced": "balanced",
+        }[objective]
+        carbon_weight_pct = int(st.session_state.get("optimizer_carbon_weight_pct", 50))
+        price_weight_pct = 100 - carbon_weight_pct
+        if objective_value == "balanced":
+            carbon_weight_pct = st.slider(
+                "Carbon Weight",
+                min_value=0,
+                max_value=100,
+                step=1,
+                key="optimizer_carbon_weight_pct",
+            )
+            price_weight_pct = 100 - carbon_weight_pct
+            st.caption(f"Price Weight: {price_weight_pct}%")
+
+        carbon_estimation_mode_label = st.radio(
+            "Carbon Estimate Type",
+            [
+                "Short-Term (Live Data - 24 hour access)",
+                "Extended (Historical-Pattern Estimate)",
+            ],
+            horizontal=True,
+            key="optimizer_carbon_estimation_mode_label",
+        )
+        st.caption(
+            "Extended mode keeps the live forecast where available and estimates the remaining horizon from recent historical patterns."
+        )
+        historical_days = st.slider(
+            "Historical Lookback (days)",
+            min_value=1,
+            max_value=14,
+            step=1,
+            key="optimizer_historical_days",
+        )
+        schedule_mode_label = st.radio(
+            "Scheduling Strategy",
+            ["Flexible", "Continuous Block"],
+            horizontal=True,
+            key="optimizer_schedule_mode_label",
+        )
+        st.caption("Flexible selects the best individual intervals. Continuous Block chooses one uninterrupted run window.")
+        st.checkbox("Save outputs to AWS cloud", key="save_outputs_to_cloud")
+
+        estimated_machine_watts = st.session_state.get("estimated_machine_watts")
+        if estimated_machine_watts is None:
+            render_info_card(
+                "Estimator Link",
+                "Use the Power Estimator page to generate a wattage recommendation, then copy it here only when you want to."
+            )
+        else:
+            render_info_card(
+                "Estimator Recommendation",
+                (
+                    f"Latest estimator recommendation: <strong>{int(estimated_machine_watts):,} W</strong>."
+                    " Your optimizer input stays editable and only changes if you use the estimator action."
+                ),
+            )
+
+        carbon_estimation_mode = (
+            "forecast_plus_historical_expectation"
+            if carbon_estimation_mode_label == "Extended (Historical-Pattern Estimate)"
+            else "forecast_only"
+        )
+        cloud_save_enabled = bool(st.session_state.get("save_outputs_to_cloud", False))
+
+    with col_output:
+        render_subsection_intro(
+            "Step 3",
+            "Run Optimization",
+            "Confirm the scenario, launch the optimizer, and review the recommendation package in the same workspace.",
+        )
+        render_callout_grid(
+            [
+                ("Objective", objective),
+                ("Compute Requirement", f"{int(compute_hours)} hours"),
+                ("Machine Load", f"{int(machine_watts):,} W"),
+                ("Scheduling Style", schedule_mode_label),
+            ],
+            gap="medium",
+        )
+        run_button = st.button("Run Optimization", use_container_width=True)
+        loading_placeholder = st.empty()
+
+        if run_button:
+            st.session_state["result"] = None
+            with loading_placeholder.container():
+                render_loading_card(
+                    "Running Optimization",
+                    "Util is fetching signals, evaluating feasible intervals, and preparing your recommendation.",
+                )
+            try:
+                forecast_mode = FORECAST_MODE
+                schedule_mode = "block" if schedule_mode_label == "Continuous Block" else "flexible"
+                workload = build_workload_input(
+                    zip_code=zip_code,
+                    compute_hours_required=int(compute_hours),
+                    deadline=deadline,
+                    objective=objective_value,
+                    machine_watts=int(machine_watts),
+                    carbon_weight=carbon_weight_pct / 100,
+                    price_weight=price_weight_pct / 100,
+                )
+                result = run_util_pipeline(
+                    workload_input=workload,
+                    mapping_path=ZIP_PATH,
+                    carbon_path=CARBON_PATH,
+                    price_path=PRICE_PATH,
+                    forecast_mode=forecast_mode,
+                    schedule_mode=schedule_mode,
+                    carbon_estimation_mode=carbon_estimation_mode,
+                    historical_days=int(historical_days),
+                )
+                st.session_state["result"] = result
+                st.session_state["last_forecast_mode_label"] = FORECAST_MODE_LABEL
+                st.session_state["last_schedule_mode_label"] = schedule_mode_label
+                if forecast_mode == "live_carbon":
+                    st.session_state["watttime_token_available"] = True
+                    st.session_state["last_successful_api_pull_time"] = get_local_now().strftime("%Y-%m-%d %H:%M:%S")
+
+                if ANALYTICS_LOGGING_ENABLED:
+                    analytics_record = build_run_analytics_record(
+                        result=result,
+                        run_type=DEFAULT_ANALYTICS_RUN_TYPE,
+                        schedule_mode_label=schedule_mode_label,
+                        forecast_mode_label=FORECAST_MODE_LABEL,
+                        api_mode=FORECAST_MODE,
+                    )
+                    append_run(ANALYTICS_PATH, analytics_record)
+
+                try:
+                    export_package = generate_export_package(
+                        result=result,
+                        export_root=EXPORTS_DIR,
+                        enable_cloud_upload=cloud_save_enabled,
+                    )
+                    result["export_package"] = export_package
+                    st.session_state["last_export_package"] = export_package
+                except Exception as export_error:
+                    st.session_state["last_export_package"] = {"error": str(export_error)}
+                loading_placeholder.empty()
+            except Exception as e:
+                loading_placeholder.empty()
+                error_message = str(e)
+                is_watttime_auth_error = (
+                    forecast_mode == "live_carbon"
+                    and any(
+                        marker in error_message
+                        for marker in [
+                            "WattTime credentials are missing",
+                            "WattTime authentication failed",
+                            "WattTime request failed: unauthorized",
+                            "WattTime request failed: forbidden",
+                        ]
+                    )
+                )
+                if is_watttime_auth_error:
+                    st.session_state["watttime_token_available"] = False
+                    st.error("Live carbon is currently unavailable because WattTime authentication or API access failed. Please update deployment secrets/API plan.")
+                elif isinstance(e, InfeasibleScheduleError):
+                    st.error(INFEASIBLE_WORKLOAD_MESSAGE)
+                else:
+                    st.error(error_message or "An error occurred while running the pipeline.")
+                    st.exception(e)
+
+        result = st.session_state.get("result")
+        if result is None:
+            render_info_card(
+                "Next Action",
+                "Use the scenario controls on the left, then run the optimizer to unlock recommendations, savings analysis, forecast charts, and exports."
+            )
+            return
+
+        region = result["region"]
+        schedule = result["schedule"].copy()
+        metrics = result["metrics"]
+        forecast = result["forecast"].copy()
+        optimized = result["optimized"].copy()
+        selected_schedule = schedule[schedule["run_flag"] == 1].copy()
+        run_window = build_run_window_summary(schedule)
+        comparison = build_run_now_comparison(
+            optimized_df=optimized,
+            machine_watts=int(result["workload_input"].machine_watts),
+        )
+
+        render_subsection_intro(
+            "Step 4",
+            "Recommendation Snapshot",
+            "These are the existing pipeline outputs, now surfaced as the primary decision layer.",
+        )
+        k1, k2, k3, k4 = st.columns(4, gap="medium")
+        with k1:
+            render_metric_card("Optimized Carbon", f"{metrics['optimized_carbon_kg']:.2f} kg", highlighted=True)
+        with k2:
+            render_metric_card("Emissions Reduction", f"{metrics['carbon_reduction_pct']:.1f}%", f"Saved {metrics['carbon_savings_kg']:.2f} kg vs baseline", highlighted=True)
+        with k3:
+            render_metric_card("Optimized Cost", f"${metrics['optimized_cost']:.2f}", highlighted=True)
+        with k4:
+            render_metric_card("Cost Savings", f"${metrics['cost_savings']:.2f}", f"{metrics['cost_reduction_pct']:.1f}% lower than baseline", highlighted=True)
+
+        rn1, rn2 = st.columns(2, gap="medium")
+        with rn1:
+            render_metric_card("Carbon Saved vs Run Now", f"{comparison['carbon_saved_vs_now_kg']:.2f} kg", f"Run now {comparison['run_now_carbon_kg']:.2f} kg", highlighted=True)
+        with rn2:
+            render_metric_card("Cost Saved vs Run Now", f"${comparison['cost_saved_vs_now']:.2f}", f"Run now ${comparison['run_now_cost']:.2f}", highlighted=True)
+
+        render_status_pills(
+            forecast_mode_label=st.session_state["last_forecast_mode_label"],
+            schedule_mode_label=st.session_state["last_schedule_mode_label"],
+            region=region,
+            forecast_df=forecast,
+        )
+        render_callout_grid(
+            [
+                ("Mapped Region", region),
+                ("Recommended Window", f"{run_window['start']} to {run_window['end']}"),
+                ("Selected Intervals", str(run_window["intervals"])),
+                ("Objective", format_objective_label(result["workload_input"].objective)),
+            ],
+            gap="medium",
+        )
+        if result["workload_input"].objective == "balanced":
+            render_callout_grid(
+                [
+                    ("Carbon Weight", f"{result['workload_input'].carbon_weight:.0%}"),
+                    ("Price Weight", f"{result['workload_input'].price_weight:.0%}"),
+                    ("Selection Logic", "Weighted carbon + price score"),
+                ],
+                gap="medium",
+            )
+        export_package = result.get("export_package")
+        if export_package and export_package.get("export_dir"):
+            render_info_card(
+                "Structured Export Package",
+                f"Run outputs were saved as a structured CSV package in <strong>{export_package['export_dir']}</strong>."
+            )
+        render_subsection_intro(
+            "Step 5",
+            "Recommended Schedule",
+            "Review the exact intervals chosen by the optimizer before moving into the detailed analysis pages.",
+        )
+        if selected_schedule.empty:
+            st.warning("No run intervals were selected.")
+        else:
+            st.dataframe(build_selected_schedule_df(schedule), use_container_width=True)
+
+
+def render_savings_analysis_page():
+    result = st.session_state.get("result")
+    render_page_hero(
+        kicker="Impact Review",
+        title="Savings and emissions outcomes in one executive view.",
+        description="Review the baseline comparison, tradeoff charts, interpretation, and structured exports generated from the latest optimization run.",
+        meta_items=[
+            ("Comparison", "Baseline, optimized, and run-now outcomes"),
+            ("Exports", "CSV package ready for download"),
+            ("Audience", "Decision makers, demos, and handoff"),
+        ],
+    )
+    if result is None:
+        st.info("Run the optimizer to view savings analysis.")
+        return
+
+    metrics = result["metrics"]
+    workload = result["workload_input"]
+    optimized = result["optimized"]
+    objective_context = get_outcome_context(workload.objective)
+    schedule_mode_label = st.session_state.get("last_schedule_mode_label", "Flexible")
+    comparison = build_run_now_comparison(optimized_df=optimized, machine_watts=int(workload.machine_watts))
+    interpretation = build_interpretation_content(result=result, comparison=comparison, schedule_mode_label=schedule_mode_label)
+    total_energy_kwh = comparison["optimized_df"].shape[0] * (workload.machine_watts / 1000) * (infer_interval_minutes(result["forecast"]) / 60)
+
+    c1, c2, c3, c4 = st.columns(4)
+    with c1:
+        render_metric_card("Workload Energy", f"{total_energy_kwh:.2f} kWh")
+    with c2:
+        render_metric_card("Cost Outcome", f"${metrics['cost_savings']:.2f}", f"{metrics['cost_reduction_pct']:.1f}% lower than baseline")
+    with c3:
+        render_metric_card("Carbon Outcome", f"{metrics['carbon_savings_kg']:.2f} kg", f"{metrics['carbon_reduction_pct']:.1f}% lower than baseline")
+    with c4:
+        render_metric_card("Saved vs Run Now", f"{comparison['carbon_saved_vs_now_kg']:.2f} kg CO2", f"${comparison['cost_saved_vs_now']:.2f} lower cost")
+
+    st.caption(objective_context["summary_note"])
+    if workload.objective == "balanced":
+        st.caption(f"Carbon weight: {workload.carbon_weight:.0%}. Price weight: {workload.price_weight:.0%}.")
+
+    render_subsection_intro("Outcomes", "Baseline vs Optimized", "A clean comparison of what the current recommendation changes against the naive baseline schedule.")
+    comparison_df = pd.DataFrame(
+        {
+            "Metric": ["Cost", "Carbon"],
+            "Baseline": [metrics["baseline_cost"], metrics["baseline_carbon_kg"]],
+            "Optimized": [metrics["optimized_cost"], metrics["optimized_carbon_kg"]],
+        }
+    )
+    st.altair_chart(build_metric_comparison_chart(comparison_df), use_container_width=True)
+
+    render_subsection_intro("Tradeoffs", "Outcome Breakdown", "See the realized cost and carbon results under the selected schedule objective.")
+    left, right = st.columns(2, gap="medium")
+    with left:
+        st.caption(objective_context["cost_title"])
+        st.altair_chart(build_outcome_comparison_chart("Cost ($)", metrics["baseline_cost"], metrics["optimized_cost"], "#4f8cff", ".2f"), use_container_width=True)
+    with right:
+        st.caption(objective_context["carbon_title"])
+        st.altair_chart(build_outcome_comparison_chart("Carbon (kg CO2)", metrics["baseline_carbon_kg"], metrics["optimized_carbon_kg"], "#34d399", ".2f"), use_container_width=True)
+
+    export_package = result.get("export_package") or st.session_state.get("last_export_package")
+    export_button_specs = [
+        ("Recommendation CSV", EXPORT_FILENAMES["recommendation"]),
+        ("Region Comparison CSV", EXPORT_FILENAMES["region_comparison"]),
+        ("Time Window Analysis CSV", EXPORT_FILENAMES["time_window_analysis"]),
+        ("Case Comparison CSV", EXPORT_FILENAMES["case_comparison"]),
+        ("Input Assumptions CSV", EXPORT_FILENAMES["input_assumptions"]),
+        ("Run Summary CSV", EXPORT_FILENAMES["run_summary"]),
+    ]
+    render_subsection_intro("Exports", "Structured Export Package", "Download the generated CSV artifacts without leaving the dashboard.")
+    if export_package and export_package.get("export_dir"):
+        export_dir = Path(export_package["export_dir"])
+        export_cols_row1 = st.columns(3, gap="medium")
+        export_cols_row2 = st.columns(3, gap="medium")
+        for column, (label, filename) in zip(export_cols_row1 + export_cols_row2, export_button_specs):
+            with column:
+                file_path = export_dir / filename
+                if file_path.exists():
+                    st.download_button(
+                        f"Download {label}",
+                        data=file_path.read_bytes(),
+                        file_name=filename,
+                        mime="text/csv",
+                        key=f"download_{filename}",
+                        use_container_width=True,
+                    )
+                else:
+                    st.caption(f"{filename} unavailable for this run.")
+        st.caption(f"Export folder: {export_dir}")
+    else:
+        st.info("Run the optimizer to generate the structured CSV export package.")
+
+    render_subsection_intro("Cloud", "Cloud Saved Outputs", "Review the publishing status for the latest run package without changing the storage behavior.")
+    if export_package:
+        cloud_save_enabled = export_package.get("cloud_save_enabled", bool(st.session_state.get("save_outputs_to_cloud", False)))
+        cloud_outputs = export_package.get("cloud_outputs", [])
+        cloud_message = export_package.get("cloud_message")
+        cloud_region = export_package.get("cloud_region_name")
+        cloud_bucket = export_package.get("s3_bucket_name")
+        if cloud_save_enabled and cloud_outputs:
+            if cloud_bucket or cloud_region:
+                st.caption(f"Cloud target: bucket={cloud_bucket or '<missing>'}, region={cloud_region or '<missing>'}")
+            for cloud_output in cloud_outputs:
+                file_name = cloud_output.get("file_name", "download")
+                download_url = cloud_output.get("download_url")
+                if download_url:
+                    st.markdown(f"- [{file_name}]({download_url})")
+                elif cloud_output.get("error"):
+                    st.caption(f"{file_name}: upload failed")
+                else:
+                    st.caption(f"{file_name}: link unavailable")
+        elif cloud_save_enabled and cloud_message:
+            st.info(cloud_message)
+        else:
+            st.caption('Enable "Save outputs to AWS cloud" to publish run outputs to S3.')
+
+    interpretation_html = _format_interpretation_html([interpretation["driver"], interpretation["constraint"]])
+    st.markdown(
+        f"""
+        <div class="util-card">
+            <div class="util-card-title">Recommendation Summary</div>
+            <div class="util-card-copy">{interpretation["summary"]}</div>
+            {interpretation_html}
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+
+
+def render_forecast_signals_page():
+    render_page_hero(
+        kicker="Signal View",
+        title="Forecast curves that explain the recommendation.",
+        description="Inspect the carbon and price signals that drove the selected run window, now framed with cleaner hierarchy and chart presentation.",
+        meta_items=[
+            ("Signals", "Carbon intensity and electricity price"),
+            ("Framing", "Recommended intervals highlighted"),
+            ("Purpose", "Interpret why the schedule was chosen"),
+        ],
+    )
+    result = st.session_state.get("result")
+    if result is None:
+        st.info("Run the optimizer to view forecast signals.")
+        return
+    forecast = result["forecast"]
+    optimized = result["optimized"]
+    display_df = build_forecast_display_df(forecast, optimized)
+    render_status_pills(
+        forecast_mode_label=st.session_state["last_forecast_mode_label"],
+        schedule_mode_label=st.session_state["last_schedule_mode_label"],
+        region=result["region"],
+        forecast_df=forecast,
+    )
+    render_recommendation_card(result, result["schedule"], display_df)
+    render_location_access_card(result)
+
+
+def render_run_timeline_page():
+    render_page_hero(
+        kicker="Execution Map",
+        title="A clean interval-by-interval view of the selected plan.",
+        description="Review the recommended timeline and the exact action for each interval without changing any scheduling data.",
+        meta_items=[
+            ("Timeline", "All intervals and selected actions"),
+            ("Use case", "Operations review and export QA"),
+            ("Source", "Latest optimizer run"),
+        ],
+    )
+    result = st.session_state.get("result")
+    if result is None:
+        st.info("Run the optimizer to view timeline.")
+        return
+    schedule = result["schedule"]
+    render_info_card("Selected run intervals", build_run_hours_summary(schedule))
+    st.dataframe(build_timeline_df(schedule), use_container_width=True)
+
+
+def render_power_estimator_page():
+    render_page_hero(
+        kicker="Power Model",
+        title="Estimate machine load before you run the optimizer.",
+        description="Use the estimator to model approximate system wattage, then copy the recommendation into the optimizer only when you want to.",
+        meta_items=[
+            ("Purpose", "Approximate load sizing"),
+            ("Output", "Estimated watts and kWh per hour"),
+            ("Behavior", "No automatic overwrite of optimizer input"),
+        ],
+    )
+    gpu_models = {
+        "RTX 3060": 170,
+        "RTX 3070": 220,
+        "RTX 3080": 320,
+        "RTX 3090": 350,
+        "RTX 4070": 200,
+        "RTX 4080": 320,
+        "RTX 4090": 450,
+        "A100": 400,
+        "H100": 700,
+        "B200": 1000,
+    }
+    intel_cpu_options = {
+        "Intel i5 / equivalent": 95,
+        "Intel i7 / equivalent": 125,
+        "Intel i9 / equivalent": 180,
+        "Intel Xeon (single socket)": 250,
+        "Intel Xeon (dual socket)": 400,
+    }
+    amd_cpu_options = {
+        "AMD Ryzen 5 / equivalent": 90,
+        "AMD Ryzen 7 / equivalent": 125,
+        "AMD Ryzen 9 / equivalent": 170,
+        "AMD Threadripper": 280,
+        "AMD EPYC (single socket)": 280,
+        "AMD EPYC (dual socket)": 450,
+    }
+    left, right = st.columns(2, gap="large")
+    with left:
+        gpu = st.selectbox("GPU Model", list(gpu_models.keys()))
+        num_gpus = st.number_input("Number of GPUs", min_value=1, max_value=100000, value=1, step=1)
+        cpu_brand = st.selectbox("CPU Brand", ["Intel", "AMD"])
+        if cpu_brand == "Intel":
+            cpu_model = st.selectbox("CPU Type", list(intel_cpu_options.keys()))
+            cpu_watts = intel_cpu_options[cpu_model]
+        else:
+            cpu_model = st.selectbox("CPU Type", list(amd_cpu_options.keys()))
+            cpu_watts = amd_cpu_options[cpu_model]
+    with right:
+        overhead = st.slider("System Overhead (RAM, motherboard, storage, cooling)", min_value=50, max_value=5000, value=150, step=10)
+        utilization_factor = st.slider("Estimated Workload Intensity", min_value=0.10, max_value=1.00, value=1.00, step=0.05)
+    gpu_total_estimated = gpu_models[gpu] * num_gpus * utilization_factor
+    estimated_power = int(gpu_total_estimated + cpu_watts + overhead)
+    st.session_state["estimated_machine_watts"] = estimated_power
+    p1, p2, p3 = st.columns(3)
+    with p1:
+        render_metric_card("Estimated Load", f"{estimated_power:,} W")
+    with p2:
+        render_metric_card("Energy Per Hour", f"{estimated_power / 1000:.2f} kWh")
+    with p3:
+        render_metric_card("GPU Power Component", f"{int(gpu_total_estimated):,} W")
+    render_info_card(
+        "Estimator Recommendation",
+        (
+            f"The current estimator recommends <strong>{estimated_power:,} W</strong>."
+            " This stays separate from the optimizer until you explicitly copy it over."
+        ),
+    )
+    if st.button("Use estimator value in optimizer", on_click=apply_estimator_value_to_optimizer):
+        st.success(f"Copied {estimated_power:,} W into the optimizer input.")
+    breakdown_df = pd.DataFrame(
+        {
+            "Component": [
+                "GPU model",
+                "GPU count",
+                "CPU brand",
+                "CPU type",
+                "CPU watts",
+                "Overhead watts",
+                "Workload intensity",
+                "Estimated total watts",
+            ],
+            "Value": [
+                gpu,
+                f"{num_gpus:,}",
+                cpu_brand,
+                cpu_model,
+                f"{cpu_watts:,} W",
+                f"{overhead:,} W",
+                f"{utilization_factor:.2f}",
+                f"{estimated_power:,} W",
+            ],
+        }
+    )
+    st.dataframe(breakdown_df, use_container_width=True)
+
+
+def render_multi_location_page():
+    settings = get_optimizer_state()
+    render_page_hero(
+        kicker="Location Scan",
+        title="Compare multiple regions using the same workload assumptions.",
+        description="Use the current workload framing to identify lower-cost or lower-carbon locations while preserving the existing comparison logic.",
+        meta_items=[
+            ("Scenario", f"{settings['compute_hours']} hours and {settings['machine_watts']:,} W"),
+            ("Objective", str(settings["objective_label"])),
+            ("Output", "Location comparison table and CSV"),
+        ],
+    )
+    multi_location_input = st.text_input("Enter ZIP codes (comma separated)", key="multi_location_input")
+    zip_codes = [z.strip() for z in multi_location_input.split(",") if z.strip()]
+    if not st.button("Compare Locations", use_container_width=True):
+        render_info_card("How this works", "Util reuses the current workload duration, deadline, objective, and machine wattage assumptions, then compares the same scenario across each ZIP code.")
+        return
+    if not zip_codes:
+        st.warning("Enter at least one ZIP code to compare.")
+        return
+    try:
+        forecast_mode = FORECAST_MODE
+        schedule_mode = "block" if settings["schedule_mode_label"] == "Continuous Block" else "flexible"
+        multi_location_results = run_multi_location_analysis(
+            zip_codes=zip_codes,
+            compute_hours_required=int(settings["compute_hours"]),
+            deadline=settings["deadline"],
+            objective=settings["objective_label"],
+            machine_watts=int(settings["machine_watts"]),
+            mapping_path=ZIP_PATH,
+            forecast_mode=forecast_mode,
+            schedule_mode=schedule_mode,
+        )
+        if multi_location_results.empty:
+            st.info("No location results were returned.")
+            return
+        st.dataframe(multi_location_results, use_container_width=True)
+        st.download_button(
+            "Download CSV",
+            data=multi_location_results.to_csv(index=False).encode("utf-8"),
+            file_name="util_multi_location_results.csv",
+            mime="text/csv",
+            use_container_width=True,
+        )
+        lowest_cost_row = multi_location_results.loc[multi_location_results["optimized_cost"].idxmin()]
+        lowest_carbon_row = multi_location_results.loc[multi_location_results["optimized_carbon_kg"].idxmin()]
+        render_callout_grid(
+            [
+                ("Lowest Cost Location", f"ZIP {lowest_cost_row['zip_code']}"),
+                ("Lowest Carbon Location", f"ZIP {lowest_carbon_row['zip_code']}"),
+            ],
+            gap="medium",
+        )
+    except Exception as e:
+        error_message = str(e)
+        if forecast_mode == "live_carbon" and "WattTime" in error_message:
+            st.error("Live carbon is currently unavailable because WattTime authentication or API access failed. Please update deployment secrets/API plan.")
+        elif isinstance(e, InfeasibleScheduleError):
+            st.error(INFEASIBLE_WORKLOAD_MESSAGE)
+        else:
+            st.error("An error occurred while comparing locations.")
+            st.exception(e)
+
+
+def render_about_page():
+    render_page_hero(
+        kicker="Product Context",
+        title="A cleaner presentation for Util's current MVP.",
+        description="This page keeps the product story concise: what Util already does, what is recommendation-only today, and where the product can expand next.",
+        meta_items=[
+            ("Today", "Recommendation-first compute scheduling"),
+            ("Core value", "Lower cost and lower emissions"),
+            ("Next", "Automation and deeper integrations"),
+        ],
+    )
+    render_info_card(
+        "Current Product",
+        (
+            "<strong>Util</strong> is a compute scheduling and optimization product designed to help users "
+            "run workloads at the best possible times and locations in order to minimize electricity costs "
+            "and carbon emissions.<br><br>"
+            "The current MVP is recommendation-only. It does not yet automatically control workloads or "
+            "locations. Instead, it shows users when to run, how much they can save, what forecast signals "
+            "drive the recommendation, and how much power their system is likely using."
+        ),
+    )
+    render_callout_grid(
+        [
+            ("Live Carbon APIs", "Complete"),
+            ("Electricity Pricing APIs", "Planned"),
+            ("System Auto-Detection", "Planned"),
+            ("Automated Control", "Planned"),
+        ]
+    )
+    render_info_card(
+        "Future Expansion",
+        (
+            "Future versions can add live telemetry, multi-region scheduling, and deeper partnerships with "
+            "electricity providers to solve the issue from the supply side as well as the workload side."
+        ),
+    )
+
+
+render_sidebar_brand()
+active_page = st.sidebar.radio("Navigate", NAV_ITEMS, key="active_page", label_visibility="collapsed")
+render_sidebar_status()
+render_runtime_diagnostics()
+
+if active_page == "Optimization Studio":
+    render_optimizer_page()
+elif active_page == "Savings Analysis":
+    render_savings_analysis_page()
+elif active_page == "Forecast Signals":
+    render_forecast_signals_page()
+elif active_page == "Run Timeline":
+    render_run_timeline_page()
+elif active_page == "Power Estimator":
+    render_power_estimator_page()
+elif active_page == "Multi-Location":
+    render_multi_location_page()
+else:
+    render_about_page()
+
+st.stop()
 
 
 # ---------------------------------------------------
