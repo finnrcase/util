@@ -51,8 +51,7 @@ DEFAULT_ANALYTICS_RUN_TYPE = str(get_setting("UTIL_ANALYTICS_RUN_TYPE", "Real"))
 st.set_page_config(
     page_title="Util",
     page_icon="⚡",
-    layout="wide",
-    initial_sidebar_state="expanded",
+    layout="wide"
 )
 
 THEME_TOKENS = {
@@ -177,12 +176,6 @@ def build_theme_css(tokens: dict[str, str]) -> str:
             radial-gradient(circle at 50% 60%, rgba(255, 255, 255, 0.04), transparent 28%);
         filter: blur(18px);
         opacity: 0.9;
-    }}
-
-    /* Keep sidebar collapse/expand toggle always accessible */
-    [data-testid="collapsedControl"],
-    [data-testid="stSidebarCollapsedControl"] {{
-        display: flex !important;
     }}
 
     .block-container {{
