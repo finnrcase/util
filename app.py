@@ -51,7 +51,8 @@ DEFAULT_ANALYTICS_RUN_TYPE = str(get_setting("UTIL_ANALYTICS_RUN_TYPE", "Real"))
 st.set_page_config(
     page_title="Util",
     page_icon="⚡",
-    layout="wide"
+    layout="wide",
+    initial_sidebar_state="expanded",
 )
 
 THEME_TOKENS = {
@@ -172,6 +173,12 @@ def build_theme_css(tokens: dict[str, str]) -> str:
     [data-testid="stDecoration"],
     [data-testid="stStatusWidget"] {{
         display: none !important;
+    }}
+
+    /* Keep sidebar collapse/expand toggle always accessible */
+    [data-testid="collapsedControl"],
+    [data-testid="stSidebarCollapsedControl"] {{
+        display: flex !important;
     }}
 
     .block-container {{
