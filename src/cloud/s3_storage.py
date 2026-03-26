@@ -58,13 +58,14 @@ def _build_import_diagnostics() -> dict[str, str]:
 @lru_cache(maxsize=1)
 def _build_cloud_status_detail() -> tuple[str, str]:
     env_path = load_project_env().resolve()
+    env_diagnostics = get_project_env_diagnostics()
     cloud_config = resolve_cloud_config()
-    if cloud_config["source"] == "streamlit secrets":
-        detail = "Cloud config source: streamlit secrets"
-    elif cloud_config["source"] == "environment/.env":
-        detail = "Cloud config source: environment/.env"
+    if not env_diagnostics["exists"]:
+        detail = f"Cloud config source: {cloud_config['source']} | local env path: {env_path.as_posix()} (.env missing)"
+    elif env_diagnostics["is_empty"]:
+        detail = f"Cloud config source: {cloud_config['source']} | local env path: {env_path.as_posix()} (.env present but empty)"
     else:
-        detail = "Cloud config source: missing"
+        detail = f"Cloud config source: {cloud_config['source']} | local env path: {env_path.as_posix()}"
 
     logger.info(detail)
     return str(env_path), detail
@@ -242,8 +243,7 @@ def upload_run_outputs(run_id, file_paths):
     client = create_s3_client()
     if settings is None:
         env_diagnostics = get_project_env_diagnostics()
-        cloud_config = resolve_cloud_config()
-        if cloud_config["source"] == "missing" and not env_diagnostics["exists"]:
+        if not env_diagnostics["exists"]:
             message = (
                 "Cloud storage is disabled because no .env file is present in the runtime workspace "
                 f"at {settings_result['env_path']}"

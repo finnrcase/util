@@ -120,17 +120,10 @@ def resolve_cloud_config() -> dict[str, Any]:
             "configured": True,
         }
 
-    if env_complete:
-        return {
-            "source": "environment/.env",
-            "values": env_values,
-            "configured": True,
-        }
-
     return {
-        "source": "missing",
+        "source": "environment variables / .env",
         "values": env_values,
-        "configured": False,
+        "configured": env_complete,
     }
 
 
