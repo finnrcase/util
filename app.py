@@ -823,8 +823,303 @@ def build_theme_css(tokens: dict[str, str]) -> str:
         border: 1px solid rgba(157, 180, 255, 0.12);
     }}
 
+    /* ═══════════════════════════════════════════════════
+       SIDEBAR NAVIGATION
+    ═══════════════════════════════════════════════════ */
+
+    section[data-testid="stSidebar"] {{
+        background:
+            radial-gradient(circle at 20% 10%, rgba(167, 123, 255, 0.1), transparent 55%),
+            linear-gradient(180deg, #0e0b1f 0%, #07070e 100%);
+        border-right: 1px solid rgba(184, 145, 255, 0.13);
+        min-width: 240px !important;
+        max-width: 258px !important;
+        overflow: hidden;
+    }}
+
+    section[data-testid="stSidebar"] > div:first-child {{
+        padding: 0 !important;
+        height: 100%;
+    }}
+
+    .util-sidebar-brand {{
+        display: flex;
+        align-items: center;
+        gap: 0.75rem;
+        padding: 1.5rem 1.1rem 0.85rem;
+    }}
+
+    .util-sidebar-logo-shell {{
+        width: 38px;
+        height: 38px;
+        border-radius: 11px;
+        background: linear-gradient(135deg, rgba(167, 123, 255, 0.3), rgba(123, 109, 255, 0.18));
+        border: 1px solid rgba(184, 145, 255, 0.3);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        flex-shrink: 0;
+        box-shadow: 0 8px 20px rgba(123, 109, 255, 0.18);
+    }}
+
+    .util-sidebar-wordmark {{
+        display: flex;
+        flex-direction: column;
+        gap: 0;
+    }}
+
+    .util-sidebar-name {{
+        font-family: 'Space Grotesk', sans-serif;
+        font-size: 1.12rem;
+        font-weight: 700;
+        color: var(--util-text);
+        letter-spacing: -0.03em;
+        line-height: 1.1;
+    }}
+
+    .util-sidebar-tagline {{
+        font-size: 0.65rem;
+        color: rgba(179, 168, 207, 0.48);
+        text-transform: uppercase;
+        letter-spacing: 0.13em;
+        font-weight: 600;
+    }}
+
+    .util-sidebar-divider {{
+        height: 1px;
+        margin: 0.6rem 1.1rem 0.85rem;
+        background: linear-gradient(90deg, rgba(184, 145, 255, 0.15), transparent);
+    }}
+
+    .util-sidebar-nav-label {{
+        font-size: 0.63rem;
+        text-transform: uppercase;
+        letter-spacing: 0.2em;
+        color: rgba(179, 168, 207, 0.35);
+        font-weight: 700;
+        padding: 0 1.1rem;
+        margin-bottom: 0.3rem;
+    }}
+
+    section[data-testid="stSidebar"] .stRadio {{
+        margin-bottom: 0 !important;
+        padding: 0 0.55rem;
+    }}
+
+    section[data-testid="stSidebar"] .stRadio [data-testid="stWidgetLabel"],
+    section[data-testid="stSidebar"] .stRadio > label {{
+        display: none !important;
+    }}
+
+    section[data-testid="stSidebar"] .stRadio [role="radiogroup"] {{
+        gap: 0.1rem !important;
+        background: transparent !important;
+        border: none !important;
+        padding: 0 !important;
+        border-radius: 0 !important;
+        backdrop-filter: none !important;
+        box-shadow: none !important;
+    }}
+
+    section[data-testid="stSidebar"] .stRadio [role="radiogroup"] label {{
+        background: transparent !important;
+        border: 1px solid transparent !important;
+        border-radius: 11px !important;
+        padding: 0.58rem 0.8rem !important;
+        min-height: 2.45rem !important;
+        cursor: pointer;
+        transition: all 0.15s ease;
+        margin-bottom: 0 !important;
+    }}
+
+    section[data-testid="stSidebar"] .stRadio [role="radiogroup"] label:hover {{
+        background: rgba(255,255,255,0.045) !important;
+        border-color: rgba(184, 145, 255, 0.1) !important;
+    }}
+
+    section[data-testid="stSidebar"] .stRadio [role="radiogroup"] label:has(div[role="radio"][aria-checked="true"]) {{
+        background: linear-gradient(135deg, rgba(123, 109, 255, 0.18), rgba(167, 123, 255, 0.08)) !important;
+        border-color: rgba(184, 145, 255, 0.28) !important;
+        box-shadow: inset 0 1px 0 rgba(255,255,255,0.04) !important;
+    }}
+
+    section[data-testid="stSidebar"] .stRadio div[role="radio"] {{
+        display: none !important;
+    }}
+
+    section[data-testid="stSidebar"] .stRadio [role="radiogroup"] label p,
+    section[data-testid="stSidebar"] .stRadio [role="radiogroup"] label span,
+    section[data-testid="stSidebar"] .stRadio [role="radiogroup"] label div {{
+        font-size: 0.875rem !important;
+        font-weight: 600 !important;
+        color: var(--util-muted) !important;
+        letter-spacing: 0.005em !important;
+    }}
+
+    section[data-testid="stSidebar"] .stRadio [role="radiogroup"] label:has(div[role="radio"][aria-checked="true"]) p,
+    section[data-testid="stSidebar"] .stRadio [role="radiogroup"] label:has(div[role="radio"][aria-checked="true"]) span,
+    section[data-testid="stSidebar"] .stRadio [role="radiogroup"] label:has(div[role="radio"][aria-checked="true"]) div {{
+        color: var(--util-text) !important;
+    }}
+
+    .util-sidebar-footer {{
+        font-size: 0.71rem;
+        color: rgba(179, 168, 207, 0.3);
+        line-height: 1.6;
+        padding: 0.75rem 1.1rem 1.5rem;
+    }}
+
+    .util-sidebar-status-dot {{
+        display: inline-block;
+        width: 6px;
+        height: 6px;
+        border-radius: 50%;
+        background: var(--util-good);
+        box-shadow: 0 0 6px rgba(110, 231, 183, 0.6);
+        margin-right: 0.35rem;
+        vertical-align: middle;
+    }}
+
+    /* ═══════════════════════════════════════════════════
+       PAGE HEADER
+    ═══════════════════════════════════════════════════ */
+
+    .util-page-header {{
+        margin-bottom: 1.8rem;
+        padding-bottom: 1.25rem;
+        border-bottom: 1px solid rgba(184, 145, 255, 0.1);
+    }}
+
+    .util-page-kicker {{
+        font-size: 0.7rem;
+        text-transform: uppercase;
+        letter-spacing: 0.22em;
+        color: var(--util-accent-violet);
+        font-weight: 700;
+        margin-bottom: 0.4rem;
+        opacity: 0.88;
+    }}
+
+    .util-page-title {{
+        font-family: 'Space Grotesk', sans-serif;
+        font-size: clamp(1.55rem, 3vw, 2.05rem);
+        font-weight: 700;
+        color: var(--util-text);
+        letter-spacing: -0.04em;
+        line-height: 1.1;
+        margin: 0 0 0.5rem;
+    }}
+
+    .util-page-subtitle {{
+        color: var(--util-muted);
+        font-size: 0.92rem;
+        line-height: 1.65;
+        max-width: 60ch;
+        margin: 0;
+    }}
+
+    /* ═══════════════════════════════════════════════════
+       INPUT GROUPS
+    ═══════════════════════════════════════════════════ */
+
+    .util-input-group {{
+        background:
+            linear-gradient(180deg, rgba(255,255,255,0.03), rgba(255,255,255,0.01)),
+            rgba(10, 13, 23, 0.8);
+        border: 1px solid rgba(157, 180, 255, 0.12);
+        border-radius: 22px;
+        padding: 1.1rem 1.1rem 1.2rem;
+        margin-bottom: 0.85rem;
+        backdrop-filter: blur(14px);
+    }}
+
+    .util-input-group-label {{
+        font-size: 0.67rem;
+        text-transform: uppercase;
+        letter-spacing: 0.18em;
+        color: rgba(179, 168, 207, 0.48);
+        font-weight: 700;
+        margin-bottom: 0.75rem;
+        padding-bottom: 0.5rem;
+        border-bottom: 1px solid rgba(157, 180, 255, 0.08);
+    }}
+
+    /* ═══════════════════════════════════════════════════
+       RUN CTA BUTTON
+    ═══════════════════════════════════════════════════ */
+
+    .util-cta-wrap div.stButton > button {{
+        background:
+            linear-gradient(180deg, rgba(255,255,255,0.08), rgba(255,255,255,0.01)),
+            linear-gradient(135deg, #8b5cf6 0%, #6366f1 100%) !important;
+        border: 1px solid rgba(139, 92, 246, 0.5) !important;
+        box-shadow:
+            0 0 0 1px rgba(139, 92, 246, 0.1) inset,
+            0 16px 36px rgba(99, 102, 241, 0.28) !important;
+        font-size: 0.97rem !important;
+        font-weight: 700 !important;
+        letter-spacing: 0.015em !important;
+        min-height: 3.2rem !important;
+        width: 100%;
+    }}
+
+    .util-cta-wrap div.stButton > button:hover {{
+        transform: translateY(-2px) !important;
+        box-shadow:
+            0 0 0 1px rgba(139, 92, 246, 0.18) inset,
+            0 20px 44px rgba(99, 102, 241, 0.36) !important;
+    }}
+
+    /* ═══════════════════════════════════════════════════
+       CHART CARDS
+    ═══════════════════════════════════════════════════ */
+
+    .util-chart-card {{
+        background:
+            linear-gradient(180deg, rgba(255,255,255,0.03), rgba(255,255,255,0.008)),
+            rgba(10, 13, 23, 0.82);
+        border: 1px solid rgba(157, 180, 255, 0.13);
+        border-radius: 24px;
+        padding: 1.3rem 1.3rem 0.6rem;
+        margin-bottom: 1rem;
+        backdrop-filter: blur(16px);
+    }}
+
+    .util-chart-card-title {{
+        font-size: 0.76rem;
+        text-transform: uppercase;
+        letter-spacing: 0.16em;
+        color: var(--util-muted);
+        font-weight: 700;
+        margin-bottom: 0.6rem;
+    }}
+
+    /* ═══════════════════════════════════════════════════
+       SECTION LABEL (inline within pages)
+    ═══════════════════════════════════════════════════ */
+
+    .util-section-label {{
+        font-size: 0.8rem;
+        font-weight: 700;
+        font-family: 'Space Grotesk', sans-serif;
+        color: var(--util-text-soft);
+        letter-spacing: -0.01em;
+        margin: 1.2rem 0 0.6rem;
+    }}
+
+    /* ═══════════════════════════════════════════════════
+       MAIN CONTENT PADDING ADJUSTMENT
+    ═══════════════════════════════════════════════════ */
+
+    .block-container {{
+        padding-top: 1.8rem !important;
+        padding-bottom: 3rem !important;
+        padding-left: 1.5rem !important;
+        padding-right: 1.5rem !important;
+        max-width: 1360px;
+    }}
+
     @media (max-width: 1050px) {{
-        .util-hero-grid,
         .util-callout-grid {{
             grid-template-columns: 1fr;
         }}
@@ -876,11 +1171,19 @@ def render_section_shell_start(
     description: str,
     side_note: str | None = None,
 ):
-    st.markdown(f'<div class="util-section-kicker">{kicker}</div>', unsafe_allow_html=True)
-    st.markdown(f'<h2 class="util-section-title">{title}</h2>', unsafe_allow_html=True)
-    st.markdown(f'<div class="util-section-description">{description}</div>', unsafe_allow_html=True)
-    if side_note:
-        st.markdown(f'<div class="util-side-note">{side_note}</div>', unsafe_allow_html=True)
+    sub_html = f'<p class="util-page-subtitle">{description}</p>' if description else ""
+    side_html = f'<div class="util-side-note">{side_note}</div>' if side_note else ""
+    st.markdown(
+        f"""
+        <div class="util-page-header">
+            <div class="util-page-kicker">{kicker}</div>
+            <h1 class="util-page-title">{title}</h1>
+            {sub_html}
+            {side_html}
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
 
 
 def render_section_shell_end():
@@ -1902,39 +2205,37 @@ if "last_export_package" not in st.session_state:
 if "save_outputs_to_cloud" not in st.session_state:
     st.session_state["save_outputs_to_cloud"] = False
 
+# Shared optimizer input state (used by multi-location)
+if "w_compute_hours" not in st.session_state:
+    st.session_state["w_compute_hours"] = 8
+if "w_objective" not in st.session_state:
+    st.session_state["w_objective"] = "Minimize Carbon"
+if "w_schedule_mode" not in st.session_state:
+    st.session_state["w_schedule_mode"] = "Flexible"
+if "w_zip_code" not in st.session_state:
+    st.session_state["w_zip_code"] = "93106"
+
+# Page navigation
+if "active_page" not in st.session_state:
+    st.session_state["active_page"] = "Optimizer"
+
 FORECAST_MODE_LABEL = "Live Carbon"
 FORECAST_MODE = "live_carbon"
 
 # ---------------------------------------------------
-# Header
+# Sidebar Navigation
 # ---------------------------------------------------
 
-st.markdown(
-    """
-    <div class="util-hero">
-        <div class="util-hero-grid">
-            <div class="util-brand-row">
-                <div class="util-logo-shell">
-                    <img src="data:image/png;base64,{}" width="40" />
-                </div>
-                <div>
-                    <h1 class="util-brand-title">Util</h1>
-                </div>
-            </div>
-        </div>
-    </div>
-    """
-    .format(logo_base64),
-    unsafe_allow_html=True
-)
-
-render_runtime_diagnostics()
-
-# ---------------------------------------------------
-# Tabs
-# ---------------------------------------------------
-
-tab_labels = [
+_NAV_ITEMS = [
+    "⚡  Optimizer",
+    "📊  Savings Analysis",
+    "📡  Forecast Signals",
+    "🗓  Run Timeline",
+    "⚙  Power Estimator",
+    "🌍  Multi-Location",
+    "ℹ  About Util",
+]
+_PAGE_KEYS = [
     "Optimizer",
     "Savings Analysis",
     "Forecast Signals",
@@ -1943,14 +2244,52 @@ tab_labels = [
     "Multi-Location",
     "About Util",
 ]
-tabs = st.tabs(tab_labels)
-tab1, tab2, tab3, tab4, tab5, tab6, tab7 = tabs
+
+with st.sidebar:
+    st.markdown(
+        f"""
+        <div class="util-sidebar-brand">
+            <div class="util-sidebar-logo-shell">
+                <img src="data:image/png;base64,{logo_base64}" width="26" />
+            </div>
+            <div class="util-sidebar-wordmark">
+                <div class="util-sidebar-name">Util</div>
+                <div class="util-sidebar-tagline">Compute Intelligence</div>
+            </div>
+        </div>
+        <div class="util-sidebar-divider"></div>
+        <div class="util-sidebar-nav-label">Navigation</div>
+        """,
+        unsafe_allow_html=True,
+    )
+
+    _nav_selection = st.radio(
+        "Navigation",
+        _NAV_ITEMS,
+        index=_PAGE_KEYS.index(st.session_state.get("active_page", "Optimizer")),
+        label_visibility="collapsed",
+    )
+    st.session_state["active_page"] = _PAGE_KEYS[_NAV_ITEMS.index(_nav_selection)]
+
+    st.markdown('<div class="util-sidebar-divider"></div>', unsafe_allow_html=True)
+    render_runtime_diagnostics()
+    st.markdown(
+        f"""
+        <div class="util-sidebar-footer">
+            <span class="util-sidebar-status-dot"></span>Live Carbon Mode<br>
+            Util · MVP
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+
+active_page = st.session_state["active_page"]
 
 # ====================================================
-# TAB 1 — OPTIMIZER
+# PAGE 1 — OPTIMIZER
 # ====================================================
 
-with tab1:
+if active_page == "Optimizer":
     render_section_shell_start(
         kicker="Optimization Studio",
         title="Workload Optimization",
@@ -1963,9 +2302,9 @@ with tab1:
     col_input, col_output = st.columns([1, 2], gap="large")
 
     with col_input:
-        st.subheader("Inputs")
+        st.markdown('<div class="util-input-group-label">Workload Configuration</div>', unsafe_allow_html=True)
 
-        zip_code = st.text_input("ZIP Code", "93106")
+        zip_code = st.text_input("ZIP Code", value=st.session_state.get("w_zip_code", "93106"), key="w_zip_code")
         st.caption(
             "Location-based forecasting is still in progress. For now, please use the provided ZIP code."
         )
@@ -1974,13 +2313,18 @@ with tab1:
             "Compute Hours Required",
             min_value=1,
             max_value=72,
-            value=8,
-            step=1
+            value=st.session_state.get("w_compute_hours", 8),
+            step=1,
+            key="w_compute_hours",
         )
 
         objective = st.selectbox(
             "Optimization Objective",
-            ["Minimize Carbon", "Minimize Price", "Balanced"]
+            ["Minimize Carbon", "Minimize Price", "Balanced"],
+            index=["Minimize Carbon", "Minimize Price", "Balanced"].index(
+                st.session_state.get("w_objective", "Minimize Carbon")
+            ),
+            key="w_objective",
         )
         objective_value = {
             "Minimize Carbon": "carbon",
@@ -2025,7 +2369,11 @@ with tab1:
         schedule_mode_label = st.radio(
             "Scheduling Strategy",
             ["Flexible", "Continuous Block"],
-            horizontal=True
+            index=["Flexible", "Continuous Block"].index(
+                st.session_state.get("w_schedule_mode", "Flexible")
+            ),
+            horizontal=True,
+            key="w_schedule_mode",
         )
         st.caption(
             "Flexible is optimal 5 minute chunks. Continuous Block selects one continuous run window for the requested duration."
@@ -2042,7 +2390,8 @@ with tab1:
         default_deadline = (get_local_now() + timedelta(hours=24)).to_pydatetime()
         deadline = st.datetime_input(
             "Deadline",
-            value=default_deadline
+            value=default_deadline,
+            key="w_deadline",
         )
 
         save_outputs_to_cloud = st.checkbox(
@@ -2051,13 +2400,15 @@ with tab1:
         )
         cloud_save_enabled = bool(st.session_state.get("save_outputs_to_cloud", False))
 
-        run_button = st.button("Run Optimization")
+        st.markdown('<div class="util-cta-wrap">', unsafe_allow_html=True)
+        run_button = st.button("Run Optimization", use_container_width=True)
+        st.markdown('</div>', unsafe_allow_html=True)
 
         estimated_machine_watts = st.session_state.get("estimated_machine_watts")
         if estimated_machine_watts is None:
             render_info_card(
                 "Input Tip",
-                "Use the Power Estimator tab to generate a machine wattage recommendation, then copy it here only when you want to."
+                "Use the Power Estimator page to generate a machine wattage recommendation, then copy it here only when you want to."
             )
         else:
             render_info_card(
@@ -2071,7 +2422,7 @@ with tab1:
                     "forecast_plus_historical_expectation"
                     if carbon_estimation_mode_label == "Extended (Historical-Pattern Estimate)"
                     else "forecast_only"
-                )  
+                )
     with col_output:
         st.markdown('<div class="util-spacer-sm"></div>', unsafe_allow_html=True)
         loading_placeholder = st.empty()
@@ -2189,7 +2540,7 @@ with tab1:
                 machine_watts=int(result["workload_input"].machine_watts)
             )
 
-            st.subheader("Optimization Summary")
+            st.markdown('<div class="util-section-label">Optimization Summary</div>', unsafe_allow_html=True)
 
             st.markdown('<div class="util-spacer-xs"></div>', unsafe_allow_html=True)
             k1, k2, k3, k4 = st.columns(4, gap="medium")
@@ -2221,7 +2572,7 @@ with tab1:
                 )
 
             st.markdown('<div class="util-spacer-xs"></div>', unsafe_allow_html=True)
-            st.subheader("Compared with Running Immediately")
+            st.markdown('<div class="util-section-label">Compared with Running Immediately</div>', unsafe_allow_html=True)
 
             st.markdown('<div class="util-spacer-xs"></div>', unsafe_allow_html=True)
             rn1, rn2 = st.columns(2, gap="medium")
@@ -2331,10 +2682,10 @@ with tab1:
     render_section_shell_end()
 
 # ====================================================
-# TAB 2 — SAVINGS ANALYSIS
+# PAGE 2 — SAVINGS ANALYSIS
 # ====================================================
 
-with tab2:
+elif active_page == "Savings Analysis":
     render_section_shell_start(
         kicker="Impact Review",
         title="Savings Analysis",
@@ -2568,10 +2919,10 @@ with tab2:
     render_section_shell_end()
 
 # ====================================================
-# TAB 3 — FORECAST SIGNALS
+# PAGE 3 — FORECAST SIGNALS
 # ====================================================
 
-with tab3:
+elif active_page == "Forecast Signals":
     render_section_shell_start(
         kicker="Signal View",
         title="Forecast Signals",
@@ -2604,10 +2955,10 @@ with tab3:
     render_section_shell_end()
 
 # ====================================================
-# TAB 4 — RUN TIMELINE
+# PAGE 4 — RUN TIMELINE
 # ====================================================
 
-with tab4:
+elif active_page == "Run Timeline":
     render_section_shell_start(
         kicker="Execution Map",
         title="Run Timeline",
@@ -2640,10 +2991,10 @@ with tab4:
     render_section_shell_end()
 
 # ====================================================
-# TAB 5 — POWER ESTIMATOR
+# PAGE 5 — POWER ESTIMATOR
 # ====================================================
 
-with tab5:
+elif active_page == "Power Estimator":
     render_section_shell_start(
         kicker="Power Model",
         title="System Power Estimator",
@@ -2778,10 +3129,10 @@ with tab5:
     render_section_shell_end()
 
 # ====================================================
-# TAB 6 — MULTI-LOCATION
+# PAGE 6 — MULTI-LOCATION
 # ====================================================
 
-with tab6:
+elif active_page == "Multi-Location":
     render_section_shell_start(
         kicker="Location Scan",
         title="Multi-Location",
@@ -2791,11 +3142,30 @@ with tab6:
         ),
     )
 
+    # Read shared optimizer inputs from session state (set when optimizer page runs)
+    _ml_compute_hours = st.session_state.get("w_compute_hours", 8)
+    _ml_objective = st.session_state.get("w_objective", "Minimize Carbon")
+    _ml_schedule_mode_label = st.session_state.get("w_schedule_mode", "Flexible")
+    _ml_machine_watts = st.session_state.get("optimizer_machine_watts", 300)
+    _ml_deadline = st.session_state.get(
+        "w_deadline",
+        (get_local_now() + timedelta(hours=24)).to_pydatetime(),
+    )
+
     multi_location_input = st.text_input(
         "Enter ZIP codes (comma separated)",
         "93106, 10001, 60601"
     )
     zip_codes = [z.strip() for z in multi_location_input.split(",") if z.strip()]
+
+    render_info_card(
+        "Using Optimizer Settings",
+        f"Compute hours: <strong>{_ml_compute_hours}h</strong> · "
+        f"Objective: <strong>{_ml_objective}</strong> · "
+        f"Wattage: <strong>{_ml_machine_watts:,} W</strong> · "
+        f"Strategy: <strong>{_ml_schedule_mode_label}</strong>. "
+        "Adjust these in the Optimizer page before comparing."
+    )
 
     compare_locations_button = st.button("Compare Locations")
 
@@ -2805,14 +3175,14 @@ with tab6:
         else:
             try:
                 forecast_mode = FORECAST_MODE
-                schedule_mode = "block" if schedule_mode_label == "Continuous Block" else "flexible"
+                schedule_mode = "block" if _ml_schedule_mode_label == "Continuous Block" else "flexible"
 
                 multi_location_results = run_multi_location_analysis(
                     zip_codes=zip_codes,
-                    compute_hours_required=int(compute_hours),
-                    deadline=deadline,
-                    objective=objective,
-                    machine_watts=int(machine_watts),
+                    compute_hours_required=int(_ml_compute_hours),
+                    deadline=_ml_deadline,
+                    objective=_ml_objective,
+                    machine_watts=int(_ml_machine_watts),
                     mapping_path=ZIP_PATH,
                     forecast_mode=forecast_mode,
                     schedule_mode=schedule_mode,
@@ -2857,10 +3227,10 @@ with tab6:
     render_section_shell_end()
 
 # ====================================================
-# TAB 7 — ABOUT
+# PAGE 7 — ABOUT
 # ====================================================
 
-with tab7:
+elif active_page == "About Util":
     render_section_shell_start(
         kicker="Product Context",
         title="About Util",
