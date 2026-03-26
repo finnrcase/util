@@ -1,0 +1,681 @@
+
+
+def build_theme_css(tokens: dict[str, str]) -> str:
+    return """
+    <style>
+    @import url('https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=Space+Grotesk:wght@400;500;600;700&display=swap');
+
+    /* ═══ ROOT VARS ═════════════════════════════════════════════ */
+    :root {{
+        --bg: {bg};
+        --bg-top: {bg_top};
+        --surface: {surface};
+        --surface-strong: {surface_strong};
+        --surface-elevated: {surface_elevated};
+        --border: {border};
+        --border-strong: {border_strong};
+        --text: {text};
+        --muted: {text_muted};
+        --text-soft: {text_soft};
+        --accent: {accent_violet};
+        --accent-blue: {accent_blue};
+        --accent-soft: {accent_violet_soft};
+        --success: {success};
+        --success-soft: {success_soft};
+        --warning: {warning};
+        --shadow: {shadow};
+        --shadow-soft: {shadow_soft};
+        --r-lg: {radius_lg};
+        --r-md: {radius_md};
+        --r-sm: {radius_sm};
+    }}
+
+    /* ═══ APP BACKGROUND ════════════════════════════════════════ */
+    .stApp {{
+        background:
+            radial-gradient(ellipse at 18% 0%,  rgba(110, 50, 220, 0.22) 0%, transparent 44%),
+            radial-gradient(ellipse at 82% 8%,  rgba(50,  90, 240, 0.14) 0%, transparent 40%),
+            radial-gradient(ellipse at 50% 82%, rgba(70,  30, 150, 0.08) 0%, transparent 55%),
+            linear-gradient(180deg, {bg_top} 0%, {bg} 55%, #040508 100%);
+        font-family: 'Manrope', -apple-system, sans-serif;
+        color: {text};
+    }}
+
+    /* ═══ HIDE STREAMLIT CHROME ══════════════════════════════ */
+    #MainMenu, footer, header,
+    [data-testid="stToolbar"],
+    [data-testid="stDecoration"],
+    [data-testid="stStatusWidget"] {{
+        display: none !important;
+    }}
+
+    .block-container {{
+        padding: 1.6rem 2.2rem 3rem !important;
+        max-width: 1300px !important;
+    }}
+
+    html, body, [class*="css"] {{
+        font-family: 'Manrope', -apple-system, sans-serif !important;
+    }}
+
+    /* ═══ SIDEBAR ════════════════════════════════════════════ */
+    [data-testid="stSidebar"] {{
+        background:
+            radial-gradient(ellipse at 60% 0%, rgba(100, 50, 220, 0.16) 0%, transparent 55%),
+            linear-gradient(180deg, rgba(11, 7, 24, 0.99) 0%, rgba(6, 4, 14, 0.99) 100%) !important;
+        border-right: 1px solid rgba(130, 90, 240, 0.13) !important;
+        min-width: 218px !important;
+        max-width: 236px !important;
+    }}
+
+    [data-testid="stSidebar"] > div:first-child {{
+        padding: 1.35rem 0.78rem 1.5rem !important;
+    }}
+
+    [data-testid="stSidebar"] .stRadio > label {{
+        display: none !important;
+    }}
+
+    [data-testid="stSidebar"] .stRadio [role="radiogroup"] {{
+        background: transparent !important;
+        border: none !important;
+        padding: 0 !important;
+        gap: 0.13rem !important;
+        backdrop-filter: none !important;
+        overflow: visible !important;
+        border-radius: 0 !important;
+    }}
+
+    [data-testid="stSidebar"] .stRadio label {{
+        background: transparent !important;
+        border: 1px solid transparent !important;
+        border-radius: 10px !important;
+        padding: 0.56rem 0.82rem !important;
+        min-height: 2.5rem !important;
+        color: rgba(170, 148, 215, 0.6) !important;
+        font-size: 0.86rem !important;
+        font-weight: 600 !important;
+        letter-spacing: 0.005em !important;
+        transition: all 0.16s ease !important;
+        display: flex !important;
+        align-items: center !important;
+        cursor: pointer !important;
+    }}
+
+    [data-testid="stSidebar"] .stRadio label:hover {{
+        background: rgba(130, 90, 240, 0.1) !important;
+        color: rgba(212, 195, 255, 0.9) !important;
+        border-color: rgba(130, 90, 240, 0.2) !important;
+    }}
+
+    [data-testid="stSidebar"] .stRadio label:has(input:checked) {{
+        background: linear-gradient(135deg,
+            rgba(110, 50, 220, 0.2) 0%,
+            rgba(60, 100, 240, 0.14) 100%) !important;
+        color: rgba(228, 215, 255, 1) !important;
+        border-color: rgba(130, 90, 240, 0.34) !important;
+        box-shadow: inset 0 1px 0 rgba(255,255,255,0.06) !important;
+    }}
+
+    [data-testid="stSidebar"] .stRadio span[data-baseweb="radio"] {{
+        display: none !important;
+    }}
+
+    .sb-logo-area {{
+        display: flex;
+        align-items: center;
+        gap: 0.68rem;
+        padding: 0 0.22rem 1.3rem;
+        border-bottom: 1px solid rgba(130, 90, 240, 0.12);
+        margin-bottom: 0.85rem;
+    }}
+
+    .sb-logo-shell {{
+        width: 35px;
+        height: 35px;
+        border-radius: 9px;
+        background: linear-gradient(135deg, rgba(140,80,255,0.3) 0%, rgba(80,120,255,0.16) 100%);
+        border: 1px solid rgba(140,80,255,0.3);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.3), inset 0 1px 0 rgba(255,255,255,0.1);
+        flex-shrink: 0;
+    }}
+
+    .sb-brand {{
+        font-family: 'Space Grotesk', sans-serif;
+        font-size: 1.1rem;
+        font-weight: 700;
+        color: {text};
+        letter-spacing: -0.02em;
+        line-height: 1.1;
+    }}
+
+    .sb-brand-sub {{
+        font-size: 0.66rem;
+        color: rgba(140,100,220,0.58);
+        font-weight: 600;
+        letter-spacing: 0.04em;
+    }}
+
+    .sb-nav-section {{
+        font-size: 0.60rem;
+        font-weight: 700;
+        letter-spacing: 0.17em;
+        text-transform: uppercase;
+        color: rgba(130,90,200,0.4);
+        padding: 0.65rem 0.82rem 0.32rem;
+    }}
+
+    .sb-footer {{
+        padding: 0.85rem 0.82rem 0;
+        border-top: 1px solid rgba(130,90,240,0.1);
+        margin-top: 1rem;
+    }}
+
+    .sb-footer-text {{
+        font-size: 0.67rem;
+        color: rgba(130,90,200,0.4);
+        line-height: 1.55;
+    }}
+
+    /* ═══ TYPOGRAPHY ══════════════════════════════════════════ */
+    h1, h2, h3 {{
+        font-family: 'Space Grotesk', sans-serif !important;
+        color: {text} !important;
+        letter-spacing: -0.03em;
+    }}
+    h1 {{ font-size: 1.95rem; line-height: 1.1; font-weight: 700; margin-bottom: 0.25rem; }}
+    h2 {{ font-size: 1.18rem; font-weight: 700; margin-bottom: 0.38rem; }}
+    h3 {{ font-size: 0.96rem; font-weight: 600; margin-bottom: 0.3rem; }}
+
+    p, label, .stMarkdown, .stCaption {{
+        color: {text} !important;
+        font-family: 'Manrope', sans-serif !important;
+    }}
+
+    /* ═══ PAGE HEADER ════════════════════════════════════════ */
+    .pg-header {{
+        padding-bottom: 1.5rem;
+        border-bottom: 1px solid rgba(130,90,240,0.1);
+        margin-bottom: 1.75rem;
+    }}
+    .pg-kicker {{
+        font-size: 0.67rem; font-weight: 700;
+        letter-spacing: 0.18em; text-transform: uppercase;
+        color: rgba(140,95,240,0.76); margin-bottom: 0.38rem;
+    }}
+    .pg-title {{
+        font-family: 'Space Grotesk', sans-serif;
+        font-size: 1.82rem; font-weight: 700;
+        letter-spacing: -0.04em; color: {text};
+        margin: 0 0 0.36rem 0; line-height: 1.1;
+    }}
+    .pg-description {{
+        color: {text_muted}; font-size: 0.9rem;
+        line-height: 1.65; max-width: 580px;
+    }}
+
+    /* ═══ KPI TILES ══════════════════════════════════════════ */
+    .kpi-tile {{
+        position: relative;
+        background: linear-gradient(170deg, rgba(20,12,40,0.94) 0%, rgba(9,7,20,0.9) 100%);
+        border: 1px solid {border};
+        border-radius: var(--r-md);
+        padding: 1.25rem 1.4rem 1.3rem;
+        box-shadow: 0 4px 20px rgba(0,0,0,0.38), inset 0 1px 0 rgba(255,255,255,0.05);
+        overflow: hidden;
+        min-height: 106px;
+        display: flex;
+        flex-direction: column;
+        justify-content: space-between;
+        margin-bottom: 0.82rem;
+    }}
+    .kpi-tile::after {{
+        content: "";
+        position: absolute; top: 0; left: 0; right: 0; height: 2px;
+        background: linear-gradient(90deg, rgba(140,80,255,0.55) 0%, rgba(80,120,255,0.28) 60%, transparent 100%);
+        border-radius: var(--r-md) var(--r-md) 0 0;
+        pointer-events: none;
+    }}
+    .kpi-tile.kpi-hi {{
+        background: linear-gradient(160deg, rgba(28,15,55,0.96) 0%, rgba(12,8,26,0.92) 100%);
+        border-color: rgba(140,80,255,0.32);
+        box-shadow: 0 4px 20px rgba(0,0,0,0.38), 0 0 28px rgba(90,40,200,0.1), inset 0 1px 0 rgba(255,255,255,0.06);
+    }}
+    .kpi-label {{
+        font-size: 0.68rem; font-weight: 700;
+        letter-spacing: 0.13em; text-transform: uppercase;
+        color: rgba(150,118,202,0.68); margin-bottom: 0.48rem; line-height: 1.3;
+    }}
+    .kpi-value {{
+        font-family: 'Space Grotesk', sans-serif;
+        font-size: 1.88rem; font-weight: 700;
+        color: {text}; line-height: 1;
+        letter-spacing: -0.025em; margin-bottom: 0.26rem;
+    }}
+    .kpi-delta {{
+        font-size: 0.77rem; font-weight: 500;
+        color: rgba(148,188,255,0.58); line-height: 1.4;
+    }}
+
+    /* ═══ GLASS CARD ══════════════════════════════════════════ */
+    .gc {{
+        position: relative;
+        background:
+            linear-gradient(180deg, rgba(255,255,255,0.04) 0%, rgba(255,255,255,0.013) 100%),
+            rgba(14,9,26,0.88);
+        border: 1px solid {border};
+        border-radius: var(--r-md);
+        padding: 1.32rem 1.48rem;
+        box-shadow: {shadow_soft}, inset 0 1px 0 rgba(255,255,255,0.04);
+        backdrop-filter: blur(20px);
+        overflow: hidden;
+        margin-bottom: 0.95rem;
+    }}
+    .gc::before {{
+        content: "";
+        position: absolute; top: 0; left: 0; right: 0; height: 1px;
+        background: linear-gradient(90deg, rgba(140,80,255,0.35) 0%, transparent 70%);
+        pointer-events: none;
+    }}
+
+    /* ═══ INFO CARD ═══════════════════════════════════════════ */
+    .ic {{
+        background:
+            linear-gradient(180deg, rgba(255,255,255,0.03) 0%, rgba(255,255,255,0.01) 100%),
+            rgba(12,8,22,0.9);
+        border: 1px solid rgba(130,90,240,0.15);
+        border-radius: var(--r-md);
+        padding: 1.12rem 1.32rem;
+        box-shadow: 0 4px 16px rgba(0,0,0,0.22);
+        margin-bottom: 0.88rem;
+    }}
+    .ic-label {{
+        font-size: 0.68rem; font-weight: 700;
+        letter-spacing: 0.13em; text-transform: uppercase;
+        color: rgba(140,95,240,0.68); margin-bottom: 0.5rem;
+    }}
+    .ic-body {{
+        color: {text_soft}; font-size: 0.89rem; line-height: 1.68;
+    }}
+
+    /* ═══ LOADING CARD ════════════════════════════════════════ */
+    .lc {{
+        background: linear-gradient(135deg, rgba(22,12,42,0.92) 0%, rgba(10,7,22,0.88) 100%);
+        border: 1px solid rgba(140,95,240,0.24);
+        border-radius: var(--r-md);
+        padding: 1.32rem 1.48rem;
+        display: flex; align-items: center; gap: 1.2rem;
+        box-shadow: 0 4px 24px rgba(0,0,0,0.28);
+        margin-bottom: 0.95rem;
+    }}
+    .lc-spin {{
+        width: 22px; height: 22px; border-radius: 50%;
+        border: 2.5px solid rgba(140,95,240,0.18);
+        border-top-color: rgba(140,95,240,0.9);
+        border-right-color: rgba(80,120,255,0.7);
+        animation: spin 0.82s linear infinite;
+        flex-shrink: 0;
+    }}
+    @keyframes spin {{ to {{ transform: rotate(360deg); }} }}
+    .lc-title {{
+        font-size: 0.78rem; font-weight: 700;
+        letter-spacing: 0.1em; text-transform: uppercase;
+        color: rgba(140,95,240,0.7); margin-bottom: 0.16rem;
+    }}
+    .lc-body {{ font-size: 0.87rem; color: {text_soft}; line-height: 1.5; }}
+
+    /* ═══ CALLOUT ITEMS ═══════════════════════════════════════ */
+    .callout-item {{
+        background: linear-gradient(160deg, rgba(18,11,34,0.94) 0%, rgba(9,7,20,0.9) 100%);
+        border: 1px solid rgba(130,90,240,0.15);
+        border-radius: var(--r-sm);
+        padding: 0.85rem 0.98rem;
+        min-height: 72px;
+        display: flex; flex-direction: column; justify-content: space-between;
+        margin-bottom: 0.72rem;
+    }}
+    .callout-label {{
+        font-size: 0.66rem; font-weight: 700;
+        letter-spacing: 0.13em; text-transform: uppercase;
+        color: rgba(128,98,190,0.62); margin-bottom: 0.26rem;
+    }}
+    .callout-value {{
+        font-family: 'Space Grotesk', sans-serif;
+        font-size: 0.94rem; font-weight: 700;
+        color: {text}; word-break: break-word;
+    }}
+
+    /* ═══ STATUS PILLS ════════════════════════════════════════ */
+    .util-pill-row, .pill-row {{
+        display: flex; flex-wrap: wrap; gap: 0.4rem; margin: 0.68rem 0;
+    }}
+    .util-pill, .util-header-pill, .util-warning-pill {{
+        display: inline-flex; align-items: center;
+        padding: 0.3rem 0.65rem; border-radius: 999px;
+        font-size: 0.73rem; font-weight: 600;
+        background: rgba(255,255,255,0.04);
+        border: 1px solid rgba(130,90,240,0.16);
+        color: {text_soft}; backdrop-filter: blur(8px);
+    }}
+    .util-good-pill {{
+        display: inline-flex; align-items: center;
+        padding: 0.3rem 0.65rem; border-radius: 999px;
+        font-size: 0.73rem; font-weight: 600;
+        background: {success_soft};
+        border: 1px solid rgba(80,200,155,0.28);
+        color: rgba(172,255,222,0.9);
+    }}
+
+    /* ═══ CHART SECTIONS ══════════════════════════════════════ */
+    .chart-header {{
+        margin-bottom: 0.52rem;
+        padding-bottom: 0.52rem;
+        border-bottom: 1px solid rgba(130,90,240,0.1);
+    }}
+    .chart-title {{
+        font-family: 'Space Grotesk', sans-serif;
+        font-size: 0.87rem; font-weight: 700;
+        color: {text}; letter-spacing: -0.01em; margin-bottom: 0.1rem;
+    }}
+    .chart-subtitle {{ font-size: 0.75rem; color: {text_muted}; }}
+
+    [data-testid="stArrowAltairChart"],
+    [data-testid="stVegaLiteChart"] {{
+        background: rgba(8,6,17,0.68) !important;
+        border: 1px solid rgba(130,90,240,0.14) !important;
+        border-radius: 16px !important;
+        padding: 0.62rem !important;
+        box-shadow: 0 4px 18px rgba(0,0,0,0.3) !important;
+        overflow: hidden !important;
+        margin-bottom: 0.95rem !important;
+    }}
+
+    /* ═══ BACKWARD-COMPAT: old class names upgraded ═══════════ */
+    .util-glass-card, .util-card {{
+        position: relative;
+        background:
+            linear-gradient(180deg, rgba(255,255,255,0.038) 0%, rgba(255,255,255,0.013) 100%),
+            rgba(14,9,26,0.88);
+        border: 1px solid {border};
+        border-radius: var(--r-md);
+        padding: 1.18rem 1.32rem;
+        box-shadow: {shadow_soft}, inset 0 1px 0 rgba(255,255,255,0.04);
+        backdrop-filter: blur(20px);
+        margin-bottom: 0.95rem;
+        overflow: hidden;
+    }}
+    .util-card-highlight {{
+        background: linear-gradient(160deg, rgba(28,15,55,0.96) 0%, rgba(12,8,26,0.92) 100%);
+        border-color: rgba(140,80,255,0.32) !important;
+        box-shadow: 0 4px 20px rgba(0,0,0,0.38), 0 0 28px rgba(90,40,200,0.1), inset 0 1px 0 rgba(255,255,255,0.06) !important;
+    }}
+    .util-card-title, .util-metric-label {{
+        color: rgba(150,118,202,0.68); font-size: 0.68rem;
+        text-transform: uppercase; letter-spacing: 0.13em; margin-bottom: 0.48rem;
+    }}
+    .util-metric-value {{
+        font-family: 'Space Grotesk', sans-serif;
+        font-size: 1.88rem; font-weight: 700;
+        color: {text}; line-height: 1; letter-spacing: -0.025em;
+    }}
+    .util-metric-delta, .util-card-copy {{
+        font-size: 0.79rem; color: rgba(148,188,255,0.58); line-height: 1.55;
+    }}
+    .util-callout {{
+        background: linear-gradient(160deg, rgba(18,11,34,0.94) 0%, rgba(9,7,20,0.9) 100%);
+        border: 1px solid rgba(130,90,240,0.15);
+        border-radius: var(--r-sm);
+        padding: 0.85rem 0.98rem;
+        min-height: 78px;
+        display: flex; flex-direction: column; justify-content: space-between;
+        gap: 0.38rem; margin-bottom: 0.72rem;
+    }}
+    .util-callout-label {{
+        color: rgba(128,98,190,0.62);
+        text-transform: uppercase; letter-spacing: 0.13em;
+        font-size: 0.66rem; font-weight: 700; margin-bottom: 0.26rem;
+    }}
+    .util-callout-value {{
+        font-family: 'Space Grotesk', sans-serif;
+        font-size: 0.96rem; font-weight: 700; color: {text}; word-break: break-word;
+    }}
+    .util-section-kicker {{
+        color: rgba(140,95,240,0.76);
+        text-transform: uppercase; letter-spacing: 0.18em;
+        font-size: 0.67rem; font-weight: 700; margin-bottom: 0.38rem;
+    }}
+    .util-section-title {{
+        font-family: 'Space Grotesk', sans-serif;
+        font-size: 1.82rem; font-weight: 700; letter-spacing: -0.04em; color: {text};
+    }}
+    .util-section-description {{
+        color: {text_muted}; font-size: 0.9rem; line-height: 1.65;
+        max-width: 580px; margin-bottom: 1.15rem;
+    }}
+    .util-hero {{
+        position: relative; overflow: hidden;
+        background:
+            linear-gradient(140deg, rgba(22,14,42,0.94) 0%, rgba(10,7,22,0.88) 100%),
+            radial-gradient(ellipse at 18% 18%, rgba(140,80,255,0.2) 0%, transparent 48%);
+        border: 1px solid {border};
+        border-radius: 22px; padding: 1rem 1.2rem;
+        box-shadow: {shadow}; backdrop-filter: blur(22px); margin-bottom: 0.88rem;
+    }}
+    .util-section-shell {{
+        position: relative; overflow: hidden;
+        background:
+            linear-gradient(180deg, rgba(255,255,255,0.027) 0%, rgba(255,255,255,0.009) 100%),
+            rgba(12,8,22,0.92);
+        border: 1px solid rgba(130,90,240,0.14);
+        border-radius: 24px; padding: 1.08rem 1.08rem 1.18rem;
+        margin-top: 0.32rem; margin-bottom: 0.95rem;
+        box-shadow: {shadow}; backdrop-filter: blur(20px);
+    }}
+    .util-loading-card {{
+        display: flex; align-items: center; gap: 1rem; min-height: 86px;
+    }}
+    .util-loading-spinner {{
+        width: 22px; height: 22px; border-radius: 50%;
+        border: 2.5px solid rgba(140,95,240,0.18);
+        border-top-color: rgba(140,95,240,0.9);
+        border-right-color: rgba(80,120,255,0.7);
+        animation: spin 0.82s linear infinite; flex-shrink: 0;
+    }}
+    .util-loading-copy {{ color: {text_soft}; font-size: 0.89rem; line-height: 1.5; }}
+    .util-spacer-xs {{ height: 0.38rem; }}
+    .util-spacer-sm {{ height: 0.78rem; }}
+    .util-spacer-md {{ height: 1.18rem; }}
+    .util-summary-divider {{
+        height: 1px;
+        background: linear-gradient(90deg, rgba(130,90,240,0.22) 0%, rgba(130,90,240,0.05) 100%);
+        border-radius: 999px; margin: 0.38rem 0 0.95rem;
+    }}
+    .util-section-heading {{
+        display: flex; justify-content: space-between; gap: 1rem;
+        align-items: flex-end; margin-bottom: 0.95rem;
+    }}
+
+    /* ═══ INPUT SECTION LABELS ════════════════════════════════ */
+    .input-sec-label {{
+        font-size: 0.65rem; font-weight: 700;
+        letter-spacing: 0.15em; text-transform: uppercase;
+        color: rgba(130,90,220,0.6);
+        margin-bottom: 0.48rem; margin-top: 0.95rem;
+        padding-bottom: 0.36rem;
+        border-bottom: 1px solid rgba(130,90,240,0.1);
+    }}
+    .section-div {{
+        height: 1px;
+        background: linear-gradient(90deg, rgba(130,90,240,0.2) 0%, rgba(130,90,240,0.05) 100%);
+        border-radius: 999px; margin: 1.05rem 0;
+    }}
+
+    /* ═══ FORM WIDGETS ════════════════════════════════════════ */
+    div[data-baseweb="select"] > div,
+    .stDateInput > div > div,
+    .stTextInput > div > div,
+    .stTextArea textarea {{
+        background: rgba(10,6,20,0.92) !important;
+        border: 1px solid rgba(130,90,240,0.18) !important;
+        border-radius: 12px !important;
+        color: {text} !important;
+        box-shadow: inset 0 1px 0 rgba(255,255,255,0.03) !important;
+        transition: border-color 0.2s ease !important;
+    }}
+    div[data-baseweb="select"] > div:hover,
+    .stTextInput > div > div:hover {{
+        border-color: rgba(130,90,240,0.3) !important;
+    }}
+    div[data-testid="stNumberInput"] [data-baseweb="input"] {{
+        background: rgba(10,6,20,0.92) !important;
+        border: 1px solid rgba(130,90,240,0.18) !important;
+        border-radius: 12px !important;
+        box-shadow: inset 0 1px 0 rgba(255,255,255,0.03) !important;
+        min-height: 2.82rem; overflow: hidden !important;
+        align-items: stretch !important; transition: border-color 0.2s ease;
+    }}
+    div[data-testid="stNumberInput"] [data-baseweb="input"]:focus-within {{
+        border-color: rgba(140,80,255,0.42) !important;
+        box-shadow: inset 0 1px 0 rgba(255,255,255,0.04), 0 0 0 1px rgba(140,80,255,0.1) !important;
+    }}
+    div[data-testid="stNumberInput"] [data-baseweb="input"] > div {{
+        background: transparent !important; border: none !important;
+        box-shadow: none !important; border-radius: 0 !important; min-height: 2.82rem;
+    }}
+    div[data-testid="stNumberInput"] [data-baseweb="input"] input {{
+        background: transparent !important; color: {text} !important;
+        height: 2.82rem !important; padding-left: 0.9rem !important;
+    }}
+    div[data-testid="stNumberInput"] [data-baseweb="input"] button {{
+        background: rgba(255,255,255,0.025) !important; border: none !important;
+        border-left: 1px solid rgba(130,90,240,0.14) !important;
+        border-radius: 0 !important; color: {text_muted} !important;
+        transition: background 0.14s ease;
+    }}
+    div[data-testid="stNumberInput"] [data-baseweb="input"] button:hover {{
+        background: rgba(140,80,255,0.1) !important; color: {text} !important;
+    }}
+    div[data-testid="stNumberInput"] [data-baseweb="input"] button:first-of-type {{
+        border-top-right-radius: 12px !important;
+    }}
+    div[data-testid="stNumberInput"] [data-baseweb="input"] button:last-of-type {{
+        border-bottom-right-radius: 12px !important;
+    }}
+    div[data-testid="stDateInput"] [data-baseweb="input"],
+    div[data-testid="stTextInput"] [data-baseweb="input"] {{
+        overflow: hidden !important; border-radius: 12px !important;
+    }}
+
+    /* ═══ RADIO (MAIN AREA) ═══════════════════════════════════ */
+    .stRadio {{ margin-bottom: 0.08rem; }}
+    .stRadio [role="radiogroup"] {{
+        gap: 0.38rem;
+        background: rgba(9,6,18,0.82);
+        border: 1px solid rgba(130,90,240,0.12);
+        padding: 0.33rem; border-radius: 14px;
+        backdrop-filter: blur(12px); overflow: hidden;
+    }}
+    .stRadio [role="radiogroup"] label {{
+        background: transparent; border: 1px solid transparent;
+        border-radius: 10px; padding: 0.4rem 0.66rem;
+        min-height: 2.56rem; align-items: center !important; transition: all 0.17s ease;
+    }}
+
+    /* ═══ SLIDERS ═════════════════════════════════════════════ */
+    .stSlider [data-baseweb="slider"] {{ padding-top: 0.78rem; padding-bottom: 0.42rem; }}
+    .stSlider [data-baseweb="thumb"] {{
+        background: linear-gradient(135deg, {accent_violet}, {accent_blue}) !important;
+        box-shadow: 0 0 0 5px rgba(110,50,200,0.14);
+    }}
+
+    /* ═══ BUTTONS ═════════════════════════════════════════════ */
+    div.stButton > button {{
+        background:
+            linear-gradient(180deg, rgba(255,255,255,0.072) 0%, rgba(255,255,255,0.019) 100%),
+            linear-gradient(135deg, {accent_violet} 0%, {accent_blue} 100%);
+        color: white !important;
+        border: 1px solid rgba(140,80,255,0.32); border-radius: 12px;
+        font-weight: 700; padding: 0.66rem 1rem; min-height: 2.72rem;
+        box-shadow: 0 4px 16px rgba(70,30,200,0.28), inset 0 1px 0 rgba(255,255,255,0.08);
+        transition: transform 0.17s ease, box-shadow 0.17s ease; letter-spacing: 0.01em;
+    }}
+    div.stButton > button:hover {{
+        transform: translateY(-1px);
+        box-shadow: 0 7px 22px rgba(70,30,200,0.38), inset 0 1px 0 rgba(255,255,255,0.08);
+    }}
+    div.stDownloadButton > button {{
+        background: rgba(12,8,22,0.9) !important;
+        color: {text_soft} !important;
+        border: 1px solid rgba(130,90,240,0.18) !important;
+        border-radius: 12px; font-weight: 600; padding: 0.6rem 1rem; min-height: 2.56rem;
+        transition: all 0.17s ease; box-shadow: inset 0 1px 0 rgba(255,255,255,0.04);
+    }}
+    div.stDownloadButton > button:hover {{
+        border-color: rgba(130,90,240,0.34) !important;
+        background: rgba(16,10,28,0.96) !important; transform: translateY(-1px);
+    }}
+    div.stButton, div.stDownloadButton {{ margin-top: 0.26rem; margin-bottom: 0.33rem; }}
+
+    /* ═══ TABS ════════════════════════════════════════════════ */
+    div[data-baseweb="tab-list"] {{
+        gap: 0.52rem; background: rgba(9,6,18,0.82);
+        border: 1px solid rgba(130,90,240,0.13); padding: 0.4rem;
+        border-radius: 20px; backdrop-filter: blur(16px);
+    }}
+    button[data-baseweb="tab"] {{
+        background: transparent !important; color: {text_muted} !important;
+        border-radius: 14px; padding: 0.65rem 0.95rem;
+        border: 1px solid transparent; font-size: 0.91rem; transition: all 0.2s ease;
+    }}
+    button[data-baseweb="tab"][aria-selected="true"] {{
+        background:
+            linear-gradient(180deg, rgba(255,255,255,0.072) 0%, rgba(255,255,255,0.019) 100%),
+            linear-gradient(135deg, rgba(120,60,240,0.26) 0%, rgba(60,100,240,0.17) 100%) !important;
+        color: #f3eeff !important;
+        border: 1px solid rgba(140,80,255,0.3) !important;
+        box-shadow: inset 0 1px 0 rgba(255,255,255,0.07);
+    }}
+
+    /* ═══ DATAFRAMES ══════════════════════════════════════════ */
+    div[data-testid="stDataFrame"] {{
+        border: 1px solid rgba(130,90,240,0.14);
+        border-radius: 16px; overflow: hidden;
+        box-shadow: 0 4px 16px rgba(0,0,0,0.26);
+        background:
+            linear-gradient(180deg, rgba(255,255,255,0.024) 0%, rgba(255,255,255,0.009) 100%),
+            rgba(9,6,18,0.92);
+    }}
+    div[data-testid="stDataFrame"] [role="grid"] {{ background: transparent !important; }}
+
+    /* ═══ ALERTS ══════════════════════════════════════════════ */
+    div[data-testid="stAlert"] {{
+        background:
+            linear-gradient(180deg, rgba(255,255,255,0.033) 0%, rgba(255,255,255,0.01) 100%),
+            rgba(18,10,34,0.9);
+        border: 1px solid rgba(140,80,255,0.22); border-radius: 14px;
+        color: {text}; box-shadow: 0 2px 12px rgba(0,0,0,0.2);
+    }}
+    div[data-testid="stAlert"] svg {{ fill: {accent_violet}; color: {accent_violet}; }}
+
+    /* ═══ EXPANDER ════════════════════════════════════════════ */
+    [data-testid="stExpander"] {{
+        background: rgba(10,7,20,0.88);
+        border: 1px solid rgba(130,90,240,0.12) !important; border-radius: 14px;
+    }}
+
+    /* ═══ RESPONSIVE ══════════════════════════════════════════ */
+    @media (max-width: 1050px) {{
+        .util-hero-grid, .util-callout-grid {{ grid-template-columns: 1fr; }}
+        .util-section-heading {{ flex-direction: column; align-items: flex-start; }}
+    }}
+    @media (max-width: 900px) {{
+        .util-hero {{ padding: 1.08rem; }}
+        .block-container {{ padding: 1rem 1.2rem 2.5rem !important; }}
+    }}
+
+    </style>
+    """.format(**tokens)
+

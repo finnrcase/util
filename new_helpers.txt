@@ -1,0 +1,75 @@
+
+# ---------------------------------------------------
+# Helpers
+# ---------------------------------------------------
+
+def render_metric_card(
+    label: str,
+    value: str,
+    delta: str | None = None,
+    highlighted: bool = False,
+):
+    hi_class = " kpi-hi" if highlighted else ""
+    delta_html = f'<div class="kpi-delta">{delta}</div>' if delta else ""
+    st.markdown(
+        f"""
+        <div class="kpi-tile{hi_class}">
+            <div class="kpi-label">{label}</div>
+            <div class="kpi-value">{value}</div>
+            {delta_html}
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+
+
+def render_section_shell_start(
+    kicker: str,
+    title: str,
+    description: str,
+    side_note: str | None = None,
+):
+    st.markdown(
+        f"""
+        <div class="pg-header">
+            <div class="pg-kicker">{kicker}</div>
+            <div class="pg-title">{title}</div>
+            <div class="pg-description">{description}</div>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+    if side_note:
+        st.markdown(f'<div class="ic"><div class="ic-body">{side_note}</div></div>', unsafe_allow_html=True)
+
+
+def render_section_shell_end():
+    return None
+
+
+def render_info_card(title: str, body: str):
+    st.markdown(
+        f"""
+        <div class="ic">
+            <div class="ic-label">{title}</div>
+            <div class="ic-body">{body}</div>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+
+
+def render_loading_card(title: str, body: str):
+    st.markdown(
+        f"""
+        <div class="lc">
+            <div class="lc-spin"></div>
+            <div>
+                <div class="lc-title">{title}</div>
+                <div class="lc-body">{body}</div>
+            </div>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+
