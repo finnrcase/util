@@ -36,7 +36,7 @@ def resolve_zip_to_watttime_region(zip_code: str) -> dict[str, Any]:
         {
             "region": region_info["watttime_region"],
             "region_full_name": region_info["watttime_region_full_name"],
-            "signal_type": region_info["signal_type"],
+            "signal_type_used": region_info["signal_type_used"],
         },
     )
 
@@ -46,6 +46,7 @@ def resolve_zip_to_watttime_region(zip_code: str) -> dict[str, Any]:
         "longitude": coordinate_info["longitude"],
         "watttime_region": region_info["watttime_region"],
         "watttime_region_full_name": region_info["watttime_region_full_name"],
-        "signal_type": region_info["signal_type"],
+        "signal_type_used": region_info["signal_type_used"],
+        "location_lookup_status": "success",
         "raw_response": region_info["raw_response"],
     }

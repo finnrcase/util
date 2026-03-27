@@ -15,6 +15,7 @@ from src.inputs import WorkloadInput
 from src.metrics import add_interval_impact_columns
 from src.analysis.multi_location import run_multi_location_analysis
 from src.data_fetcher import build_live_historical_export_table
+from src.location.zip_resolver import zip_to_place_label
 from src.pipeline import run_util_pipeline
 from src.runtime_config import get_app_mode, get_bool_setting, get_runtime_diagnostics, get_setting
 from src.scheduling_window import (
@@ -899,6 +900,20 @@ def render_info_card(title: str, body: str):
     )
 
 
+def render_inline_pills(items: list[tuple[str, str]], good: bool = False):
+    if not items:
+        return
+
+    pill_class = "util-good-pill" if good else "util-pill"
+    pills_html = "".join(
+        f'<span class="{pill_class}">{label}: {value}</span>'
+        for label, value in items
+        if value
+    )
+    if pills_html:
+        st.markdown(f'<div class="util-pill-row">{pills_html}</div>', unsafe_allow_html=True)
+
+
 def render_loading_card(title: str, body: str):
     st.markdown(
         f"""
@@ -1014,7 +1029,7 @@ def build_interpretation_content(
         )
         driver = "Primary driver: combined cost and carbon advantage across the selected window."
 
-    if pricing_status and pricing_status != "live_caiso" and objective in {"cost", "balanced"}:
+    if pricing_status and pricing_status not in {"live_caiso", "live_market"} and objective in {"cost", "balanced"}:
         driver = (
             "Primary driver: the best combined feasible timing across the available carbon signal and placeholder electricity pricing."
         )
@@ -1416,15 +1431,13 @@ def _render_status_pills_legacy(
     if forecast_region_used:
         extra_pills += f'<span class="util-pill">Forecast Region Used: {forecast_region_used}</span>'
 
-    if forecast_access_mode == "preview_fallback":
-        extra_pills += '<span class="util-warning-pill">Access Mode: Preview Fallback</span>'
-    elif forecast_access_mode == "direct_region":
+    if forecast_access_mode == "direct_region":
         extra_pills += '<span class="util-good-pill">Access Mode: Direct Region</span>'
 
-    if pricing_status == "live_caiso":
-        extra_pills += '<span class="util-good-pill">Pricing: CAISO Live Route</span>'
+    if pricing_status in {"live_caiso", "live_market"}:
+        extra_pills += '<span class="util-good-pill">Pricing: Live Market Route</span>'
     elif pricing_status == "placeholder":
-        extra_pills += '<span class="util-warning-pill">Pricing: Placeholder Fallback</span>'
+        extra_pills += '<span class="util-warning-pill">Pricing: Fallback Pricing</span>'
 
     if pricing_source:
         extra_pills += f'<span class="util-pill">Price Source: {pricing_source}</span>'
@@ -1461,13 +1474,18 @@ def render_status_pills(
     forecast_mode_label: str,
     schedule_mode_label: str,
     region: str,
-    forecast_df: pd.DataFrame
+    forecast_df: pd.DataFrame,
+    *,
+    zip_code: str = "",
 ):
     interval_minutes = infer_interval_minutes(forecast_df)
     forecast_min = pd.to_datetime(forecast_df["timestamp"]).min()
     forecast_max = pd.to_datetime(forecast_df["timestamp"]).max()
 
     pricing_status = None
+    pricing_source = None
+    pricing_market = None
+    pricing_node = None
     carbon_signal_modes: list[str] = []
     price_signal_modes: list[str] = []
 
@@ -1475,6 +1493,21 @@ def render_status_pills(
         non_null_pricing_status = forecast_df["pricing_status"].dropna()
         if not non_null_pricing_status.empty:
             pricing_status = non_null_pricing_status.iloc[0]
+
+    if "pricing_source" in forecast_df.columns:
+        non_null_pricing_source = forecast_df["pricing_source"].dropna()
+        if not non_null_pricing_source.empty:
+            pricing_source = non_null_pricing_source.iloc[0]
+
+    if "pricing_market" in forecast_df.columns:
+        non_null_pricing_market = forecast_df["pricing_market"].dropna()
+        if not non_null_pricing_market.empty:
+            pricing_market = non_null_pricing_market.iloc[0]
+
+    if "pricing_node" in forecast_df.columns:
+        non_null_pricing_node = forecast_df["pricing_node"].dropna()
+        if not non_null_pricing_node.empty:
+            pricing_node = non_null_pricing_node.iloc[0]
 
     if "carbon_source" in forecast_df.columns:
         carbon_signal_modes = sorted(
@@ -1491,10 +1524,25 @@ def render_status_pills(
         )
 
     extra_pills = ""
-    if pricing_status == "live_caiso":
-        extra_pills += '<span class="util-good-pill">Pricing: Live CAISO</span>'
+    if zip_code:
+        extra_pills += f'<span class="util-pill">ZIP: {zip_code}</span>'
+    extra_pills += f'<span class="util-pill">Resolved Region: {region}</span>'
+    if pricing_status in {"live_caiso", "live_market"}:
+        extra_pills += '<span class="util-good-pill">Pricing: Live Market</span>'
     elif pricing_status == "placeholder":
-        extra_pills += '<span class="util-warning-pill">Pricing: Placeholder Fallback</span>'
+        extra_pills += '<span class="util-warning-pill">Pricing: Fallback Pricing</span>'
+
+    extra_pills += '<span class="util-good-pill">Location Lookup: Live WattTime</span>'
+
+    if pricing_source:
+        extra_pills += f'<span class="util-pill">Price Provider: {pricing_source}</span>'
+
+    if pricing_market:
+        extra_pills += f'<span class="util-pill">Market: {format_market_label(str(pricing_market))}</span>'
+
+    if pricing_node:
+        node_label = "Node" if "TH_" in str(pricing_node) else "Zone"
+        extra_pills += f'<span class="util-pill">Price {node_label}: {pricing_node}</span>'
 
     if carbon_signal_modes:
         extra_pills += f'<span class="util-pill">Carbon Signal Mix: {", ".join(carbon_signal_modes)}</span>'
@@ -1674,9 +1722,75 @@ def format_signal_source_label(source: str) -> str:
     return {
         "live_forecast": "Live forecast",
         "historical_pattern_estimate": "Historical-pattern estimate",
-        "placeholder": "Placeholder",
+        "placeholder": "Fallback pricing",
         "available_signal": "Available signal",
     }.get(str(source), str(source).replace("_", " ").title())
+
+
+def format_market_label(market: str) -> str:
+    value = str(market or "").strip().upper()
+    if value in {"DAM", "DAY_AHEAD"}:
+        return "Day-Ahead"
+    return str(market or "").replace("_", " ").title()
+
+
+def _first_non_null_value(df: pd.DataFrame, column: str, default: str = "") -> str:
+    if column not in df.columns:
+        return default
+    values = df[column].dropna()
+    if values.empty:
+        return default
+    return str(values.iloc[0]).strip() or default
+
+
+def build_result_source_context(result: dict) -> dict[str, str]:
+    forecast_df = result.get("forecast", pd.DataFrame()).copy()
+    workload = result.get("workload_input")
+    location_info = result.get("location_info", {}) or {}
+
+    pricing_status = _first_non_null_value(forecast_df, "pricing_status")
+    pricing_source = _first_non_null_value(forecast_df, "pricing_source")
+    pricing_market = _first_non_null_value(forecast_df, "pricing_market")
+    pricing_node = _first_non_null_value(forecast_df, "pricing_node")
+    pricing_message = _first_non_null_value(forecast_df, "pricing_message")
+    forecast_region_used = _first_non_null_value(forecast_df, "forecast_region_used", str(result.get("region", "")))
+    carbon_signal_mix = ", ".join(
+        sorted(
+            format_signal_source_label(str(value))
+            for value in forecast_df.get("carbon_source", pd.Series(dtype=object)).dropna().unique().tolist()
+            if value
+        )
+    )
+    price_signal_mix = ", ".join(
+        sorted(
+            format_signal_source_label(str(value))
+            for value in forecast_df.get("price_signal_source", pd.Series(dtype=object)).dropna().unique().tolist()
+            if value
+        )
+    )
+
+    if pricing_status in {"live_caiso", "live_market"}:
+        pricing_mode_label = "Live market active"
+    elif pricing_status == "placeholder":
+        pricing_mode_label = "Fallback pricing in use"
+    else:
+        pricing_mode_label = "Pricing status unavailable"
+
+    return {
+        "zip_code": str(getattr(workload, "zip_code", "") or ""),
+        "resolved_region": str(result.get("region", "") or ""),
+        "forecast_region_used": forecast_region_used,
+        "pricing_status": pricing_status,
+        "pricing_mode_label": pricing_mode_label,
+        "pricing_source": pricing_source,
+        "pricing_market": pricing_market,
+        "pricing_market_label": format_market_label(pricing_market),
+        "pricing_node": pricing_node,
+        "pricing_message": pricing_message,
+        "carbon_signal_mix": carbon_signal_mix,
+        "price_signal_mix": price_signal_mix,
+        "location_lookup_status": str(location_info.get("location_lookup_status", "") or ""),
+    }
 
 
 def build_price_chart(display_df: pd.DataFrame) -> alt.Chart:
@@ -1728,6 +1842,8 @@ def build_location_display_info(result: dict) -> dict:
     requested_region_full_name = location_info.get("watttime_region_full_name")
     latitude = location_info.get("latitude")
     longitude = location_info.get("longitude")
+    signal_type_used = location_info.get("signal_type_used")
+    location_lookup_status = location_info.get("location_lookup_status")
 
     forecast_region_used = None
     forecast_access_mode = None
@@ -1750,6 +1866,8 @@ def build_location_display_info(result: dict) -> dict:
         "forecast_access_mode": forecast_access_mode,
         "latitude": latitude,
         "longitude": longitude,
+        "signal_type_used": signal_type_used,
+        "location_lookup_status": location_lookup_status,
     }
 
 
@@ -1762,26 +1880,23 @@ def render_location_access_card(result: dict):
     forecast_access_mode = info["forecast_access_mode"]
     latitude = info["latitude"]
     longitude = info["longitude"]
+    signal_type_used = info["signal_type_used"]
+    location_lookup_status = info["location_lookup_status"]
 
     coord_text = ""
     if latitude is not None and longitude is not None:
         coord_text = f"<br><strong>Resolved Coordinates:</strong> {latitude:.4f}, {longitude:.4f}"
 
-    fallback_note = ""
-    if forecast_access_mode == "preview_fallback":
-        fallback_note = (
-            "<br><br>"
-            "<span class='util-warning-pill'>Preview Fallback Active</span>"
-            "<br>"
-            "Your ZIP code was mapped to a real WattTime region, but the current API plan "
-            "does not allow live forecast access for that region. Util is using "
-            "<strong>CAISO_NORTH</strong> preview forecast data so the app still works."
-        )
-
-    elif forecast_access_mode == "direct_region":
-        fallback_note = (
+    status_note = ""
+    if forecast_access_mode == "direct_region":
+        status_note = (
             "<br><br>"
             "<span class='util-good-pill'>Direct Region Forecast Active</span>"
+        )
+    elif location_lookup_status == "success":
+        status_note = (
+            "<br><br>"
+            "<span class='util-warning-pill'>Forecast status unavailable</span>"
         )
 
     forecast_region_used_text = ""
@@ -1794,6 +1909,10 @@ def render_location_access_card(result: dict):
     if requested_region_full_name:
         full_name_text = f"<br><strong>Resolved Region Name:</strong> {requested_region_full_name}"
 
+    signal_type_text = ""
+    if signal_type_used:
+        signal_type_text = f"<br><strong>Location Signal Type:</strong> {signal_type_used}"
+
     st.markdown(
         f"""
         <div class="util-card">
@@ -1801,7 +1920,8 @@ def render_location_access_card(result: dict):
             {full_name_text}
             {forecast_region_used_text}
             {coord_text}
-            {fallback_note}
+            {signal_type_text}
+            {status_note}
         </div>
         """,
         unsafe_allow_html=True
@@ -1966,6 +2086,15 @@ with tab1:
         st.subheader("Inputs")
 
         zip_code = st.text_input("ZIP Code", "93106")
+        zip_place_label = None
+        if str(zip_code).strip():
+            try:
+                zip_place_label = zip_to_place_label(zip_code)
+            except ValueError:
+                zip_place_label = None
+
+        if zip_place_label:
+            render_inline_pills([("City", zip_place_label)], good=True)
         st.caption(
             "Location-based forecasting is still in progress. For now, please use the provided ZIP code."
         )
@@ -2162,6 +2291,18 @@ with tab1:
                         "Live carbon is currently unavailable because WattTime authentication "
                         "or API access failed. Please update deployment secrets/API plan."
                     )
+                elif "Could not determine coordinates for ZIP code" in error_message:
+                    st.warning(
+                        "Util could not resolve that ZIP code to latitude/longitude, so live location-based region lookup could not run."
+                    )
+                elif "WattTime region lookup failed for coordinates" in error_message:
+                    st.warning(
+                        "Util resolved the ZIP code to coordinates, but WattTime did not return a valid live region for that location."
+                    )
+                elif "WattTime request failed: forbidden (403)." in error_message:
+                    st.warning(
+                        "Util resolved the location, but WattTime did not allow live forecast access for that returned region. No substitute region was used."
+                    )
                 elif isinstance(e, InfeasibleScheduleError):
                     st.error(INFEASIBLE_WORKLOAD_MESSAGE)
                 else:
@@ -2244,9 +2385,11 @@ with tab1:
                 forecast_mode_label=st.session_state["last_forecast_mode_label"],
                 schedule_mode_label=st.session_state["last_schedule_mode_label"],
                 region=region,
-                forecast_df=forecast
+                forecast_df=forecast,
+                zip_code=str(getattr(result["workload_input"], "zip_code", "") or ""),
             )
 
+            source_context = build_result_source_context(result)
             if "pricing_message" in forecast.columns:
                 pricing_notes = forecast["pricing_message"].dropna()
                 if not pricing_notes.empty:
@@ -2257,16 +2400,56 @@ with tab1:
                     )
                     if pricing_status == "placeholder":
                         st.info(pricing_notes.iloc[0])
-                    elif pricing_status == "live_caiso":
+                    elif pricing_status in {"live_caiso", "live_market"}:
                         st.caption(pricing_notes.iloc[0])
+
+            if source_context["pricing_status"] in {"live_caiso", "live_market"}:
+                render_info_card(
+                    "Live Data Coverage",
+                    (
+                        f"Util resolved ZIP <strong>{source_context['zip_code']}</strong> to "
+                        f"<strong>{source_context['resolved_region']}</strong> through WattTime and is actively using "
+                        f"<strong>{source_context['pricing_source'] or 'live market'}</strong> "
+                        f"<strong>{source_context['pricing_market_label'] or 'pricing'}</strong> data"
+                        + (
+                            f" from <strong>{source_context['pricing_node']}</strong>"
+                            if source_context["pricing_node"]
+                            else ""
+                        )
+                        + " for cost optimization."
+                    ),
+                )
+            else:
+                render_info_card(
+                    "Pricing Coverage",
+                    (
+                        f"Util resolved ZIP <strong>{source_context['zip_code']}</strong> to "
+                        f"<strong>{source_context['resolved_region']}</strong>, but live market pricing is not yet "
+                        "available for this route. The run still completes using clearly labeled fallback pricing so "
+                        "the recommendation remains understandable instead of failing silently."
+                    ),
+                )
+
+            render_info_card(
+                "Supported Markets Today",
+                (
+                    "Live market pricing is currently available for CAISO-routed California regions and the "
+                    "ERCOT Houston route. Other regions remain usable, but they currently run with clearly labeled "
+                    "fallback pricing until live market coverage is added."
+                ),
+            )
 
             st.markdown('<div class="util-spacer-xs"></div>', unsafe_allow_html=True)
             render_callout_grid(
                 [
-                    ("Mapped Region", region),
+                    ("ZIP Entered", str(result["workload_input"].zip_code)),
+                    ("Resolved Region", region),
                     ("Objective", format_objective_label(result["workload_input"].objective)),
+                    ("Price Route", " / ".join(part for part in [source_context["pricing_source"], source_context["pricing_market_label"], source_context["pricing_node"]] if part) or source_context["pricing_mode_label"]),
                     ("Machine Wattage", f"{int(result['workload_input'].machine_watts):,} W"),
                     ("Selected Intervals", str(run_window["intervals"])),
+                    ("Carbon Signal", source_context["carbon_signal_mix"] or "Live forecast"),
+                    ("Price Signal", source_context["price_signal_mix"] or "Fallback pricing"),
                 ],
                 gap="medium",
             )
@@ -2286,8 +2469,11 @@ with tab1:
                 "Recommended Window",
                 (
                     f"Run from <strong>{run_window['start']}</strong> to "
-                    f"<strong>{run_window['end']}</strong> based on the selected forecast "
-                    f"and scheduling strategy."
+                    f"<strong>{run_window['end']}</strong>. This recommendation was generated with a "
+                    f"<strong>{format_objective_label(result['workload_input'].objective)}</strong> objective using "
+                    f"<strong>{source_context['carbon_signal_mix'] or 'live carbon forecast'}</strong> and "
+                    f"<strong>{source_context['price_signal_mix'] or 'current pricing inputs'}</strong>. "
+                    "Util then ranked the feasible intervals and recommended the lowest-scoring window for the chosen objective."
                 ),
             )
 
@@ -2847,6 +3033,18 @@ with tab6:
                     st.error(
                         "Live carbon is currently unavailable because WattTime authentication "
                         "or API access failed. Please update deployment secrets/API plan."
+                    )
+                elif "Could not determine coordinates for ZIP code" in error_message:
+                    st.warning(
+                        "Util could not resolve one of the ZIP codes to latitude/longitude, so live location-based region lookup could not run."
+                    )
+                elif "WattTime region lookup failed for coordinates" in error_message:
+                    st.warning(
+                        "Util resolved a ZIP code to coordinates, but WattTime did not return a valid live region for that location."
+                    )
+                elif "WattTime request failed: forbidden (403)." in error_message:
+                    st.warning(
+                        "Util resolved the location, but WattTime did not allow live forecast access for that returned region. No substitute region was used."
                     )
                 elif isinstance(e, InfeasibleScheduleError):
                     st.error(INFEASIBLE_WORKLOAD_MESSAGE)

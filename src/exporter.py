@@ -18,6 +18,7 @@ EXPORT_FILENAMES = {
     "case_comparison": "util_case_comparison.csv",
     "input_assumptions": "util_input_assumptions.csv",
     "run_summary": "util_run_summary.csv",
+    "data_provenance": "util_data_provenance_summary.csv",
 }
 
 
@@ -48,6 +49,13 @@ def _format_objective_label(objective: str) -> str:
         "cost": "Price",
         "balanced": "Balanced",
     }.get(objective, str(objective).title())
+
+
+def _format_market_label(market: str) -> str:
+    value = str(market or "").strip().upper()
+    if value in {"DAM", "DAY_AHEAD"}:
+        return "Day-Ahead"
+    return str(market or "").replace("_", " ").title()
 
 
 def _coerce_timestamp(value: Any) -> pd.Timestamp | None:
@@ -284,6 +292,40 @@ def build_export_frames(
         else "",
         "",
     )
+    pricing_status = _clean_text(
+        forecast_df.get("pricing_status").dropna().iloc[0]
+        if "pricing_status" in forecast_df.columns and not forecast_df.get("pricing_status").dropna().empty
+        else "",
+        "",
+    )
+    pricing_market = _clean_text(
+        forecast_df.get("pricing_market").dropna().iloc[0]
+        if "pricing_market" in forecast_df.columns and not forecast_df.get("pricing_market").dropna().empty
+        else "",
+        "",
+    )
+    pricing_message = _clean_text(
+        forecast_df.get("pricing_message").dropna().iloc[0]
+        if "pricing_message" in forecast_df.columns and not forecast_df.get("pricing_message").dropna().empty
+        else "",
+        "",
+    )
+    carbon_source = _clean_text(
+        ", ".join(sorted(str(value) for value in forecast_df.get("carbon_source", pd.Series(dtype=object)).dropna().unique().tolist() if value)),
+        "",
+    )
+    price_signal_source = _clean_text(
+        ", ".join(sorted(str(value) for value in forecast_df.get("price_signal_source", pd.Series(dtype=object)).dropna().unique().tolist() if value)),
+        "",
+    )
+    forecast_region_used = _clean_text(
+        forecast_df.get("forecast_region_used").dropna().iloc[0]
+        if "forecast_region_used" in forecast_df.columns and not forecast_df.get("forecast_region_used").dropna().empty
+        else region,
+        region,
+    )
+    location_lookup_status = _clean_text(result.get("location_info", {}).get("location_lookup_status"), "")
+
     avg_electricity_price_usd_per_kwh = float(
         pd.to_numeric(selected_df.get("price_per_kwh"), errors="coerce").dropna().mean()
     ) if not selected_df.empty and "price_per_kwh" in selected_df.columns else 0.0
@@ -312,6 +354,8 @@ def build_export_frames(
     )
 
     decision_score = (cost_weight * cost_savings_pct) + (carbon_weight * emissions_reduction_pct)
+    market_label = _format_market_label(pricing_market)
+
     summary_note = _build_summary_note(
         objective=objective,
         region=region,
@@ -341,19 +385,25 @@ def build_export_frames(
                 "generated_at": generated_at_label,
                 "workload_name": workload_name_value,
                 "workload_type": workload_type,
+                "zip_code": _clean_text(getattr(workload, "zip_code", "")),
                 "estimated_energy_kwh": selected_totals["energy_kwh"],
                 "estimated_runtime_hours": workload.compute_hours_required,
                 "eligible_regions": region,
                 "recommended_region": region,
+                "resolved_watttime_region": forecast_region_used,
                 "recommended_start_time_local": _format_local_timestamp(start_ts),
                 "recommended_end_time_local": _format_local_timestamp(end_ts),
                 "recommended_start_time_utc": _format_utc_timestamp(start_ts),
                 "recommended_end_time_utc": _format_utc_timestamp(end_ts),
                 "avg_grid_emissions_gco2_per_kwh": selected_totals["avg_emissions_gco2_per_kwh"],
                 "avg_electricity_price_usd_per_kwh": avg_electricity_price_usd_per_kwh,
+                "carbon_source": carbon_source,
+                "pricing_status": pricing_status,
                 "pricing_source": pricing_source,
+                "pricing_market": market_label,
                 "pricing_region_code": pricing_region_code,
                 "pricing_node": pricing_node,
+                "price_signal_source": price_signal_source,
                 "projected_electricity_cost_usd": optimized_electricity_cost,
                 "projected_carbon_cost_usd": projected_carbon_cost_usd,
                 "projected_credit_value_usd": clean_energy_credit_usd,
@@ -367,6 +417,8 @@ def build_export_frames(
                 "emissions_reduction_pct": emissions_reduction_pct,
                 "decision_score": decision_score,
                 "primary_objective": objective,
+                "location_lookup_status": location_lookup_status,
+                "coverage_note": pricing_message,
                 "notes": summary_note,
             }
         ]
@@ -377,16 +429,22 @@ def build_export_frames(
             {
                 "run_id": run_id,
                 "case_name": case_name_value,
+                "zip_code": _clean_text(getattr(workload, "zip_code", "")),
                 "region_name": region,
                 "region_code": region,
+                "resolved_watttime_region": forecast_region_used,
                 "region_eligible": True,
                 "eligibility_reason": "Resolved and optimized by current Util run.",
                 "candidate_start_time_local": _format_local_timestamp(start_ts),
                 "candidate_end_time_local": _format_local_timestamp(end_ts),
                 "avg_grid_emissions_gco2_per_kwh": selected_totals["avg_emissions_gco2_per_kwh"],
                 "avg_electricity_price_usd_per_kwh": avg_electricity_price_usd_per_kwh,
+                "carbon_source": carbon_source,
+                "pricing_status": pricing_status,
                 "pricing_source": pricing_source,
+                "pricing_market": market_label,
                 "pricing_node": pricing_node,
+                "price_signal_source": price_signal_source,
                 "projected_electricity_cost_usd": optimized_electricity_cost,
                 "projected_carbon_cost_usd": projected_carbon_cost_usd,
                 "projected_credit_value_usd": clean_energy_credit_usd,
@@ -477,16 +535,22 @@ def build_export_frames(
                 "created_at": generated_at_label,
                 "workload_name": workload_name_value,
                 "objective_mode": objective,
+                "zip_code": _clean_text(getattr(workload, "zip_code", "")),
                 "allowed_regions": region,
+                "resolved_watttime_region": forecast_region_used,
                 "deadline_hours": "",
                 "latency_requirement": "",
                 "carbon_price_usd_per_ton": carbon_price_usd_per_ton,
                 "clean_energy_credit_usd": clean_energy_credit_usd,
                 "electricity_price_adder_pct": electricity_adder_pct,
                 "avg_electricity_price_usd_per_kwh": avg_electricity_price_usd_per_kwh,
+                "carbon_source": carbon_source,
+                "pricing_status": pricing_status,
                 "pricing_source": pricing_source,
+                "pricing_market": market_label,
                 "pricing_region_code": pricing_region_code,
                 "pricing_node": pricing_node,
+                "price_signal_source": price_signal_source,
                 "cost_weight": cost_weight,
                 "carbon_weight": carbon_weight,
                 "recommended_region": region,
@@ -496,6 +560,7 @@ def build_export_frames(
                 "cost_savings_pct": cost_savings_pct,
                 "emissions_reduction_pct": emissions_reduction_pct,
                 "status": "Recommended",
+                "coverage_note": pricing_message,
                 "summary_note": summary_note,
             }
         ]
@@ -508,11 +573,13 @@ def build_export_frames(
                 "case_name": case_name_value,
                 "workload_name": workload_name_value,
                 "workload_type": workload_type,
+                "zip_code": _clean_text(getattr(workload, "zip_code", "")),
                 "input_energy_kwh": selected_totals["energy_kwh"],
                 "input_runtime_hours": workload.compute_hours_required,
                 "input_gpu_count": "",
                 "input_compute_class": "",
                 "preferred_regions": region,
+                "resolved_watttime_region": forecast_region_used,
                 "excluded_regions": "",
                 "deadline_hours": "",
                 "earliest_start_time": _format_local_timestamp(eligible_df["timestamp"].min() if not eligible_df.empty else None),
@@ -521,9 +588,13 @@ def build_export_frames(
                 "clean_energy_credit_usd": clean_energy_credit_usd,
                 "coupon_or_incentive_name": "",
                 "electricity_adder_pct": electricity_adder_pct,
+                "carbon_source": carbon_source,
+                "pricing_status": pricing_status,
                 "pricing_source": pricing_source,
+                "pricing_market": market_label,
                 "pricing_region_code": pricing_region_code,
                 "pricing_node": pricing_node,
+                "price_signal_source": price_signal_source,
                 "policy_mode": "",
                 "cost_weight": cost_weight,
                 "carbon_weight": carbon_weight,
@@ -544,17 +615,45 @@ def build_export_frames(
                 "case_name": case_name_value,
                 "generated_at": generated_at_label,
                 "workload_name": workload_name_value,
+                "zip_code": _clean_text(getattr(workload, "zip_code", "")),
                 "recommended_region": region,
+                "resolved_watttime_region": forecast_region_used,
                 "recommended_start_time_local": _format_local_timestamp(start_ts),
                 "avg_electricity_price_usd_per_kwh": avg_electricity_price_usd_per_kwh,
+                "carbon_source": carbon_source,
+                "pricing_status": pricing_status,
                 "pricing_source": pricing_source,
+                "pricing_market": market_label,
                 "pricing_node": pricing_node,
+                "price_signal_source": price_signal_source,
                 "projected_total_cost_usd": projected_total_cost_usd,
                 "optimized_emissions_total": optimized_emissions_total,
                 "cost_savings_pct": cost_savings_pct,
                 "emissions_reduction_pct": emissions_reduction_pct,
                 "status": "Recommended",
+                "coverage_note": pricing_message,
                 "summary_note": summary_note,
+            }
+        ]
+    )
+
+    data_provenance_df = pd.DataFrame(
+        [
+            {
+                "run_id": run_id,
+                "generated_at": generated_at_label,
+                "zip_code": _clean_text(getattr(workload, "zip_code", "")),
+                "resolved_region": region,
+                "resolved_watttime_region": forecast_region_used,
+                "location_lookup_status": location_lookup_status,
+                "carbon_source": carbon_source or "live_forecast",
+                "pricing_status": pricing_status or "fallback_pricing",
+                "pricing_source": pricing_source or "Fallback pricing",
+                "pricing_market": market_label or "",
+                "pricing_node": pricing_node,
+                "price_signal_source": price_signal_source or "fallback_pricing",
+                "primary_objective": objective,
+                "coverage_note": pricing_message,
             }
         ]
     )
@@ -566,6 +665,7 @@ def build_export_frames(
         EXPORT_FILENAMES["case_comparison"]: case_comparison_df,
         EXPORT_FILENAMES["input_assumptions"]: input_assumptions_df,
         EXPORT_FILENAMES["run_summary"]: run_summary_df,
+        EXPORT_FILENAMES["data_provenance"]: data_provenance_df,
     }
 
 

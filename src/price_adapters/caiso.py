@@ -10,6 +10,7 @@ from typing import Any
 import pandas as pd
 import requests
 
+from src.price_adapters.base import finalize_normalized_price_frame
 from src.scheduling_window import APP_TIMEZONE
 
 
@@ -117,7 +118,15 @@ def _normalize_caiso_lmp_dataframe(
         {
             "timestamp": timestamp_series.dt.tz_convert(APP_TIMEZONE).dt.tz_localize(None),
             "local_time": timestamp_series.dt.tz_convert(APP_TIMEZONE).dt.strftime("%Y-%m-%d %H:%M:%S"),
+            "price_per_mwh": price_series,
             "price_per_kwh": price_series / 1000.0,
+            "source_market": "DAM",
+            "source_provider": CAISO_PRICE_SOURCE_LABEL,
+            "node_or_zone": price_node,
+            "interval_minutes": 60.0,
+            "price_type": "day_ahead_lmp",
+            "is_forecast_or_historical": "forecast",
+            "is_live_market_data": True,
             "source": CAISO_PRICE_SOURCE_LABEL,
             "region_code": region_code,
             "price_node": price_node,
@@ -129,7 +138,7 @@ def _normalize_caiso_lmp_dataframe(
     if normalized.empty:
         raise CaisoPricingError("CAISO pricing normalization produced no usable price rows.")
 
-    return normalized
+    return finalize_normalized_price_frame(normalized)
 
 
 def _build_caiso_request_params(
@@ -198,7 +207,22 @@ def fetch_caiso_day_ahead_prices(
     )
     return pd.DataFrame(
         cached_rows,
-        columns=["timestamp", "local_time", "price_per_kwh", "source", "region_code", "price_node"],
+        columns=[
+            "timestamp",
+            "local_time",
+            "price_per_mwh",
+            "price_per_kwh",
+            "source_market",
+            "source_provider",
+            "node_or_zone",
+            "interval_minutes",
+            "price_type",
+            "is_forecast_or_historical",
+            "is_live_market_data",
+            "source",
+            "region_code",
+            "price_node",
+        ],
     )
 
 
@@ -209,7 +233,7 @@ def _fetch_caiso_day_ahead_prices_cached(
     timeout_seconds: int,
     max_retry_attempts: int,
     retry_sleep_seconds: float,
-) -> tuple[tuple[pd.Timestamp, str, float, str, str, str], ...]:
+) -> tuple[tuple[pd.Timestamp, str, float, float, str, str, str, float, str, str, bool, str, str, str], ...]:
     price_node, region_code, startdatetime, enddatetime, market_run_id = cache_key
     params = {
         "queryname": "PRC_LMP",
@@ -266,7 +290,15 @@ def _fetch_caiso_day_ahead_prices_cached(
         (
             row.timestamp,
             row.local_time,
+            float(row.price_per_mwh),
             float(row.price_per_kwh),
+            row.source_market,
+            row.source_provider,
+            row.node_or_zone,
+            float(row.interval_minutes) if pd.notna(row.interval_minutes) else 0.0,
+            row.price_type,
+            row.is_forecast_or_historical,
+            bool(row.is_live_market_data),
             row.source,
             row.region_code,
             row.price_node,

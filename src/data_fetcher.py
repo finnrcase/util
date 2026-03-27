@@ -66,63 +66,31 @@ def build_forecast_table(
     return forecast_df
 
 
-def _fetch_live_forecast_with_fallback(region: str):
+def _fetch_live_forecast_for_region(region: str):
     """
-    Attempt to fetch WattTime forecast for requested region.
-    If WattTime plan does not allow it, fall back to CAISO_NORTH.
+    Fetch WattTime forecast for the requested region only.
+    No silent preview-region fallback is allowed in the live location-aware flow.
     """
     print(f"[FORECAST DEBUG] Requesting WattTime forecast for region: {region}")
-    try:
-        carbon_df = get_watttime_forecast(region)
-        region_used = region
-        access_mode = "direct_region"
-        print(
-            "[FORECAST DEBUG] Direct region forecast succeeded.",
-            {
-                "requested_region": region,
-                "forecast_region_used": region_used,
-                "access_mode": access_mode,
-                "row_count": len(carbon_df),
-            },
-        )
-
-    except ValueError as exc:
-        error_text = str(exc)
-        print(
-            "[FORECAST DEBUG] Direct region forecast failed.",
-            {
-                "requested_region": region,
-                "error": error_text,
-            },
-        )
-
-        if "forbidden (403)" in error_text or "INVALID_SCOPE" in error_text:
-
-            fallback_region = "CAISO_NORTH"
-            print(
-                "[FORECAST DEBUG] Falling back to preview region.",
-                {
-                    "requested_region": region,
-                    "fallback_region": fallback_region,
-                    "reason": error_text,
-                },
-            )
-
-            carbon_df = get_watttime_forecast(fallback_region)
-
-            region_used = fallback_region
-            access_mode = "preview_fallback"
-
-        else:
-            raise
-
+    carbon_df = get_watttime_forecast(region)
+    region_used = region
+    access_mode = "direct_region"
+    print(
+        "[FORECAST DEBUG] Direct region forecast succeeded.",
+        {
+            "requested_region": region,
+            "forecast_region_used": region_used,
+            "access_mode": access_mode,
+            "row_count": len(carbon_df),
+        },
+    )
     return carbon_df, region_used, access_mode
 
 
-def _fetch_live_historical_with_fallback(region: str, days: int):
+def _fetch_live_historical_for_region(region: str, days: int):
     """
-    Attempt to fetch WattTime historical data for requested region.
-    Falls back to CAISO_NORTH if needed.
+    Fetch WattTime historical data for the requested region only.
+    No silent preview-region fallback is allowed in the live location-aware flow.
     """
     print(
         "[HISTORICAL DEBUG] Requesting WattTime historical data.",
@@ -131,50 +99,16 @@ def _fetch_live_historical_with_fallback(region: str, days: int):
             "days": days,
         },
     )
-    try:
-        historical_df = get_watttime_historical(region=region, days=days)
-        region_used = region
-        print(
-            "[HISTORICAL DEBUG] Direct region historical fetch succeeded.",
-            {
-                "requested_region": region,
-                "historical_region_used": region_used,
-                "row_count": len(historical_df),
-            },
-        )
-
-    except ValueError as exc:
-        error_text = str(exc)
-        print(
-            "[HISTORICAL DEBUG] Direct region historical fetch failed.",
-            {
-                "requested_region": region,
-                "error": error_text,
-            },
-        )
-
-        if "forbidden (403)" in error_text or "INVALID_SCOPE" in error_text:
-
-            fallback_region = "CAISO_NORTH"
-            print(
-                "[HISTORICAL DEBUG] Falling back to preview region.",
-                {
-                    "requested_region": region,
-                    "fallback_region": fallback_region,
-                    "reason": error_text,
-                },
-            )
-
-            historical_df = get_watttime_historical(
-                region=fallback_region,
-                days=days,
-            )
-
-            region_used = fallback_region
-
-        else:
-            raise
-
+    historical_df = get_watttime_historical(region=region, days=days)
+    region_used = region
+    print(
+        "[HISTORICAL DEBUG] Direct region historical fetch succeeded.",
+        {
+            "requested_region": region,
+            "historical_region_used": region_used,
+            "row_count": len(historical_df),
+        },
+    )
     return historical_df, region_used
 
 
@@ -226,7 +160,7 @@ def build_live_historical_export_table(
     Fetch historical WattTime data for CSV export and normalize it to
     Util's local display timezone.
     """
-    historical_df, historical_region_used = _fetch_live_historical_with_fallback(
+    historical_df, historical_region_used = _fetch_live_historical_for_region(
         region,
         days,
     )
@@ -276,6 +210,12 @@ def build_live_price_forecast_table(
         len(live_aligned_df),
         "non-null prices:",
         int(live_aligned_df["price_per_kwh"].notna().sum()),
+        "provider:",
+        live_aligned_df["source_provider"].dropna().iloc[0] if "source_provider" in live_aligned_df.columns and live_aligned_df["source_provider"].dropna().any() else None,
+        "market:",
+        live_aligned_df["source_market"].dropna().iloc[0] if "source_market" in live_aligned_df.columns and live_aligned_df["source_market"].dropna().any() else None,
+        "node_or_zone:",
+        live_aligned_df["node_or_zone"].dropna().iloc[0] if "node_or_zone" in live_aligned_df.columns and live_aligned_df["node_or_zone"].dropna().any() else None,
         "columns:",
         list(live_aligned_df.columns),
     )
@@ -402,7 +342,7 @@ def build_live_carbon_forecast_table(
 
     requested_region = region
 
-    carbon_df, forecast_region_used, forecast_access_mode = _fetch_live_forecast_with_fallback(
+    carbon_df, forecast_region_used, forecast_access_mode = _fetch_live_forecast_for_region(
         requested_region
     )
 
@@ -421,7 +361,7 @@ def build_live_carbon_forecast_table(
                 "forecast_plus_historical_expectation mode requires deadline."
             )
 
-        historical_df, historical_region_used = _fetch_live_historical_with_fallback(
+        historical_df, historical_region_used = _fetch_live_historical_for_region(
             requested_region,
             historical_days,
         )
@@ -449,10 +389,10 @@ def build_live_carbon_forecast_table(
 
     pricing_status = "placeholder"
     pricing_message = (
-        "Electricity pricing is currently supported only for the California / CAISO path. "
-        "Util is using placeholder pricing."
+        "Live electricity pricing is not available for this resolved region yet. "
+        "Util is using clearly labeled fallback pricing."
     )
-    pricing_source = "Placeholder Price"
+    pricing_source = "Fallback Pricing"
     pricing_region_code = requested_region
     price_signal_source = "placeholder"
 
@@ -485,7 +425,7 @@ def build_live_carbon_forecast_table(
         )
         if forecast_df["price_per_kwh"].isna().all():
             raise PricingUnavailableError(
-                f"No CAISO price rows aligned to WattTime region '{forecast_region_used}'."
+                f"No live price rows aligned to WattTime region '{forecast_region_used}'."
             )
         missing_price_rows = int(forecast_df["price_per_kwh"].isna().sum())
         if missing_price_rows > 0:
@@ -494,9 +434,9 @@ def build_live_carbon_forecast_table(
             if missing_mask.any():
                 forecast_df.loc[missing_mask, "price_signal_source"] = "placeholder"
             print(
-                f"[PRICE DEBUG] filled {missing_price_rows} uncovered price rows with placeholder pricing after preserving live rows."
+                f"[PRICE DEBUG] filled {missing_price_rows} uncovered price rows with fallback pricing after preserving live rows."
             )
-        pricing_status = "live_caiso"
+        pricing_status = "live_market"
         extension_status = (
             forecast_df["price_extension_status"].dropna().iloc[0]
             if "price_extension_status" in forecast_df.columns and forecast_df["price_extension_status"].dropna().any()
@@ -507,21 +447,36 @@ def build_live_carbon_forecast_table(
             if "price_extension_message" in forecast_df.columns and forecast_df["price_extension_message"].dropna().any()
             else ""
         )
+        provider_label = (
+            forecast_df["source_provider"].dropna().iloc[0]
+            if "source_provider" in forecast_df.columns and forecast_df["source_provider"].dropna().any()
+            else "live market"
+        )
+        market_label = (
+            forecast_df["source_market"].dropna().iloc[0]
+            if "source_market" in forecast_df.columns and forecast_df["source_market"].dropna().any()
+            else "day-ahead"
+        )
         pricing_message = (
-            "Using CAISO day-ahead market pricing where live rows are available, with historical-pattern extension beyond the live horizon when needed."
+            f"Using {provider_label} {market_label.lower()} pricing where live rows are available, "
+            "with historical-pattern extension beyond the live horizon when needed."
             if (forecast_df.get("price_signal_source") == "historical_pattern_estimate").any()
-            else "Using CAISO day-ahead market pricing routed from the resolved WattTime region."
+            else f"Using {provider_label} {market_label.lower()} pricing routed from the resolved WattTime region."
         )
         if extension_status in {"live_only", "live_only_extension_failed"} and extension_message:
             pricing_message = (
-                "Using live CAISO pricing where available. "
-                "Rows beyond the live horizon fell back to placeholder pricing. "
+                f"Using live {provider_label} pricing where available. "
+                "Rows beyond the live horizon fell back to fallback pricing. "
                 f"{extension_message}"
             )
         pricing_source = (
-            forecast_df["source"].dropna().iloc[0]
-            if "source" in forecast_df.columns and forecast_df["source"].dropna().any()
-            else "CAISO OASIS"
+            forecast_df["source_provider"].dropna().iloc[0]
+            if "source_provider" in forecast_df.columns and forecast_df["source_provider"].dropna().any()
+            else (
+                forecast_df["source"].dropna().iloc[0]
+                if "source" in forecast_df.columns and forecast_df["source"].dropna().any()
+                else "Unknown Live Price Source"
+            )
         )
         pricing_region_code = (
             forecast_df["region_code"].dropna().iloc[0]
@@ -529,8 +484,17 @@ def build_live_carbon_forecast_table(
             else forecast_region_used
         )
         pricing_node = (
-            forecast_df["price_node"].dropna().iloc[0]
-            if "price_node" in forecast_df.columns and forecast_df["price_node"].dropna().any()
+            forecast_df["node_or_zone"].dropna().iloc[0]
+            if "node_or_zone" in forecast_df.columns and forecast_df["node_or_zone"].dropna().any()
+            else (
+                forecast_df["price_node"].dropna().iloc[0]
+                if "price_node" in forecast_df.columns and forecast_df["price_node"].dropna().any()
+                else ""
+            )
+        )
+        pricing_market = (
+            forecast_df["source_market"].dropna().iloc[0]
+            if "source_market" in forecast_df.columns and forecast_df["source_market"].dropna().any()
             else ""
         )
         price_signal_source = (
@@ -565,6 +529,7 @@ def build_live_carbon_forecast_table(
     forecast_df["pricing_status"] = pricing_status
     forecast_df["pricing_message"] = pricing_message
     forecast_df["pricing_source"] = pricing_source
+    forecast_df["pricing_market"] = pricing_market if "pricing_market" in locals() else ""
     forecast_df["pricing_region_code"] = pricing_region_code
     forecast_df["pricing_node"] = pricing_node
     forecast_df["price_signal_source"] = forecast_df.get("price_signal_source", price_signal_source)
@@ -581,6 +546,7 @@ def build_live_carbon_forecast_table(
             "pricing_status",
             "pricing_message",
             "pricing_source",
+            "pricing_market",
             "pricing_region_code",
             "pricing_node",
             "forecast_region_requested",

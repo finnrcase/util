@@ -9,13 +9,19 @@ from typing import Any
 
 from services.watttime_service import get_region_from_loc
 
+LOCATION_SIGNAL_TYPE = "co2_moer"
+
 
 @lru_cache(maxsize=32)
 def _get_region_from_loc_cached(
     latitude: float,
     longitude: float,
 ) -> tuple[str, str | None, str | None, dict[str, Any]]:
-    response = get_region_from_loc(latitude=latitude, longitude=longitude)
+    response = get_region_from_loc(
+        latitude=latitude,
+        longitude=longitude,
+        signal_type=LOCATION_SIGNAL_TYPE,
+    )
     return (
         response.get("region"),
         response.get("region_full_name"),
@@ -46,7 +52,7 @@ def coordinates_to_watttime_region(
         - longitude
         - watttime_region
         - watttime_region_full_name
-        - signal_type
+        - signal_type_used
         - raw_response
 
     Raises
@@ -69,6 +75,6 @@ def coordinates_to_watttime_region(
         "longitude": longitude,
         "watttime_region": region,
         "watttime_region_full_name": region_full_name,
-        "signal_type": signal_type,
+        "signal_type_used": signal_type or LOCATION_SIGNAL_TYPE,
         "raw_response": response,
     }
