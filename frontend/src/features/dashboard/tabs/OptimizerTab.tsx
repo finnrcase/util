@@ -9,6 +9,7 @@ interface OptimizerTabProps {
   errors: FieldErrors<FormInputValues>;
   onSubmit: FormEventHandler<HTMLFormElement>;
   isSubmitting: boolean;
+  errorMessage?: string;
   lastRun?: OptimizeResponse;
   values: Partial<FormInputValues>;
 }
@@ -32,7 +33,7 @@ function selectClass(hasError?: boolean) {
   return `${fieldClass(hasError)} appearance-none bg-[linear-gradient(180deg,rgba(15,22,37,0.96),rgba(10,14,25,0.96))] pr-11`;
 }
 
-export function OptimizerTab({ register, errors, onSubmit, isSubmitting, lastRun, values }: OptimizerTabProps) {
+export function OptimizerTab({ register, errors, onSubmit, isSubmitting, errorMessage, lastRun, values }: OptimizerTabProps) {
   const isExtendedMode = values.carbon_estimation_mode === "forecast_plus_historical_expectation";
   const runWindow = lastRun?.schedule.recommended_window;
 
@@ -67,6 +68,11 @@ export function OptimizerTab({ register, errors, onSubmit, isSubmitting, lastRun
           eyebrow="Optimizer"
           bodyClassName="space-y-5"
         >
+          {errorMessage ? (
+            <div className="rounded-[1.3rem] border border-danger/25 bg-danger/10 px-4 py-3 text-sm leading-6 text-red-100">
+              {errorMessage}
+            </div>
+          ) : null}
           <section>
             <SectionLabel title="Workload" />
             <div className="grid gap-4 md:grid-cols-2">
@@ -212,4 +218,6 @@ export function OptimizerTab({ register, errors, onSubmit, isSubmitting, lastRun
     </div>
   );
 }
+
+
 

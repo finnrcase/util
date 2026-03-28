@@ -17,10 +17,35 @@ function buildApiUrl(path: string): string {
   return `${API_PREFIX}${normalizedPath}`;
 }
 
-async function buildResponseError(response: Response, finalUrl: string): Promise<Error> {
+function classifyNetworkError(error: unknown): string {
+  if (error instanceof DOMException && error.name === "AbortError") {
+    return "abort";
+  }
+  if (error instanceof Error) {
+    const lowered = error.message.toLowerCase();
+    if (error.name === "AbortError" || lowered.includes("aborted")) {
+      return "abort";
+    }
+    if (lowered.includes("timeout")) {
+      return "timeout";
+    }
+    if (lowered.includes("failed to fetch") || lowered.includes("networkerror")) {
+      return "network";
+    }
+  }
+  return "unknown_network";
+}
+
+async function parseResponseBody(response: Response): Promise<unknown> {
   const contentType = response.headers.get("content-type") ?? "";
-  const isJson = contentType.includes("application/json");
-  const responseBody = isJson ? await response.json().catch(() => null) : await response.text().catch(() => "");
+  if (contentType.includes("application/json")) {
+    return response.json().catch(() => null);
+  }
+  return response.text().catch(() => "");
+}
+
+async function buildResponseError(response: Response, finalUrl: string): Promise<Error> {
+  const responseBody = await parseResponseBody(response);
   const detail = typeof responseBody === "string" ? responseBody : JSON.stringify(responseBody);
 
   console.error("[util-api] response error", {
@@ -43,36 +68,68 @@ async function buildResponseError(response: Response, finalUrl: string): Promise
 
 function buildNetworkError(error: unknown, finalUrl: string): Error {
   const message = error instanceof Error ? error.message : String(error);
+  const kind = classifyNetworkError(error);
   console.error("[util-api] fetch/network error", {
     url: finalUrl,
+    kind,
     error,
   });
   return new Error([
-    `Unable to reach the Util API at ${finalUrl}`,
+    `Optimize request failed (${kind}) at ${finalUrl}`,
     `Original error: ${message}`,
   ].join("\n"));
 }
 
 async function requestJson<T>(path: string, init?: RequestInit): Promise<T> {
   const finalUrl = buildApiUrl(path);
+  const startedAt = performance.now();
   logDev("resolved API base URL", API_BASE_URL || "(relative /api proxy)");
   logDev("request URL", finalUrl);
   if (init?.body) {
     logDev("request body", init.body);
   }
+  console.info("[util-api] request start", {
+    url: finalUrl,
+    method: init?.method ?? "GET",
+    startedAt: new Date().toISOString(),
+  });
 
   let response: Response;
   try {
     response = await fetch(finalUrl, init);
   } catch (error) {
+    console.error("[util-api] request failed before response", {
+      url: finalUrl,
+      durationMs: performance.now() - startedAt,
+      classification: classifyNetworkError(error),
+      error,
+    });
     throw buildNetworkError(error, finalUrl);
   }
+
+  console.info("[util-api] response received", {
+    url: finalUrl,
+    status: response.status,
+    statusText: response.statusText,
+    durationMs: performance.now() - startedAt,
+  });
 
   if (!response.ok) {
     throw await buildResponseError(response, finalUrl);
   }
 
-  return response.json() as Promise<T>;
+  try {
+    return (await response.json()) as T;
+  } catch (error) {
+    console.error("[util-api] response parse error", {
+      url: finalUrl,
+      durationMs: performance.now() - startedAt,
+      error,
+    });
+    throw new Error(
+      `Optimize request failed (parse_error): Response from ${finalUrl} was not valid JSON.`
+    );
+  }
 }
 
 export async function optimizeScenario(payload: OptimizeRequest): Promise<OptimizeResponse> {
@@ -105,3 +162,4 @@ export function buildExportDownloadUrl(path: string): string {
 
 export { API_BASE_URL };
 export const RESOLVED_API_MODE = import.meta.env.DEV ? "vite-proxy" : isAbsoluteApiBase ? "absolute" : API_BASE_URL || "relative";
+

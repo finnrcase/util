@@ -1,11 +1,13 @@
 from __future__ import annotations
 
 import logging
+import time
+import traceback
 from pathlib import Path
 
 from fastapi import FastAPI, HTTPException, Query, Request
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, JSONResponse
 
 from src.api.schemas import CoverageResponse, ExportRequest, ExportResponse, OptimizeRequest, OptimizeResponse
 from src.api.service import (
@@ -47,6 +49,7 @@ app.add_middleware(
 
 @app.middleware("http")
 async def log_optimize_requests(request: Request, call_next):
+    started_at = time.perf_counter()
     if request.url.path == "/api/v1/optimize":
         api_logger.info(
             "Util API optimize request: method=%s origin=%s acr-method=%s acr-headers=%s",
@@ -58,18 +61,20 @@ async def log_optimize_requests(request: Request, call_next):
     response = await call_next(request)
     if request.url.path == "/api/v1/optimize":
         api_logger.info(
-            "Util API optimize response: method=%s status=%s allow-origin=%s allow-methods=%s allow-headers=%s",
+            "Util API optimize response: method=%s status=%s allow-origin=%s allow-methods=%s allow-headers=%s elapsed_ms=%.1f",
             request.method,
             response.status_code,
             response.headers.get("access-control-allow-origin", ""),
             response.headers.get("access-control-allow-methods", ""),
             response.headers.get("access-control-allow-headers", ""),
+            (time.perf_counter() - started_at) * 1000.0,
         )
     return response
 
 
 @app.post("/api/v1/optimize", response_model=OptimizeResponse)
 def optimize(request: OptimizeRequest) -> OptimizeResponse:
+    started_at = time.perf_counter()
     api_logger.info(
         "Util API optimize route parsed request: zip=%s objective=%s machine_watts=%s include_diagnostics=%s",
         request.zip_code,
@@ -79,10 +84,31 @@ def optimize(request: OptimizeRequest) -> OptimizeResponse:
     )
     try:
         result = execute_optimization(request)
-        return build_optimize_response(request, result)
-    except Exception:
-        api_logger.exception("Util API optimize route failed")
-        raise
+        response = build_optimize_response(request, result)
+        api_logger.info(
+            "Util API optimize route success zip=%s objective=%s elapsed_ms=%.1f",
+            request.zip_code,
+            request.objective,
+            (time.perf_counter() - started_at) * 1000.0,
+        )
+        return response
+    except Exception as exc:
+        trace = traceback.format_exc()
+        api_logger.exception(
+            "Util API optimize route failed zip=%s objective=%s elapsed_ms=%.1f",
+            request.zip_code,
+            request.objective,
+            (time.perf_counter() - started_at) * 1000.0,
+        )
+        return JSONResponse(
+            status_code=500,
+            content={
+                "error": "Optimize request failed",
+                "error_type": type(exc).__name__,
+                "detail": str(exc),
+                "traceback": trace,
+            },
+        )
 
 
 @app.get("/api/v1/coverage", response_model=CoverageResponse)

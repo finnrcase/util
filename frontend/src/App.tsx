@@ -167,7 +167,7 @@ export default function App() {
   const renderTab = () => {
     switch (activeTab) {
       case "optimizer":
-        return <OptimizerTab register={register} errors={errors} onSubmit={handleOptimizeSubmit} isSubmitting={optimizeMutation.isPending} lastRun={currentRun} values={formValues} />;
+        return <OptimizerTab register={register} errors={errors} onSubmit={handleOptimizeSubmit} isSubmitting={optimizeMutation.isPending} errorMessage={optimizeError} lastRun={currentRun} values={formValues} />;
       case "forecast_visuals":
         return <ForecastTab data={currentRun} />;
       case "savings_analysis":
@@ -225,5 +225,6 @@ export default function App() {
     </AppShell>
   );
 }
+
 
 
