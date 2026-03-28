@@ -294,7 +294,7 @@ export function MultiLocationTab({ initialValues, onUseBestLocation }: MultiLoca
 
   return (
     <div className="space-y-6">
-      <SectionCard title="Shared Scenario" subtitle="Run the same workload assumptions across three candidate ZIP codes." eyebrow="Scenario">
+      <SectionCard title="Shared Scenario" subtitle="" eyebrow="Scenario">
         <div className="grid gap-4 lg:grid-cols-2 xl:grid-cols-3">
           <label className="space-y-2">
             <span className="text-sm font-medium text-slate-100">Compute Hours</span>
@@ -344,7 +344,7 @@ export function MultiLocationTab({ initialValues, onUseBestLocation }: MultiLoca
         </div>
       </SectionCard>
 
-      <SectionCard title="Location Inputs" subtitle="Compare three candidate locations under the same workload assumptions." eyebrow="Locations">
+      <SectionCard title="Location Inputs" subtitle="" eyebrow="Locations">
         <div className="grid gap-4 xl:grid-cols-3">
           {slotDefinitions.map((slot) => (
             <LocationCard
@@ -359,11 +359,11 @@ export function MultiLocationTab({ initialValues, onUseBestLocation }: MultiLoca
         </div>
       </SectionCard>
 
-      <SectionCard title="Run Location Comparison" subtitle="Evaluate all three ZIP codes using the existing optimization pipeline." eyebrow="Action">
+      <SectionCard title="Run Location Comparison" subtitle="" eyebrow="Action">
         <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
           <div>
             <p className="text-sm text-slate-100/90">Objective currently driving ranking: {formatObjectiveLabel(comparisonValues.objective)}</p>
-            <p className="mt-1 text-sm text-muted">Successful locations will still render even if one comparison fails.</p>
+            
           </div>
           <div className="flex flex-wrap gap-3">
             <button type="button" onClick={() => { setResults([]); setValidationError(null); }} className="rounded-[1.2rem] border border-white/10 bg-white/[0.04] px-4 py-2.5 text-sm text-slate-100/90 transition hover:bg-white/[0.07]">Reset Results</button>
@@ -376,7 +376,7 @@ export function MultiLocationTab({ initialValues, onUseBestLocation }: MultiLoca
 
       {results.length ? (
         <>
-          <SectionCard title="Comparison Results" subtitle="Side-by-side outputs for the three candidate locations." eyebrow="Results">
+          <SectionCard title="Comparison Results" subtitle="" eyebrow="Results">
             <div className="grid gap-4 xl:grid-cols-3">
               {results.map((result) => (
                 <ResultCard key={result.slotId} result={result} isBest={bestLocation?.slotId === result.slotId} />
@@ -384,7 +384,7 @@ export function MultiLocationTab({ initialValues, onUseBestLocation }: MultiLoca
             </div>
           </SectionCard>
 
-          <SectionCard title="Decision Summary" subtitle="Use the winning ZIP in the Optimizer tab when you are ready to run the final scenario." eyebrow="Winner">
+          <SectionCard title="Decision Summary" subtitle="" eyebrow="Winner">
             <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
               <div>
                 <p className="text-lg font-semibold text-text">{bestLocation?.result ? `For the selected objective, ZIP ${bestLocation.zip} is currently the best available location.` : "No successful comparison result is available yet."}</p>
@@ -397,7 +397,7 @@ export function MultiLocationTab({ initialValues, onUseBestLocation }: MultiLoca
           {comparisonChart ? (
             <SectionCard
               title="Forecast Comparison"
-              subtitle={comparisonValues.objective === "carbon" ? "Compare forecasted carbon intensity across the three candidate locations." : "Compare forecasted electricity price across the three candidate locations."}
+              subtitle=""
               eyebrow="Chart"
             >
               <MultiSeriesLineChart
@@ -413,3 +413,10 @@ export function MultiLocationTab({ initialValues, onUseBestLocation }: MultiLoca
     </div>
   );
 }
+
+
+
+
+
+
+

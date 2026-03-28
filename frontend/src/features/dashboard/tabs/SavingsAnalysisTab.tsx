@@ -19,15 +19,15 @@ function formatCurrency(value: number | null | undefined): string {
 
 export function SavingsAnalysisTab({ data, isLoading, errorMessage }: SavingsAnalysisTabProps) {
   if (isLoading) {
-    return <SectionCard title="Savings Analysis" subtitle="Preparing impact metrics for the latest run."><div className="rounded-[1.6rem] border border-white/10 bg-white/[0.03] p-10 text-center text-muted">Calculating savings, carbon outcomes, and the recommendation summary...</div></SectionCard>;
+    return <SectionCard title="Savings Analysis" subtitle=""><div className="rounded-[1.6rem] border border-white/10 bg-white/[0.03] p-10 text-center text-muted">Calculating savings, carbon outcomes, and the recommendation summary...</div></SectionCard>;
   }
 
   if (errorMessage) {
-    return <SectionCard title="Savings Analysis" subtitle="The latest optimize request returned an error."><div className="rounded-[1.6rem] border border-danger/25 bg-danger/10 p-6 text-sm text-red-100">{errorMessage}</div></SectionCard>;
+    return <SectionCard title="Savings Analysis" subtitle=""><div className="rounded-[1.6rem] border border-danger/25 bg-danger/10 p-6 text-sm text-red-100">{errorMessage}</div></SectionCard>;
   }
 
   if (!data) {
-    return <SectionCard title="Savings Analysis" subtitle="Run an optimization to populate the impact view."><div className="rounded-[1.6rem] border border-dashed border-white/10 bg-black/20 p-10 text-center text-muted">No run available yet. Use the Optimizer tab to generate savings and impact outputs.</div></SectionCard>;
+    return <SectionCard title="Savings Analysis" subtitle=""><div className="rounded-[1.6rem] border border-dashed border-white/10 bg-black/20 p-10 text-center text-muted">No run available yet. Use the Optimizer tab to generate savings and impact outputs.</div></SectionCard>;
   }
 
   const workloadEnergyKwh = (data.input.compute_hours_required * data.input.machine_watts) / 1000;
@@ -58,7 +58,7 @@ export function SavingsAnalysisTab({ data, isLoading, errorMessage }: SavingsAna
         ))}
       </div>
 
-      <SectionCard title="Baseline vs Optimized" subtitle="These charts compare the original baseline plan against the optimized schedule produced by Util." eyebrow="Comparison" bodyClassName="space-y-6">
+      <SectionCard title="Baseline vs Optimized" subtitle="" eyebrow="Comparison" bodyClassName="space-y-6">
         <div className="grid gap-6 xl:grid-cols-2">
           <ComparisonBarChart
             title="Electricity Cost Comparison"
@@ -85,7 +85,7 @@ export function SavingsAnalysisTab({ data, isLoading, errorMessage }: SavingsAna
         </div>
       </SectionCard>
 
-      <SectionCard title="Tradeoff Outcomes" subtitle={`These charts show what happened to both cost and carbon under the current ${objectiveLabel}-optimized schedule.`} eyebrow="Tradeoff" bodyClassName="space-y-6">
+      <SectionCard title="Tradeoff Outcomes" subtitle="" eyebrow="Tradeoff" bodyClassName="space-y-6">
         <div className="grid gap-6 xl:grid-cols-[minmax(0,1.3fr)_360px]">
           <div className="grid gap-6 md:grid-cols-2">
             <ComparisonBarChart
@@ -123,7 +123,7 @@ export function SavingsAnalysisTab({ data, isLoading, errorMessage }: SavingsAna
         </div>
       </SectionCard>
 
-      <SectionCard title="Cost and Carbon Impact" subtitle="These charts show both the absolute improvement and the percent change versus the baseline schedule." eyebrow="Impact" bodyClassName="space-y-6">
+      <SectionCard title="Cost and Carbon Impact" subtitle="" eyebrow="Impact" bodyClassName="space-y-6">
         <div className="grid gap-6 xl:grid-cols-2">
           <DeltaImpactChart
             title="Absolute Improvement vs Baseline"
@@ -144,7 +144,7 @@ export function SavingsAnalysisTab({ data, isLoading, errorMessage }: SavingsAna
         </div>
       </SectionCard>
 
-      <SectionCard title="Current Run Signals" subtitle="Supporting context carried through from the optimization result." eyebrow="Context" bodyClassName="space-y-5">
+      <SectionCard title="Current Run Signals" subtitle="" eyebrow="Context" bodyClassName="space-y-5">
         <div className="flex flex-wrap gap-3">
           {data.summary.badges.map((badge) => (
             <StatusBadge key={badge.id} {...badge} />
@@ -163,3 +163,10 @@ export function SavingsAnalysisTab({ data, isLoading, errorMessage }: SavingsAna
     </div>
   );
 }
+
+
+
+
+
+
+

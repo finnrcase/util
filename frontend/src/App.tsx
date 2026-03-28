@@ -21,43 +21,43 @@ import { AboutUtilTab } from "./features/dashboard/tabs/AboutUtilTab";
 type DashboardTabId = "optimizer" | "forecast_visuals" | "savings_analysis" | "power_estimator" | "multi_location" | "exports" | "about_util";
 
 const sidebarItems: SidebarItem[] = [
-  { id: "optimizer", label: "Optimizer", description: "Scenario inputs and optimization controls.", icon: Bolt },
-  { id: "forecast_visuals", label: "Forecast Visuals", description: "Price and carbon forecast charts.", icon: LineChart },
-  { id: "savings_analysis", label: "Savings Analysis", description: "KPI outcomes, savings, and impact summary.", icon: ChartColumn },
-  { id: "power_estimator", label: "Power Estimator", description: "Estimate machine wattage for optimizer input.", icon: Cpu },
-  { id: "multi_location", label: "Multi Location", description: "Location comparison across multiple ZIP codes.", icon: Globe },
-  { id: "exports", label: "Exports", description: "Artifact generation and export package review.", icon: Download },
-  { id: "about_util", label: "About Util", description: "Product context, methodology, and coverage.", icon: Info },
+  { id: "optimizer", label: "Optimizer", icon: Bolt },
+  { id: "forecast_visuals", label: "Forecast Visuals", icon: LineChart },
+  { id: "savings_analysis", label: "Savings Analysis", icon: ChartColumn },
+  { id: "power_estimator", label: "Power Estimator", icon: Cpu },
+  { id: "multi_location", label: "Multi Location", icon: Globe },
+  { id: "exports", label: "Exports", icon: Download },
+  { id: "about_util", label: "About Util", icon: Info },
 ];
 
 const tabConfig: Record<DashboardTabId, { title: string; subtitle: string }> = {
   optimizer: {
     title: "Optimizer",
-    subtitle: "Configure workload, timing, location, and forecast settings, then run the existing optimization engine.",
+    subtitle: "",
   },
   forecast_visuals: {
     title: "Forecast Visuals",
-    subtitle: "Inspect price and carbon forecast signals with clear recommendation markers on the lines.",
+    subtitle: "",
   },
   savings_analysis: {
     title: "Savings Analysis",
-    subtitle: "Review cost, carbon, and recommendation impact in a compact operator-facing summary.",
+    subtitle: "",
   },
   power_estimator: {
     title: "Power Estimator",
-    subtitle: "Estimate approximate system wattage when a machine power value is not already known.",
+    subtitle: "",
   },
   multi_location: {
     title: "Multi Location",
-    subtitle: "Compare three candidate ZIP codes under shared scenario assumptions and pick the strongest location.",
+    subtitle: "",
   },
   exports: {
     title: "Exports",
-    subtitle: "Generate and review the artifact package for the current run without leaving the dashboard shell.",
+    subtitle: "",
   },
   about_util: {
     title: "About Util",
-    subtitle: "Product context, methodology, support boundaries, and roadmap summary.",
+    subtitle: "",
   },
 };
 
@@ -225,6 +225,7 @@ export default function App() {
     </AppShell>
   );
 }
+
 
 
 

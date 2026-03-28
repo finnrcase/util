@@ -64,7 +64,7 @@ export function OptimizerTab({ register, errors, onSubmit, isSubmitting, errorMe
 
         <SectionCard
           title="Optimization Control Center"
-          subtitle="Core scenario inputs and forecast settings."
+          subtitle=""
           eyebrow="Optimizer"
           bodyClassName="space-y-5"
         >
@@ -161,14 +161,14 @@ export function OptimizerTab({ register, errors, onSubmit, isSubmitting, errorMe
 
               <div className="rounded-[1.25rem] border border-cyan-300/12 bg-[linear-gradient(180deg,rgba(34,211,238,0.08),rgba(34,211,238,0.02))] p-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]">
                 <p className="text-[11px] uppercase tracking-[0.18em] text-cyan-200">Power estimator tip</p>
-                <p className="mt-2 text-sm leading-6 text-slate-100/90">Use the Power Estimator tab if you need to calculate machine wattage first.</p>
+                
               </div>
             </div>
           </section>
         </SectionCard>
       </form>
 
-      <SectionCard title="Optimizer Status" subtitle="Latest run context." eyebrow="Status" bodyClassName="space-y-4">
+      <SectionCard title="Optimizer Status" subtitle="" eyebrow="Status" bodyClassName="space-y-4">
         <div className="rounded-[1.35rem] border border-white/10 bg-[linear-gradient(180deg,rgba(167,139,250,0.10),rgba(167,139,250,0.02))] p-4">
           <p className="text-[11px] uppercase tracking-[0.18em] text-violet-200">Current Mode</p>
           <p className="mt-2 text-lg font-semibold text-text">{values.schedule_mode === "block" ? "Continuous block scheduling" : "Flexible interval scheduling"}</p>
@@ -218,6 +218,9 @@ export function OptimizerTab({ register, errors, onSubmit, isSubmitting, errorMe
     </div>
   );
 }
+
+
+
 
 
 

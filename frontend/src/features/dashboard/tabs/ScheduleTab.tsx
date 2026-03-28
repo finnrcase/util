@@ -11,7 +11,7 @@ interface ScheduleTabProps {
 
 export function ScheduleTab({ data }: ScheduleTabProps) {
   if (!data) {
-    return <SectionCard title="Schedule" subtitle="Run an optimization to view the execution plan."><div className="rounded-[1.6rem] border border-dashed border-white/10 bg-black/20 p-10 text-center text-muted">No schedule loaded yet. Run the optimizer to populate the run plan.</div></SectionCard>;
+    return <SectionCard title="Schedule" subtitle=""><div className="rounded-[1.6rem] border border-dashed border-white/10 bg-black/20 p-10 text-center text-muted">No schedule loaded yet. Run the optimizer to populate the run plan.</div></SectionCard>;
   }
 
   const rows = deriveScheduleRows(data);
@@ -25,7 +25,7 @@ export function ScheduleTab({ data }: ScheduleTabProps) {
 
   return (
     <div className="space-y-6">
-      <SectionCard title="Run Plan" subtitle="Concrete schedule view showing recommended intervals across the forecast horizon." eyebrow="Schedule">
+      <SectionCard title="Run Plan" subtitle="" eyebrow="Schedule">
         <ScheduleChartCard
           title={data.charts.run_schedule_timeseries.title}
           subtitle={data.charts.run_schedule_timeseries.subtitle}
@@ -33,7 +33,7 @@ export function ScheduleTab({ data }: ScheduleTabProps) {
         />
       </SectionCard>
 
-      <SectionCard title="Execution Table" subtitle="Interval-level guidance for time, run percentage, price, carbon, and recommendation status." eyebrow="Table">
+      <SectionCard title="Execution Table" subtitle="" eyebrow="Table">
         <ResultsTable
           rows={rows}
           columns={columns}
@@ -44,3 +44,6 @@ export function ScheduleTab({ data }: ScheduleTabProps) {
     </div>
   );
 }
+
+
+

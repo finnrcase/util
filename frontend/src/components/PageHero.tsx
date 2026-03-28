@@ -3,7 +3,7 @@ import type { ReactNode } from "react";
 interface PageHeroProps {
   eyebrow: string;
   title: string;
-  description: string;
+  description?: string;
   meta?: Array<{ label: string; value: string }>;
   action?: ReactNode;
 }
@@ -17,7 +17,7 @@ export function PageHero({ eyebrow, title, description, meta = [], action }: Pag
         <div className="max-w-3xl">
           <p className="text-xs uppercase tracking-[0.34em] text-violet-200">{eyebrow}</p>
           <h1 className="mt-4 text-3xl font-semibold tracking-[-0.04em] text-text sm:text-4xl xl:text-[2.75rem]">{title}</h1>
-          <p className="mt-4 max-w-2xl text-sm leading-7 text-muted sm:text-base">{description}</p>
+          {description ? <p className="mt-4 max-w-2xl text-sm leading-7 text-muted sm:text-base">{description}</p> : null}
           {meta.length ? (
             <div className="mt-6 flex flex-wrap gap-3">
               {meta.map((item) => (
@@ -34,3 +34,4 @@ export function PageHero({ eyebrow, title, description, meta = [], action }: Pag
     </section>
   );
 }
+

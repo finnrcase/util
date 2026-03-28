@@ -61,7 +61,7 @@ export function PowerEstimatorTab({ onApplyEstimator }: PowerEstimatorTabProps) 
   return (
     <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_320px] xl:items-start">
       <div className="grid gap-6">
-        <SectionCard title="Estimator Controls" subtitle="Estimate approximate system power draw when machine wattage is not already known." eyebrow="Estimator">
+        <SectionCard title="Estimator Controls" subtitle="" eyebrow="Estimator">
           <div className="grid gap-5 md:grid-cols-2">
             <label className="space-y-2.5">
               <span className="text-sm font-medium text-slate-100">GPU Model</span>
@@ -103,7 +103,7 @@ export function PowerEstimatorTab({ onApplyEstimator }: PowerEstimatorTabProps) 
           </div>
         </SectionCard>
 
-        <SectionCard title="Estimator Breakdown" subtitle="Component inputs and the resulting system estimate." eyebrow="Breakdown">
+        <SectionCard title="Estimator Breakdown" subtitle="" eyebrow="Breakdown">
           <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
             <div className="rounded-[1.5rem] border border-white/10 bg-white/[0.04] p-4"><p className="text-[11px] uppercase tracking-[0.16em] text-muted">Estimated Load</p><p className="mt-2 text-lg font-semibold text-text">{estimatedPower.toLocaleString()} W</p></div>
             <div className="rounded-[1.5rem] border border-white/10 bg-white/[0.04] p-4"><p className="text-[11px] uppercase tracking-[0.16em] text-muted">Energy Per Hour</p><p className="mt-2 text-lg font-semibold text-text">{estimatedKwhPerHour.toFixed(2)} kWh</p></div>
@@ -111,7 +111,7 @@ export function PowerEstimatorTab({ onApplyEstimator }: PowerEstimatorTabProps) 
             <div className="rounded-[1.5rem] border border-white/10 bg-white/[0.04] p-4"><p className="text-[11px] uppercase tracking-[0.16em] text-muted">CPU Power</p><p className="mt-2 text-lg font-semibold text-text">{cpuWatts.toLocaleString()} W</p></div>
           </div>
           <div className="mt-5 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-            <p className="max-w-2xl text-sm leading-6 text-muted">The estimator remains separate from the optimizer until you explicitly copy the recommended wattage over.</p>
+            
             <button type="button" onClick={() => onApplyEstimator(estimatedPower)} className="inline-flex items-center justify-center rounded-[1.25rem] bg-gradient-to-r from-violet-300 via-fuchsia-400 to-cyan-300 px-5 py-3 text-sm font-semibold text-slate-950 shadow-[0_16px_36px_rgba(139,92,246,0.32)] transition hover:brightness-110">
               Use Estimator Value in Optimizer
             </button>
@@ -119,11 +119,16 @@ export function PowerEstimatorTab({ onApplyEstimator }: PowerEstimatorTabProps) 
         </SectionCard>
       </div>
 
-      <SectionCard title="Estimator Recommendation" subtitle="Current recommended machine wattage from the selected component mix." eyebrow="Result">
+      <SectionCard title="Estimator Recommendation" subtitle="" eyebrow="Result">
         <div className="rounded-[1.6rem] border border-emerald-300/14 bg-[linear-gradient(180deg,rgba(74,222,128,0.10),rgba(74,222,128,0.02))] p-5 shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]">
-          <p className="text-sm leading-7 text-slate-100/90">The current estimator recommends <strong>{estimatedPower.toLocaleString()} W</strong>. This stays separate from the optimizer until you explicitly copy it over.</p>
+          <p className="text-sm leading-7 text-slate-100/90"><strong>{estimatedPower.toLocaleString()} W</strong></p>
         </div>
       </SectionCard>
     </div>
   );
 }
+
+
+
+
+

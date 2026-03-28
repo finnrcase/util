@@ -28,14 +28,14 @@ export function OverviewTab({ data, isLoading, errorMessage, apiMode }: Overview
         <PageHero
           eyebrow="Overview"
           title="Executive summary for every optimization run"
-          description="Overview condenses the most important KPIs, recommendation context, and signal provenance into a clean operator-ready snapshot once you run the engine."
+          description=""
           meta={[
             { label: "Mode", value: apiMode },
             { label: "Live Pricing", value: "CAISO + ERCOT" },
             { label: "Structure", value: "Multi-tab dashboard" },
           ]}
         />
-        <SectionCard title="Awaiting Run" subtitle="Run an optimization from the Optimizer tab to populate the executive summary.">
+        <SectionCard title="Awaiting Run" subtitle="">
           <div className="rounded-[1.6rem] border border-dashed border-white/10 bg-black/20 p-10 text-center text-muted">No optimization results yet. Head to the Optimizer tab to create a scenario and run the engine.</div>
         </SectionCard>
       </div>
@@ -62,7 +62,7 @@ export function OverviewTab({ data, isLoading, errorMessage, apiMode }: Overview
       <PageHero
         eyebrow="Overview"
         title="Operator summary for the current optimization run"
-        description="Use this tab as the quickest read on expected cost impact, carbon reduction, and the recommended execution window based on the latest available forecast data."
+        description=""
         meta={[
           { label: "ZIP", value: data.input.zip_code },
           { label: "Region", value: data.location.resolved_region || "Pending" },
@@ -77,7 +77,7 @@ export function OverviewTab({ data, isLoading, errorMessage, apiMode }: Overview
         ))}
       </div>
 
-      <SectionCard title="Run Recommendation" subtitle="Primary recommendation generated from the latest run." eyebrow="Recommendation" bodyClassName="space-y-5">
+      <SectionCard title="Run Recommendation" subtitle="" eyebrow="Recommendation" bodyClassName="space-y-5">
         <div className="flex flex-wrap gap-3">
           {data.summary.badges.map((badge) => (
             <StatusBadge key={badge.id} {...badge} />
@@ -92,3 +92,7 @@ export function OverviewTab({ data, isLoading, errorMessage, apiMode }: Overview
     </div>
   );
 }
+
+
+
+

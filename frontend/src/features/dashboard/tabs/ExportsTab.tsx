@@ -143,7 +143,7 @@ function ProvenanceCard({ latestRun }: { latestRun: OptimizeResponse }) {
   return (
     <div className="rounded-[1.6rem] border border-white/10 bg-white/[0.04] p-5">
       <p className="text-[11px] uppercase tracking-[0.16em] text-violet-200">Current Run Provenance</p>
-      <p className="mt-2 text-sm leading-6 text-muted">The export package reflects the latest optimization result context and live or fallback routing state.</p>
+      
 
       <div className="mt-4 space-y-3">
         {rows.map((row) => (
@@ -185,7 +185,7 @@ export function ExportsTab({ canExport, currentPayload, latestRun, exportResult,
 
   return (
     <div className="space-y-6">
-      <SectionCard title="Export Package" subtitle="Generate the structured CSV package for the current run and review the primary export outputs in one place." eyebrow="Exports">
+      <SectionCard title="Export Package" subtitle="" eyebrow="Exports">
         <div className="grid gap-6 xl:grid-cols-[minmax(0,1.15fr)_minmax(0,340px)]">
           <div className="min-w-0 space-y-6">
             <div className="rounded-[1.6rem] border border-white/10 bg-[linear-gradient(180deg,rgba(255,255,255,0.05),rgba(255,255,255,0.03))] p-5 shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]">
@@ -193,7 +193,7 @@ export function ExportsTab({ canExport, currentPayload, latestRun, exportResult,
                 <div className="max-w-2xl min-w-0">
                   <p className="text-[11px] uppercase tracking-[0.16em] text-violet-200">Current package</p>
                   <h3 className="mt-2 text-xl font-semibold text-text">Six primary export outputs, organized for reporting and handoff</h3>
-                  <p className="mt-2 text-sm leading-6 text-muted">This package keeps the legacy export structure from the Streamlit MVP: recommendation, region comparison, time window analysis, case comparison, input assumptions, and run summary.</p>
+                  
                 </div>
                 <div className="flex shrink-0 flex-wrap gap-3">
                   <button type="button" onClick={onExport} disabled={!canExport || isExporting} className="inline-flex items-center justify-center rounded-[1.25rem] bg-gradient-to-r from-violet-300 via-fuchsia-400 to-cyan-300 px-5 py-3 text-sm font-semibold text-slate-950 shadow-[0_16px_36px_rgba(139,92,246,0.32)] transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-60">
@@ -225,7 +225,7 @@ export function ExportsTab({ canExport, currentPayload, latestRun, exportResult,
               <div className="flex items-center justify-between gap-3">
                 <div>
                   <p className="text-[11px] uppercase tracking-[0.16em] text-violet-200">Primary exports</p>
-                  <p className="mt-1 text-sm text-muted">These are the six structured CSV outputs that existed in the previous app workflow.</p>
+                  
                 </div>
                 <div className="rounded-full border border-white/10 bg-white/[0.04] px-3 py-1.5 text-xs text-slate-200">
                   {primaryArtifactsReady} / {PRIMARY_EXPORT_SPECS.length} ready
@@ -242,7 +242,7 @@ export function ExportsTab({ canExport, currentPayload, latestRun, exportResult,
             <div className="space-y-4">
               <div>
                 <p className="text-[11px] uppercase tracking-[0.16em] text-violet-200">Supplemental export</p>
-                <p className="mt-1 text-sm text-muted">Additional provenance output kept separate from the six primary CSVs.</p>
+                
               </div>
               <div className="grid gap-4">
                 {SUPPLEMENTAL_EXPORT_SPECS.map((spec) => (
@@ -293,3 +293,8 @@ export function ExportsTab({ canExport, currentPayload, latestRun, exportResult,
     </div>
   );
 }
+
+
+
+
+

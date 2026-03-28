@@ -2,7 +2,7 @@ import type { ReactNode } from "react";
 
 interface TopBarProps {
   title: string;
-  subtitle: string;
+  subtitle?: string;
   statusItems?: Array<{ label: string; value: string }>;
   action?: ReactNode;
 }
@@ -13,7 +13,7 @@ export function TopBar({ title, subtitle, statusItems = [], action }: TopBarProp
       <div className="min-w-0">
         <p className="text-[11px] uppercase tracking-[0.24em] text-violet-200">Dashboard</p>
         <h2 className="mt-3 text-2xl font-semibold tracking-[-0.03em] text-text">{title}</h2>
-        <p className="mt-2 max-w-3xl text-sm leading-6 text-muted">{subtitle}</p>
+        {subtitle ? <p className="mt-2 max-w-3xl text-sm leading-6 text-muted">{subtitle}</p> : null}
         {statusItems.length ? (
           <div className="mt-4 flex flex-wrap gap-2.5">
             {statusItems.map((item) => (
@@ -29,3 +29,4 @@ export function TopBar({ title, subtitle, statusItems = [], action }: TopBarProp
     </div>
   );
 }
+

@@ -5,7 +5,7 @@ import { CUSTOM_BRAND_LOGO_PATH } from "../lib/branding";
 export interface SidebarItem {
   id: string;
   label: string;
-  description: string;
+  description?: string;
   icon: ComponentType<LucideProps>;
 }
 
@@ -97,3 +97,4 @@ export function SidebarNav({ items, activeItemId, onNavigate }: SidebarNavProps)
     </div>
   );
 }
+

@@ -10,8 +10,9 @@ interface CoverageTabProps {
 
 export function CoverageTab({ coverage, isLoading, errorMessage }: CoverageTabProps) {
   return (
-    <SectionCard title="Market Coverage" subtitle="Supported live markets, partial support boundaries, and fallback behavior." eyebrow="Coverage">
+    <SectionCard title="Market Coverage" subtitle="" eyebrow="Coverage">
       <CoveragePanel coverage={coverage} isLoading={isLoading} errorMessage={errorMessage} />
     </SectionCard>
   );
 }
+

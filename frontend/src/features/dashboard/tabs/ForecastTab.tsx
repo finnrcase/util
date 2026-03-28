@@ -19,7 +19,7 @@ interface ForecastTabProps {
 
 export function ForecastTab({ data }: ForecastTabProps) {
   if (!data) {
-    return <SectionCard title="Forecast Visuals" subtitle="Run an optimization to inspect forecast analytics and recommendation markers."><div className="rounded-[1.6rem] border border-dashed border-white/10 bg-black/20 p-10 text-center text-muted">No forecast loaded yet. Run the optimizer to populate the forecast views.</div></SectionCard>;
+    return <SectionCard title="Forecast Visuals" subtitle=""><div className="rounded-[1.6rem] border border-dashed border-white/10 bg-black/20 p-10 text-center text-muted">No forecast loaded yet. Run the optimizer to populate the forecast views.</div></SectionCard>;
   }
 
   const markers = recommendedTimestamps(data);
@@ -33,7 +33,7 @@ export function ForecastTab({ data }: ForecastTabProps) {
       <ForecastChartCard
         eyebrow="Electricity Price"
         title="Forecasted electricity price across the optimization horizon"
-        subtitle="Green points indicate intervals selected by the optimizer. Values shown are plotted in $/kWh from the live or fallback price signal currently in use."
+        subtitle="Green points show selected intervals."
         rows={priceRows}
         stroke="#8b5cf6"
         unitLabel="$/kWh"
@@ -45,7 +45,7 @@ export function ForecastTab({ data }: ForecastTabProps) {
       <ForecastChartCard
         eyebrow="Carbon Intensity"
         title="Forecasted carbon intensity across the optimization horizon"
-        subtitle="Green points indicate intervals selected by the optimizer. Values shown are plotted in gCO2/kWh from the current carbon forecast signal."
+        subtitle="Green points show selected intervals."
         rows={carbonRows}
         stroke="#38bdf8"
         unitLabel="gCO2/kWh"
@@ -54,7 +54,7 @@ export function ForecastTab({ data }: ForecastTabProps) {
         interpretation={buildCarbonInterpretation(carbonRows, markers)}
       />
 
-      <SectionCard title="Forecast Context" subtitle="Decision-oriented context for the displayed price and carbon signals." eyebrow="Context">
+      <SectionCard title="Forecast Context" subtitle="" eyebrow="Context">
         <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_340px]">
           <div className="rounded-[1.6rem] border border-white/10 bg-white/[0.04] p-5">
             <div className="grid gap-3 sm:grid-cols-2">
@@ -93,3 +93,7 @@ export function ForecastTab({ data }: ForecastTabProps) {
     </div>
   );
 }
+
+
+
+
