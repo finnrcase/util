@@ -14,6 +14,7 @@ from src.api.schemas import ExportResponse
 
 
 client = TestClient(app)
+VERCEL_ORIGIN = "https://util-ten-delta.vercel.app"
 
 
 def _fake_result() -> dict:
@@ -182,6 +183,51 @@ def test_cors_configuration_explicitly_allows_browser_post_requirements() -> Non
     assert "OPTIONS" in ALLOWED_METHODS
     assert "Content-Type" in ALLOWED_HEADERS
     assert "http://127.0.0.1:5173" in ALLOWED_ORIGINS
+    assert VERCEL_ORIGIN in ALLOWED_ORIGINS
+
+
+def test_vercel_preflight_options_succeeds_for_coverage() -> None:
+    response = client.options(
+        "/api/v1/coverage",
+        headers={
+            "Origin": VERCEL_ORIGIN,
+            "Access-Control-Request-Method": "GET",
+            "Access-Control-Request-Headers": "content-type",
+        },
+    )
+
+    assert response.status_code == 200
+    assert response.headers["access-control-allow-origin"] == VERCEL_ORIGIN
+
+
+def test_vercel_preflight_options_succeeds_for_optimize() -> None:
+    response = client.options(
+        "/api/v1/optimize",
+        headers={
+            "Origin": VERCEL_ORIGIN,
+            "Access-Control-Request-Method": "POST",
+            "Access-Control-Request-Headers": "content-type",
+        },
+    )
+
+    assert response.status_code == 200
+    assert response.headers["access-control-allow-origin"] == VERCEL_ORIGIN
+    assert "POST" in response.headers["access-control-allow-methods"]
+
+
+def test_vercel_preflight_options_succeeds_for_export() -> None:
+    response = client.options(
+        "/api/v1/export",
+        headers={
+            "Origin": VERCEL_ORIGIN,
+            "Access-Control-Request-Method": "POST",
+            "Access-Control-Request-Headers": "content-type",
+        },
+    )
+
+    assert response.status_code == 200
+    assert response.headers["access-control-allow-origin"] == VERCEL_ORIGIN
+    assert "POST" in response.headers["access-control-allow-methods"]
 
 
 def test_coverage_endpoint_returns_supported_markets() -> None:

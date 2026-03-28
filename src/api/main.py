@@ -22,6 +22,7 @@ ALLOWED_ORIGINS = [
     "http://localhost:5173",
     "http://127.0.0.1:3000",
     "http://localhost:3000",
+    "https://util-ten-delta.vercel.app",
 ]
 ALLOWED_METHODS = ["GET", "POST", "OPTIONS"]
 ALLOWED_HEADERS = ["Accept", "Content-Type", "Origin", "Authorization"]
