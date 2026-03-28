@@ -12,7 +12,7 @@ def extend_forecast_with_history(
     live_forecast_df: pd.DataFrame,
     historical_df: pd.DataFrame,
     deadline: str | pd.Timestamp,
-    total_horizon_days: int = DEFAULT_TOTAL_HORIZON_DAYS,
+    total_horizon_days: int | None = DEFAULT_TOTAL_HORIZON_DAYS,
 ) -> pd.DataFrame:
     """
     Extend the live carbon forecast using a historical time-of-day expectation.

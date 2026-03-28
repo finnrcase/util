@@ -4,7 +4,7 @@ import pandas as pd
 from scipy.optimize import nnls
 
 
-DEFAULT_TOTAL_HORIZON_DAYS = 7
+DEFAULT_TOTAL_HORIZON_DAYS: int | None = None
 
 # Hybrid historical-pattern weights for extension beyond the live forecast horizon.
 RECENT_HISTORY_WEIGHT = 0.45
@@ -386,7 +386,7 @@ def extend_series_with_history(
     live_source_value: str,
     historical_source_value: str,
     profile_value_column: str,
-    total_horizon_days: int = DEFAULT_TOTAL_HORIZON_DAYS,
+    total_horizon_days: int | None = DEFAULT_TOTAL_HORIZON_DAYS,
 ) -> pd.DataFrame:
     """
     Extend a live time series beyond its horizon using a hybrid weighted
@@ -407,10 +407,13 @@ def extend_series_with_history(
     if getattr(deadline_ts, "tzinfo", None) is not None:
         deadline_ts = deadline_ts.tz_convert("America/Los_Angeles").tz_localize(None)
 
-    forecast_min = live_df["timestamp"].min()
     forecast_max = live_df["timestamp"].max()
-    target_horizon_ts = forecast_min + pd.Timedelta(days=total_horizon_days)
-    extension_end_ts = max(deadline_ts, target_horizon_ts)
+    if total_horizon_days is None:
+        extension_end_ts = deadline_ts
+    else:
+        forecast_min = live_df["timestamp"].min()
+        target_horizon_ts = forecast_min + pd.Timedelta(days=total_horizon_days)
+        extension_end_ts = max(deadline_ts, target_horizon_ts)
 
     live_df[source_column] = live_source_value
     if profile_value_column not in live_df.columns:

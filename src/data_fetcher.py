@@ -281,6 +281,14 @@ def build_live_price_forecast_table(
         if len(live_extension_seed_df) < 2:
             raise PricingUnavailableError("Not enough live price rows were available to build an estimated extension.")
 
+        price_extension_started_at = time.perf_counter()
+        data_fetcher_logger.info(
+            "Util forecast: price extension stage start region=%s live_rows=%s historical_rows=%s deadline=%s",
+            region,
+            len(live_extension_seed_df),
+            len(historical_template_df),
+            deadline,
+        )
         extended_price_df = extend_series_with_history(
             live_forecast_df=live_extension_seed_df[["timestamp", "price_per_kwh"]].copy(),
             historical_df=historical_template_df[["timestamp", "price_per_kwh"]].copy(),
@@ -290,6 +298,13 @@ def build_live_price_forecast_table(
             live_source_value="live_forecast",
             historical_source_value="historical_pattern_estimate",
             profile_value_column="historical_avg_price_per_kwh",
+            total_horizon_days=None,
+        )
+        data_fetcher_logger.info(
+            "Util forecast: price extension stage success region=%s output_rows=%s elapsed_ms=%.1f",
+            region,
+            len(extended_price_df),
+            (time.perf_counter() - price_extension_started_at) * 1000.0,
         )
 
         combined_df = pd.merge(
@@ -354,10 +369,24 @@ def build_live_carbon_forecast_table(
                 historical_days,
             )
             historical_df = _normalize_timestamp_column(historical_df, "timestamp")
+            carbon_extension_started_at = time.perf_counter()
+            data_fetcher_logger.info(
+                "Util forecast: carbon extension stage start region=%s live_rows=%s historical_rows=%s deadline=%s",
+                requested_region,
+                len(carbon_df),
+                len(historical_df),
+                deadline,
+            )
             carbon_df = extend_forecast_with_history(
                 live_forecast_df=carbon_df,
                 historical_df=historical_df,
                 deadline=deadline,
+            )
+            data_fetcher_logger.info(
+                "Util forecast: carbon extension stage success region=%s output_rows=%s elapsed_ms=%.1f",
+                requested_region,
+                len(carbon_df),
+                (time.perf_counter() - carbon_extension_started_at) * 1000.0,
             )
             carbon_df["historical_region_used"] = historical_region_used
         else:
@@ -588,3 +617,4 @@ def get_forecast_table(
     raise ValueError(
         "Invalid forecast_mode. Supported values are 'demo' and 'live_carbon'."
     )
+
