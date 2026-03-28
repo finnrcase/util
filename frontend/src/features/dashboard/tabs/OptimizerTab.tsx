@@ -45,7 +45,17 @@ export function OptimizerTab({ register, errors, onSubmit, isSubmitting, lastRun
             disabled={isSubmitting}
             className="inline-flex min-h-[3.5rem] items-center justify-center gap-2 rounded-[1.35rem] bg-gradient-to-r from-violet-200 via-fuchsia-300 to-cyan-200 px-6 py-3 text-base font-semibold text-slate-950 shadow-[0_18px_42px_rgba(139,92,246,0.38)] ring-1 ring-white/10 transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-60"
           >
-            <span className="text-lg leading-none">+</span>
+            {isSubmitting ? (
+              <span
+                aria-hidden="true"
+                className="relative inline-flex h-5 w-5 items-center justify-center"
+              >
+                <span className="absolute inset-0 rounded-full border-2 border-slate-950/20" />
+                <span className="absolute inset-0 animate-spin rounded-full border-2 border-transparent border-t-slate-950/90 border-r-slate-950/60" />
+              </span>
+            ) : (
+              <span className="text-lg leading-none">+</span>
+            )}
             <span>{isSubmitting ? "Optimizing..." : "Run Optimization"}</span>
           </button>
           {lastRun ? <span className="rounded-full border border-emerald-300/20 bg-emerald-300/10 px-3 py-2 text-sm font-medium text-emerald-100">Optimization ran</span> : null}
@@ -202,3 +212,4 @@ export function OptimizerTab({ register, errors, onSubmit, isSubmitting, lastRun
     </div>
   );
 }
+
