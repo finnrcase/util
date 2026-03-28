@@ -1,0 +1,2 @@
+run_id,generated_at,zip_code,resolved_region,resolved_watttime_region,location_lookup_status,carbon_source,pricing_status,pricing_source,pricing_market,pricing_node,price_signal_source,primary_objective,coverage_note
+util-20260328T001052Z-c5e6be0b,2026-03-28 00:10:52 UTC,90012,LDWP,LDWP,success,"historical_pattern_estimate, live_forecast",live_market,CAISO,,TH_SP15_GEN-APND,"historical_pattern_estimate, live_forecast",cost,"Using live market day-ahead pricing where live rows are available, with historical-pattern extension beyond the live horizon when needed."

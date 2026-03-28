@@ -1,0 +1,129 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  color: #f8fbff;
+  background: #05060d;
+  font-family: Inter, ui-sans-serif, system-ui, sans-serif;
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+html {
+  background: #05060d;
+}
+
+body {
+  margin: 0;
+  min-height: 100vh;
+  background:
+    radial-gradient(circle at 18% 8%, rgba(139, 92, 246, 0.28), transparent 24%),
+    radial-gradient(circle at 82% 10%, rgba(167, 139, 250, 0.18), transparent 20%),
+    radial-gradient(circle at 74% 76%, rgba(34, 211, 238, 0.08), transparent 18%),
+    linear-gradient(180deg, #05060d 0%, #090814 28%, #0a0d18 58%, #0b0f19 100%);
+}
+
+body::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  background-image: linear-gradient(rgba(255, 255, 255, 0.022) 1px, transparent 1px), linear-gradient(90deg, rgba(255, 255, 255, 0.022) 1px, transparent 1px);
+  background-size: 64px 64px;
+  mask-image: radial-gradient(circle at center, black 28%, transparent 80%);
+  opacity: 0.22;
+}
+
+#root {
+  min-height: 100vh;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+*::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+
+*::-webkit-scrollbar-track {
+  background: rgba(255, 255, 255, 0.03);
+}
+
+*::-webkit-scrollbar-thumb {
+  border-radius: 999px;
+  background: rgba(167, 139, 250, 0.24);
+  border: 2px solid transparent;
+  background-clip: padding-box;
+}
+
+.sidebar-scroll {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(167, 139, 250, 0.28) transparent;
+}
+
+.sidebar-scroll::-webkit-scrollbar {
+  width: 8px;
+}
+
+.sidebar-scroll::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.sidebar-scroll::-webkit-scrollbar-thumb {
+  background: rgba(167, 139, 250, 0.22);
+  border: 2px solid transparent;
+  background-clip: padding-box;
+}
+
+html,
+body,
+[data-scroll-smooth="true"] {
+  scroll-behavior: smooth;
+}
+
+input,
+select,
+button,
+textarea {
+  font: inherit;
+}
+
+input,
+select,
+textarea {
+  color: #e5e7eb;
+  background-color: rgba(13, 18, 32, 0.88);
+  color-scheme: dark;
+}
+
+input::placeholder,
+textarea::placeholder {
+  color: rgba(148, 163, 184, 0.72);
+}
+
+select {
+  color: #f3f4f6;
+  background-color: #0d1220;
+}
+
+select option,
+select optgroup {
+  color: #e5e7eb;
+  background: #0b0f1a;
+}
+
+select:focus,
+input:focus,
+textarea:focus {
+  outline: none;
+}
+
+input[type="datetime-local"]::-webkit-calendar-picker-indicator {
+  filter: invert(0.9) hue-rotate(180deg) brightness(1.1);
+  opacity: 0.82;
+}

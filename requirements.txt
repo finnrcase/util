@@ -1,4 +1,7 @@
-﻿streamlit
+streamlit
+fastapi
+uvicorn
+httpx
 altair
 pandas
 numpy
