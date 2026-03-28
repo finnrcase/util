@@ -22,6 +22,7 @@ Current development status:
 
 from __future__ import annotations
 
+import logging
 from pathlib import Path
 from typing import Any, Callable
 
@@ -29,6 +30,9 @@ from src.data_fetcher import get_forecast_table
 from src.location.location_service import resolve_zip_to_watttime_region
 from src.mapper import load_zip_region_map, map_zip_to_region
 from src.scheduling_window import get_current_reference_time
+
+
+pipeline_logger = logging.getLogger("uvicorn.error")
 
 
 def _resolve_callable(module: Any, candidate_names: list[str]) -> Callable:
@@ -60,50 +64,6 @@ def run_util_pipeline(
 ) -> dict[str, Any]:
     """
     Run the full Util backend workflow.
-
-    Parameters
-    ----------
-    workload_input : WorkloadInput
-        Validated user input object.
-    mapping_path : str | Path
-        Path to ZIP-to-region mapping CSV.
-    carbon_path : str | Path | None
-        Path to carbon forecast CSV (required for demo mode).
-    price_path : str | Path | None
-        Path to price forecast CSV (required for demo mode).
-    forecast_mode : str
-        Forecast loading mode.
-        Supported values:
-        - "demo"
-        - "live_carbon"
-    schedule_mode : str
-        Schedule optimization mode.
-        Supported values:
-        - "flexible"
-        - "block"
-    carbon_estimation_mode : str
-        Carbon estimate strategy for live mode.
-        Supported values:
-        - "forecast_only"
-        - "forecast_plus_historical_expectation"
-    historical_days : int
-        Number of past days of historical carbon data to use when extending
-        beyond the live forecast horizon.
-    current_time_override : str | None
-        Optional override for optimizer "now" timestamp, used for testing.
-
-    Returns
-    -------
-    dict
-        Dictionary containing:
-        - workload_input
-        - region
-        - location_info
-        - forecast
-        - baseline
-        - optimized
-        - schedule
-        - metrics
     """
     from src import baseline, metrics, optimizer, scheduler
 
@@ -148,9 +108,20 @@ def run_util_pipeline(
         ],
     )
 
+    pipeline_logger.info(
+        "Util pipeline: start zip=%s forecast_mode=%s schedule_mode=%s carbon_mode=%s historical_days=%s",
+        getattr(workload_input, "zip_code", ""),
+        forecast_mode,
+        schedule_mode,
+        carbon_estimation_mode,
+        historical_days,
+    )
+
     if forecast_mode == "demo":
+        pipeline_logger.info("Util pipeline: demo mode mapping start zip=%s", workload_input.zip_code)
         mapping_df = load_zip_region_map(mapping_path)
         region = map_zip_to_region(workload_input.zip_code, mapping_df)
+        pipeline_logger.info("Util pipeline: demo mode mapping success zip=%s region=%s", workload_input.zip_code, region)
 
         location_info = {
             "zip_code": workload_input.zip_code,
@@ -164,16 +135,15 @@ def run_util_pipeline(
         }
 
     elif forecast_mode == "live_carbon":
+        pipeline_logger.info("Util pipeline: live location resolution start zip=%s", workload_input.zip_code)
         location_info = resolve_zip_to_watttime_region(workload_input.zip_code)
         region = location_info["watttime_region"]
-        print(
-            "[PIPELINE DEBUG] Live carbon location context:",
-            {
-                "zip_code": workload_input.zip_code,
-                "latitude": location_info["latitude"],
-                "longitude": location_info["longitude"],
-                "watttime_region": region,
-            },
+        pipeline_logger.info(
+            "Util pipeline: live location resolution success zip=%s lat=%s lon=%s region=%s",
+            workload_input.zip_code,
+            location_info["latitude"],
+            location_info["longitude"],
+            region,
         )
 
     else:
@@ -184,6 +154,7 @@ def run_util_pipeline(
 
     reference_now = get_current_reference_time(current_time_override)
 
+    pipeline_logger.info("Util pipeline: forecast fetch start region=%s", region)
     forecast_df = get_forecast_table(
         forecast_mode=forecast_mode,
         region=region,
@@ -193,6 +164,7 @@ def run_util_pipeline(
         historical_days=historical_days,
         deadline=workload_input.deadline,
     )
+    pipeline_logger.info("Util pipeline: forecast fetch success region=%s rows=%s", region, len(forecast_df))
 
     print(
         "[OPTIMIZER INPUT DEBUG] Pricing context:",
@@ -225,13 +197,16 @@ def run_util_pipeline(
         },
     )
 
+    pipeline_logger.info("Util pipeline: baseline build start")
     baseline_df = build_baseline_func(
         forecast_df=forecast_df,
         compute_hours_required=workload_input.compute_hours_required,
         deadline=workload_input.deadline,
         current_time_override=reference_now,
     )
+    pipeline_logger.info("Util pipeline: baseline build success rows=%s", len(baseline_df))
 
+    pipeline_logger.info("Util pipeline: optimizer solve start objective=%s", workload_input.objective)
     optimized_df = optimize_func(
         forecast_df=forecast_df,
         compute_hours_required=workload_input.compute_hours_required,
@@ -242,14 +217,19 @@ def run_util_pipeline(
         carbon_weight=getattr(workload_input, "carbon_weight", 0.5),
         price_weight=getattr(workload_input, "price_weight", 0.5),
     )
+    pipeline_logger.info("Util pipeline: optimizer solve success rows=%s", len(optimized_df))
 
+    pipeline_logger.info("Util pipeline: schedule formatting start")
     schedule_df = build_schedule_func(optimized_df)
+    pipeline_logger.info("Util pipeline: schedule formatting success rows=%s", len(schedule_df))
 
+    pipeline_logger.info("Util pipeline: metrics calculation start")
     metrics_dict = calculate_metrics_func(
         baseline_df=baseline_df,
         optimized_df=optimized_df,
         machine_watts=workload_input.machine_watts,
     )
+    pipeline_logger.info("Util pipeline: metrics calculation success")
 
     return {
         "workload_input": workload_input,

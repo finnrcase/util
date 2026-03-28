@@ -14,6 +14,7 @@ from __future__ import annotations
 
 from functools import lru_cache
 from datetime import datetime, timedelta, timezone
+import logging
 from typing import Any
 
 import pandas as pd
@@ -25,6 +26,9 @@ LOGIN_URL = "https://api2.watttime.org/v2/login"
 FORECAST_URL = "https://api.watttime.org/v3/forecast"
 HISTORICAL_URL = "https://api.watttime.org/v3/historical"
 REGION_FROM_LOC_URL = "https://api.watttime.org/v3/region-from-loc"
+WATTTIME_LOGIN_TIMEOUT_SECONDS = 20
+WATTTIME_REQUEST_TIMEOUT_SECONDS = 25
+watttime_logger = logging.getLogger("uvicorn.error")
 
 
 @lru_cache(maxsize=1)
@@ -41,11 +45,13 @@ def get_token() -> str:
             "Set WATTTIME_USERNAME and WATTTIME_PASSWORD in the environment."
         )
 
+    watttime_logger.info("Util WattTime: token fetch start login_url=%s", LOGIN_URL)
     response = requests.get(
         LOGIN_URL,
         auth=HTTPBasicAuth(str(username), str(password)),
-        timeout=30,
+        timeout=WATTTIME_LOGIN_TIMEOUT_SECONDS,
     )
+    watttime_logger.info("Util WattTime: token fetch response status=%s", response.status_code)
 
     if response.status_code == 401:
         raise ValueError(
@@ -64,6 +70,7 @@ def get_token() -> str:
     if not token:
         raise ValueError("WattTime login succeeded but no token was returned.")
 
+    watttime_logger.info("Util WattTime: token fetch success")
     return token
 
 
@@ -79,25 +86,33 @@ def _fetch_json(url: str, params: dict[str, Any]) -> dict[str, Any]:
             "Authorization": f"Bearer {token}",
         }
 
+        watttime_logger.info(
+            "Util WattTime: request start url=%s attempt=%s params=%s",
+            url,
+            attempt + 1,
+            params,
+        )
         response = requests.get(
             url,
             headers=headers,
             params=params,
-            timeout=60,
+            timeout=WATTTIME_REQUEST_TIMEOUT_SECONDS,
+        )
+        watttime_logger.info(
+            "Util WattTime: request response status=%s url=%s",
+            response.status_code,
+            response.url,
         )
 
         if response.status_code != 401 or attempt == 1:
             break
 
-        print("WATTTIME DEBUG: received 401, clearing cached token and retrying once.")
+        watttime_logger.warning("Util WattTime: received 401, clearing cached token and retrying once")
         get_token.cache_clear()
         token = get_token()
 
-    print("REQUEST STATUS:", response.status_code)
-    print("REQUEST CONTENT TYPE:", response.headers.get("content-type"))
-    print("REQUEST URL:", response.url)
-    print("REQUEST HISTORY:", response.history)
-    print("REQUEST RESPONSE PREVIEW:", response.text[:500])
+    if response is None:
+        raise ValueError("WattTime request did not return a response.")
 
     if response.status_code == 401:
         raise ValueError("WattTime request failed: unauthorized (401).")
@@ -122,10 +137,6 @@ def forecast_to_dataframe(
 ) -> pd.DataFrame:
     """
     Convert WattTime v3 forecast/historical JSON into Util's standard dataframe format.
-
-    Expected output columns:
-    - timestamp
-    - carbon_g_per_kwh
     """
     if isinstance(payload, dict):
         if "data" not in payload:
@@ -189,8 +200,6 @@ def get_historical(
 ) -> dict[str, Any]:
     """
     Fetch historical carbon JSON from WattTime v3 historical endpoint.
-
-    If start/end are not provided, fetch the last `days` days in UTC.
     """
     if start is None or end is None:
         end_dt = datetime.now(timezone.utc)
@@ -215,8 +224,6 @@ def get_region_from_loc(
 ) -> dict[str, Any]:
     """
     Resolve latitude/longitude to a WattTime region.
-
-    Returns the raw JSON response from the region-from-loc endpoint.
     """
     params = {
         "latitude": latitude,
@@ -233,8 +240,6 @@ def get_ba_from_loc(
 ) -> dict[str, Any]:
     """
     Backward-compatible alias for older code that still imports get_ba_from_loc().
-
-    Internally this now uses WattTime's region-from-loc endpoint.
     """
     return get_region_from_loc(
         latitude=latitude,

@@ -3,6 +3,7 @@ Data loading utilities for Util.
 """
 
 from pathlib import Path
+import logging
 
 import pandas as pd
 
@@ -10,6 +11,8 @@ from services.watttime_service import get_watttime_forecast, get_watttime_histor
 from src.forecasting.carbon_blender import extend_forecast_with_history
 from src.forecasting.pattern_extension import extend_series_with_history
 from src.pricing import PricingUnavailableError, align_price_series, get_normalized_price_series, get_price_series
+
+data_fetcher_logger = logging.getLogger("uvicorn.error")
 
 
 def _normalize_timestamp_column(df: pd.DataFrame, column: str = "timestamp") -> pd.DataFrame:
@@ -71,19 +74,11 @@ def _fetch_live_forecast_for_region(region: str):
     Fetch WattTime forecast for the requested region only.
     No silent preview-region fallback is allowed in the live location-aware flow.
     """
-    print(f"[FORECAST DEBUG] Requesting WattTime forecast for region: {region}")
+    data_fetcher_logger.info("Util forecast: WattTime carbon fetch start region=%s", region)
     carbon_df = get_watttime_forecast(region)
     region_used = region
     access_mode = "direct_region"
-    print(
-        "[FORECAST DEBUG] Direct region forecast succeeded.",
-        {
-            "requested_region": region,
-            "forecast_region_used": region_used,
-            "access_mode": access_mode,
-            "row_count": len(carbon_df),
-        },
-    )
+    data_fetcher_logger.info("Util forecast: WattTime carbon fetch success requested_region=%s region_used=%s access_mode=%s rows=%s", region, region_used, access_mode, len(carbon_df))
     return carbon_df, region_used, access_mode
 
 
@@ -92,23 +87,10 @@ def _fetch_live_historical_for_region(region: str, days: int):
     Fetch WattTime historical data for the requested region only.
     No silent preview-region fallback is allowed in the live location-aware flow.
     """
-    print(
-        "[HISTORICAL DEBUG] Requesting WattTime historical data.",
-        {
-            "region": region,
-            "days": days,
-        },
-    )
+    data_fetcher_logger.info("Util forecast: WattTime historical fetch start region=%s days=%s", region, days)
     historical_df = get_watttime_historical(region=region, days=days)
     region_used = region
-    print(
-        "[HISTORICAL DEBUG] Direct region historical fetch succeeded.",
-        {
-            "requested_region": region,
-            "historical_region_used": region_used,
-            "row_count": len(historical_df),
-        },
-    )
+    data_fetcher_logger.info("Util forecast: WattTime historical fetch success requested_region=%s region_used=%s rows=%s", region, region_used, len(historical_df))
     return historical_df, region_used
 
 
@@ -190,12 +172,13 @@ def build_live_price_forecast_table(
         live_target_ts = target_ts
 
     interval_minutes = _infer_interval_minutes_from_timestamps(target_ts)
+    data_fetcher_logger.info("Util forecast: pricing fetch start region=%s", region)
     live_price_df = get_price_series(
         region_code=region,
         start_time=live_target_ts.min(),
         end_time=live_target_ts.max(),
     )
-    print(f"[PRICE DEBUG] live raw price rows fetched: {len(live_price_df)}")
+    data_fetcher_logger.info("Util forecast: pricing fetch success region=%s rows=%s", region, len(live_price_df))
 
     live_aligned_df = align_price_series(
         price_df=live_price_df,
@@ -342,6 +325,7 @@ def build_live_carbon_forecast_table(
 
     requested_region = region
 
+    data_fetcher_logger.info("Util forecast: live carbon table start requested_region=%s carbon_mode=%s", requested_region, carbon_estimation_mode)
     carbon_df, forecast_region_used, forecast_access_mode = _fetch_live_forecast_for_region(
         requested_region
     )
@@ -405,6 +389,7 @@ def build_live_carbon_forecast_table(
         if live_price_target_ts.empty:
             live_price_target_ts = carbon_df["timestamp"]
 
+        data_fetcher_logger.info("Util forecast: price alignment start region=%s", forecast_region_used)
         pricing_df = build_live_price_forecast_table(
             region=forecast_region_used,
             target_timestamps=carbon_df["timestamp"],
@@ -413,6 +398,7 @@ def build_live_carbon_forecast_table(
             deadline=deadline,
             allow_historical_extension=(carbon_estimation_mode == "forecast_plus_historical_expectation"),
         )
+        data_fetcher_logger.info("Util forecast: price alignment success region=%s rows=%s", forecast_region_used, len(pricing_df))
         forecast_df = pd.merge(
             carbon_df,
             pricing_df,
@@ -503,6 +489,7 @@ def build_live_carbon_forecast_table(
             else "live_forecast"
         )
     except PricingUnavailableError as exc:
+        data_fetcher_logger.warning("Util forecast: pricing fetch fallback region=%s detail=%s", forecast_region_used, exc)
         forecast_df = carbon_df.copy()
         forecast_df["price_per_kwh"] = placeholder_price_per_kwh
         forecast_df["price_signal_source"] = "placeholder"
@@ -513,14 +500,7 @@ def build_live_carbon_forecast_table(
         forecast_df["price_extension_status"] = "placeholder"
         forecast_df["price_extension_message"] = pricing_message
 
-    print(
-        "[PRICE DEBUG] forecast_df pricing summary:",
-        {
-            "rows": len(forecast_df),
-            "non_null_price_rows": int(pd.to_numeric(forecast_df["price_per_kwh"], errors="coerce").notna().sum()),
-            "columns": list(forecast_df.columns),
-        },
-    )
+    data_fetcher_logger.info("Util forecast: live carbon table ready region=%s rows=%s non_null_price_rows=%s", forecast_region_used, len(forecast_df), int(pd.to_numeric(forecast_df["price_per_kwh"], errors="coerce").notna().sum()))
 
     # metadata columns for transparency
     forecast_df["forecast_region_requested"] = requested_region
@@ -608,3 +588,7 @@ def get_forecast_table(
     raise ValueError(
         "Invalid forecast_mode. Supported values are 'demo' and 'live_carbon'."
     )
+
+
+
+
