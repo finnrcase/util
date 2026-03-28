@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useMutation, useQuery } from "@tanstack/react-query";
@@ -77,6 +77,7 @@ export default function App() {
   const [activeTab, setActiveTab] = useState<DashboardTabId>("optimizer");
   const [lastSubmittedPayload, setLastSubmittedPayload] = useState<OptimizeRequest | null>(null);
   const [lastSubmittedExportPayload, setLastSubmittedExportPayload] = useState<ExportRequest | null>(null);
+  const mainContentRef = useRef<HTMLElement | null>(null);
 
   const {
     register,
@@ -215,7 +216,7 @@ export default function App() {
         </div>
       </div>
 
-      <main className="flex-1 overflow-y-auto px-4 py-4 sm:px-5 lg:px-7 lg:py-6">
+      <main ref={mainContentRef} className="flex-1 overflow-y-auto px-4 py-4 sm:px-5 lg:px-7 lg:py-6">
         <div className="mx-auto flex w-full max-w-[1360px] flex-col gap-6 xl:gap-7">
           <TopBar title={tabConfig[activeTab].title} subtitle={tabConfig[activeTab].subtitle} statusItems={statusItems} />
           {renderTab()}
@@ -224,3 +225,5 @@ export default function App() {
     </AppShell>
   );
 }
+
+
