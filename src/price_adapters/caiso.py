@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import io
+import logging
 import time
 import zipfile
 from datetime import timedelta
@@ -17,6 +18,10 @@ from src.scheduling_window import APP_TIMEZONE
 CAISO_OASIS_SINGLE_ZIP_URL = "https://oasis.caiso.com/oasisapi/SingleZip"
 CAISO_PRICE_SOURCE_LABEL = "CAISO"
 CAISO_RETRYABLE_STATUS_CODES = {429}
+CAISO_DEFAULT_TIMEOUT_SECONDS = 8
+CAISO_DEFAULT_MAX_RETRY_ATTEMPTS = 1
+CAISO_DEFAULT_RETRY_SLEEP_SECONDS = 0.5
+caiso_logger = logging.getLogger("uvicorn.error")
 
 
 class CaisoPricingError(ValueError):
@@ -176,9 +181,9 @@ def fetch_caiso_day_ahead_prices(
     start_time: Any,
     end_time: Any,
     market_run_id: str = "DAM",
-    timeout_seconds: int = 45,
-    max_retry_attempts: int = 2,
-    retry_sleep_seconds: float = 5.0,
+    timeout_seconds: int = CAISO_DEFAULT_TIMEOUT_SECONDS,
+    max_retry_attempts: int = CAISO_DEFAULT_MAX_RETRY_ATTEMPTS,
+    retry_sleep_seconds: float = CAISO_DEFAULT_RETRY_SLEEP_SECONDS,
 ) -> pd.DataFrame:
     """
     Fetch CAISO day-ahead hourly LMP data from OASIS PRC_LMP.
@@ -246,7 +251,8 @@ def _fetch_caiso_day_ahead_prices_cached(
     }
 
     response = None
-    for attempt in range(1, max_retry_attempts + 1):
+    attempts = max(1, int(max_retry_attempts))
+    for attempt in range(1, attempts + 1):
         try:
             response = requests.get(
                 CAISO_OASIS_SINGLE_ZIP_URL,
@@ -256,18 +262,34 @@ def _fetch_caiso_day_ahead_prices_cached(
         except requests.RequestException as exc:
             raise CaisoPricingError(f"CAISO network request failed: {exc}") from exc
 
-        print(f"[CAISO DEBUG] Request URL: {response.url}")
-        print(f"[CAISO DEBUG] Response status: {response.status_code} on attempt {attempt}/{max_retry_attempts}")
+        caiso_logger.info(
+            "Util CAISO: response status=%s attempt=%s/%s node=%s region=%s url=%s",
+            response.status_code,
+            attempt,
+            attempts,
+            price_node,
+            region_code,
+            response.url,
+        )
 
         if response.status_code not in CAISO_RETRYABLE_STATUS_CODES:
             break
 
-        if attempt < max_retry_attempts:
-            print(
-                f"[CAISO DEBUG] Retryable CAISO response received ({response.status_code}). "
-                f"Sleeping {retry_sleep_seconds} seconds before retry."
+        caiso_logger.warning(
+            "Util CAISO: rate limited with status=%s attempt=%s/%s node=%s region=%s",
+            response.status_code,
+            attempt,
+            attempts,
+            price_node,
+            region_code,
+        )
+
+        if attempt < attempts:
+            caiso_logger.warning(
+                "Util CAISO: retrying after %.1f seconds due to rate limit",
+                retry_sleep_seconds,
             )
-            time.sleep(retry_sleep_seconds)
+            time.sleep(min(retry_sleep_seconds, 1.0))
 
     if response is None:
         raise CaisoPricingError("CAISO pricing request did not return a response.")
@@ -284,8 +306,12 @@ def _fetch_caiso_day_ahead_prices_cached(
         price_node=price_node,
         region_code=region_code,
     )
-    print(f"[CAISO DEBUG] Parsed rows: {len(normalized_df)}")
-    print(f"[CAISO DEBUG] Output sample:\n{normalized_df.head(3).to_string(index=False)}")
+    caiso_logger.info(
+        "Util CAISO: parsed pricing rows=%s node=%s region=%s",
+        len(normalized_df),
+        price_node,
+        region_code,
+    )
     return tuple(
         (
             row.timestamp,

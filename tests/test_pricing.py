@@ -103,6 +103,34 @@ def test_fetch_caiso_day_ahead_prices_retries_on_429(monkeypatch) -> None:
     assert result["price_per_mwh"].iloc[0] == pytest.approx(120.0)
 
 
+def test_fetch_caiso_day_ahead_prices_fails_fast_by_default_on_429(monkeypatch) -> None:
+    responses: list[object] = []
+
+    class FakeResponse:
+        def __init__(self):
+            self.status_code = 429
+            self.text = "<html><body><p>CAISO Acceptable Use Policy Violation.</p></body></html>"
+            self.content = b""
+            self.url = "https://example.test"
+
+    def fake_requests_get(url, params, timeout):
+        responses.append((url, params, timeout))
+        return FakeResponse()
+
+    monkeypatch.setattr("src.price_adapters.caiso.requests.get", fake_requests_get)
+    monkeypatch.setattr("src.price_adapters.caiso.time.sleep", lambda seconds: None)
+
+    with pytest.raises(CaisoPricingError, match="status 429"):
+        fetch_caiso_day_ahead_prices(
+            price_node="TH_NP15_GEN-APND",
+            region_code="CAISO",
+            start_time=pd.Timestamp("2026-03-22 00:00:00"),
+            end_time=pd.Timestamp("2026-03-22 05:00:00"),
+        )
+
+    assert len(responses) == 1
+
+
 def test_fetch_caiso_day_ahead_prices_raises_after_retry_exhausted(monkeypatch) -> None:
     class FakeResponse:
         def __init__(self):
