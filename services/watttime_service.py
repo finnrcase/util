@@ -15,6 +15,7 @@ from __future__ import annotations
 from functools import lru_cache
 from datetime import datetime, timedelta, timezone
 import logging
+import time
 from typing import Any
 
 import pandas as pd
@@ -26,8 +27,8 @@ LOGIN_URL = "https://api2.watttime.org/v2/login"
 FORECAST_URL = "https://api.watttime.org/v3/forecast"
 HISTORICAL_URL = "https://api.watttime.org/v3/historical"
 REGION_FROM_LOC_URL = "https://api.watttime.org/v3/region-from-loc"
-WATTTIME_LOGIN_TIMEOUT_SECONDS = 20
-WATTTIME_REQUEST_TIMEOUT_SECONDS = 25
+WATTTIME_LOGIN_TIMEOUT_SECONDS = 5
+WATTTIME_REQUEST_TIMEOUT_SECONDS = 6
 watttime_logger = logging.getLogger("uvicorn.error")
 
 
@@ -45,13 +46,18 @@ def get_token() -> str:
             "Set WATTTIME_USERNAME and WATTTIME_PASSWORD in the environment."
         )
 
+    started_at = time.perf_counter()
     watttime_logger.info("Util WattTime: token fetch start login_url=%s", LOGIN_URL)
     response = requests.get(
         LOGIN_URL,
         auth=HTTPBasicAuth(str(username), str(password)),
         timeout=WATTTIME_LOGIN_TIMEOUT_SECONDS,
     )
-    watttime_logger.info("Util WattTime: token fetch response status=%s", response.status_code)
+    watttime_logger.info(
+        "Util WattTime: token fetch response status=%s elapsed_ms=%.1f",
+        response.status_code,
+        (time.perf_counter() - started_at) * 1000.0,
+    )
 
     if response.status_code == 401:
         raise ValueError(
@@ -86,6 +92,7 @@ def _fetch_json(url: str, params: dict[str, Any]) -> dict[str, Any]:
             "Authorization": f"Bearer {token}",
         }
 
+        started_at = time.perf_counter()
         watttime_logger.info(
             "Util WattTime: request start url=%s attempt=%s params=%s",
             url,
@@ -99,9 +106,10 @@ def _fetch_json(url: str, params: dict[str, Any]) -> dict[str, Any]:
             timeout=WATTTIME_REQUEST_TIMEOUT_SECONDS,
         )
         watttime_logger.info(
-            "Util WattTime: request response status=%s url=%s",
+            "Util WattTime: request response status=%s url=%s elapsed_ms=%.1f",
             response.status_code,
             response.url,
+            (time.perf_counter() - started_at) * 1000.0,
         )
 
         if response.status_code != 401 or attempt == 1:
@@ -135,9 +143,6 @@ def _fetch_json(url: str, params: dict[str, Any]) -> dict[str, Any]:
 def forecast_to_dataframe(
     payload: dict[str, Any] | list[dict[str, Any]]
 ) -> pd.DataFrame:
-    """
-    Convert WattTime v3 forecast/historical JSON into Util's standard dataframe format.
-    """
     if isinstance(payload, dict):
         if "data" not in payload:
             raise ValueError(
@@ -181,9 +186,6 @@ def get_forecast(
     region: str = "CAISO_NORTH",
     signal_type: str = "co2_moer",
 ) -> dict[str, Any]:
-    """
-    Fetch live carbon forecast JSON from WattTime.
-    """
     params = {
         "region": region,
         "signal_type": signal_type,
@@ -198,9 +200,6 @@ def get_historical(
     end: str | None = None,
     days: int = 7,
 ) -> dict[str, Any]:
-    """
-    Fetch historical carbon JSON from WattTime v3 historical endpoint.
-    """
     if start is None or end is None:
         end_dt = datetime.now(timezone.utc)
         start_dt = end_dt - timedelta(days=days)
@@ -222,9 +221,6 @@ def get_region_from_loc(
     longitude: float,
     signal_type: str = "co2_moer",
 ) -> dict[str, Any]:
-    """
-    Resolve latitude/longitude to a WattTime region.
-    """
     params = {
         "latitude": latitude,
         "longitude": longitude,
@@ -238,9 +234,6 @@ def get_ba_from_loc(
     longitude: float,
     signal_type: str = "co2_moer",
 ) -> dict[str, Any]:
-    """
-    Backward-compatible alias for older code that still imports get_ba_from_loc().
-    """
     return get_region_from_loc(
         latitude=latitude,
         longitude=longitude,
@@ -265,9 +258,6 @@ def get_watttime_forecast(
     region: str = "CAISO_NORTH",
     signal_type: str = "co2_moer",
 ) -> pd.DataFrame:
-    """
-    Fetch live WattTime forecast data and return it in Util's standardized dataframe format.
-    """
     cached_rows = _get_watttime_forecast_cached(region, signal_type)
     return pd.DataFrame(cached_rows, columns=["timestamp", "carbon_g_per_kwh"])
 
@@ -301,8 +291,5 @@ def get_watttime_historical(
     end: str | None = None,
     days: int = 7,
 ) -> pd.DataFrame:
-    """
-    Fetch historical WattTime data and return it in Util's standardized dataframe format.
-    """
     cached_rows = _get_watttime_historical_cached(region, signal_type, start, end, days)
     return pd.DataFrame(cached_rows, columns=["timestamp", "carbon_g_per_kwh"])

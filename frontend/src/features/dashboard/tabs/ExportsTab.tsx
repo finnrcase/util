@@ -1,5 +1,4 @@
 import { buildExportDownloadUrl } from "../../../lib/api";
-import { DataSourcePanel } from "../../../components/DataSourcePanel";
 import { SectionCard } from "../../../components/SectionCard";
 import type { ExportArtifact, ExportRequest, ExportResponse, OptimizeResponse } from "../../../types/api";
 
@@ -68,6 +67,14 @@ function artifactByFilename(exportResult?: ExportResponse): Map<string, ExportAr
   return new Map((exportResult?.artifacts ?? []).map((artifact) => [artifact.filename, artifact]));
 }
 
+function formatList(values: string[]): string {
+  return values.length ? values.join(", ") : "--";
+}
+
+function formatObjective(value: string): string {
+  return value.replace(/_/g, " ").replace(/\b\w/g, (char) => char.toUpperCase());
+}
+
 function ArtifactCard({
   title,
   description,
@@ -122,6 +129,56 @@ function ArtifactCard({
   );
 }
 
+function ProvenanceCard({ latestRun }: { latestRun: OptimizeResponse }) {
+  const rows = [
+    { label: "ZIP Entered", value: latestRun.provenance.zip_code },
+    { label: "Resolved Region", value: latestRun.provenance.resolved_region },
+    { label: "Location Lookup", value: latestRun.provenance.location_lookup_status },
+    { label: "Pricing Status", value: latestRun.provenance.pricing_status },
+    { label: "Price Provider", value: latestRun.provenance.pricing_source },
+    { label: "Market Type", value: latestRun.provenance.pricing_market },
+    { label: "Node / Zone", value: latestRun.provenance.pricing_node || "--" },
+  ];
+
+  return (
+    <div className="rounded-[1.6rem] border border-white/10 bg-white/[0.04] p-5">
+      <p className="text-[11px] uppercase tracking-[0.16em] text-violet-200">Current Run Provenance</p>
+      <p className="mt-2 text-sm leading-6 text-muted">The export package reflects the latest optimization result context and live or fallback routing state.</p>
+
+      <div className="mt-4 space-y-3">
+        {rows.map((row) => (
+          <div key={row.label} className="rounded-2xl border border-white/10 bg-black/20 p-4">
+            <p className="text-[11px] uppercase tracking-[0.16em] text-muted">{row.label}</p>
+            <p className="mt-2 break-words text-sm leading-6 text-text">{row.value || "--"}</p>
+          </div>
+        ))}
+      </div>
+
+      <div className="mt-4 rounded-2xl border border-white/10 bg-black/20 p-4">
+        <p className="text-[11px] uppercase tracking-[0.16em] text-muted">Run Context</p>
+        <div className="mt-3 space-y-3 text-sm text-text">
+          <div>
+            <p className="text-muted">Price Signal Source</p>
+            <p className="mt-1 break-words leading-6">{formatList(latestRun.provenance.price_signal_source)}</p>
+          </div>
+          <div>
+            <p className="text-muted">Carbon Source</p>
+            <p className="mt-1 break-words leading-6">{formatList(latestRun.provenance.carbon_source)}</p>
+          </div>
+          <div>
+            <p className="text-muted">Objective</p>
+            <p className="mt-1 break-words leading-6">{formatObjective(latestRun.provenance.objective)}</p>
+          </div>
+          <div>
+            <p className="text-muted">Coverage Note</p>
+            <p className="mt-1 break-words leading-6">{latestRun.provenance.coverage_note || latestRun.pricing.pricing_message || "Live pricing and carbon sourcing are active for this run."}</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export function ExportsTab({ canExport, currentPayload, latestRun, exportResult, isExporting, exportError, onExport }: ExportsTabProps) {
   const artifactMap = artifactByFilename(exportResult);
   const primaryArtifactsReady = PRIMARY_EXPORT_SPECS.filter((spec) => artifactMap.has(spec.filename)).length;
@@ -129,16 +186,16 @@ export function ExportsTab({ canExport, currentPayload, latestRun, exportResult,
   return (
     <div className="space-y-6">
       <SectionCard title="Export Package" subtitle="Generate the structured CSV package for the current run and review the primary export outputs in one place." eyebrow="Exports">
-        <div className="grid gap-6 xl:grid-cols-[minmax(0,1.15fr)_360px]">
-          <div className="space-y-6">
+        <div className="grid gap-6 xl:grid-cols-[minmax(0,1.15fr)_minmax(0,340px)]">
+          <div className="min-w-0 space-y-6">
             <div className="rounded-[1.6rem] border border-white/10 bg-[linear-gradient(180deg,rgba(255,255,255,0.05),rgba(255,255,255,0.03))] p-5 shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]">
               <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
-                <div className="max-w-2xl">
+                <div className="max-w-2xl min-w-0">
                   <p className="text-[11px] uppercase tracking-[0.16em] text-violet-200">Current package</p>
                   <h3 className="mt-2 text-xl font-semibold text-text">Six primary export outputs, organized for reporting and handoff</h3>
                   <p className="mt-2 text-sm leading-6 text-muted">This package keeps the legacy export structure from the Streamlit MVP: recommendation, region comparison, time window analysis, case comparison, input assumptions, and run summary.</p>
                 </div>
-                <div className="flex flex-wrap gap-3">
+                <div className="flex shrink-0 flex-wrap gap-3">
                   <button type="button" onClick={onExport} disabled={!canExport || isExporting} className="inline-flex items-center justify-center rounded-[1.25rem] bg-gradient-to-r from-violet-300 via-fuchsia-400 to-cyan-300 px-5 py-3 text-sm font-semibold text-slate-950 shadow-[0_16px_36px_rgba(139,92,246,0.32)] transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-60">
                     {isExporting ? "Generating Export..." : "Generate Export Package"}
                   </button>
@@ -187,7 +244,7 @@ export function ExportsTab({ canExport, currentPayload, latestRun, exportResult,
                 <p className="text-[11px] uppercase tracking-[0.16em] text-violet-200">Supplemental export</p>
                 <p className="mt-1 text-sm text-muted">Additional provenance output kept separate from the six primary CSVs.</p>
               </div>
-              <div className="grid gap-4 xl:grid-cols-1">
+              <div className="grid gap-4">
                 {SUPPLEMENTAL_EXPORT_SPECS.map((spec) => (
                   <ArtifactCard key={spec.filename} title={spec.title} description={spec.description} artifact={artifactMap.get(spec.filename)} isPrimary={false} />
                 ))}
@@ -195,7 +252,7 @@ export function ExportsTab({ canExport, currentPayload, latestRun, exportResult,
             </div>
           </div>
 
-          <div className="space-y-4">
+          <div className="min-w-0 space-y-4">
             <div className="rounded-[1.6rem] border border-white/10 bg-white/[0.04] p-5">
               <p className="text-[11px] uppercase tracking-[0.16em] text-violet-200">Package status</p>
               <div className="mt-4 space-y-3">
@@ -214,16 +271,12 @@ export function ExportsTab({ canExport, currentPayload, latestRun, exportResult,
                 <div className="rounded-2xl border border-white/10 bg-black/20 p-4">
                   <p className="text-[11px] uppercase tracking-[0.16em] text-muted">Cloud Upload</p>
                   <p className="mt-2 text-sm text-text">{exportResult ? (exportResult.cloud_upload_enabled ? "Enabled for this export" : "Disabled for this export") : currentPayload.enable_cloud_upload ? "Enabled in form settings" : "Disabled"}</p>
-                  {exportResult?.cloud_message ? <p className="mt-2 text-xs leading-5 text-muted">{exportResult.cloud_message}</p> : null}
+                  {exportResult?.cloud_message ? <p className="mt-2 break-words text-xs leading-5 text-muted">{exportResult.cloud_message}</p> : null}
                 </div>
               </div>
             </div>
 
-            {latestRun ? (
-              <SectionCard title="Current Run Provenance" subtitle="The export package reflects the latest optimization result context and live/fallback routing state." eyebrow="Provenance">
-                <DataSourcePanel provenance={latestRun.provenance} pricing={latestRun.pricing} />
-              </SectionCard>
-            ) : null}
+            {latestRun ? <ProvenanceCard latestRun={latestRun} /> : null}
 
             <div className="rounded-[1.6rem] border border-white/10 bg-white/[0.04] p-5">
               <p className="text-[11px] uppercase tracking-[0.16em] text-violet-200">What this package covers</p>

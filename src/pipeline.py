@@ -23,6 +23,7 @@ Current development status:
 from __future__ import annotations
 
 import logging
+import time
 from pathlib import Path
 from typing import Any, Callable
 
@@ -108,6 +109,7 @@ def run_util_pipeline(
         ],
     )
 
+    total_started_at = time.perf_counter()
     pipeline_logger.info(
         "Util pipeline: start zip=%s forecast_mode=%s schedule_mode=%s carbon_mode=%s historical_days=%s",
         getattr(workload_input, "zip_code", ""),
@@ -118,10 +120,16 @@ def run_util_pipeline(
     )
 
     if forecast_mode == "demo":
+        mapping_started_at = time.perf_counter()
         pipeline_logger.info("Util pipeline: demo mode mapping start zip=%s", workload_input.zip_code)
         mapping_df = load_zip_region_map(mapping_path)
         region = map_zip_to_region(workload_input.zip_code, mapping_df)
-        pipeline_logger.info("Util pipeline: demo mode mapping success zip=%s region=%s", workload_input.zip_code, region)
+        pipeline_logger.info(
+            "Util pipeline: demo mode mapping success zip=%s region=%s elapsed_ms=%.1f",
+            workload_input.zip_code,
+            region,
+            (time.perf_counter() - mapping_started_at) * 1000.0,
+        )
 
         location_info = {
             "zip_code": workload_input.zip_code,
@@ -135,15 +143,17 @@ def run_util_pipeline(
         }
 
     elif forecast_mode == "live_carbon":
+        location_started_at = time.perf_counter()
         pipeline_logger.info("Util pipeline: live location resolution start zip=%s", workload_input.zip_code)
         location_info = resolve_zip_to_watttime_region(workload_input.zip_code)
         region = location_info["watttime_region"]
         pipeline_logger.info(
-            "Util pipeline: live location resolution success zip=%s lat=%s lon=%s region=%s",
+            "Util pipeline: live location resolution success zip=%s lat=%s lon=%s region=%s elapsed_ms=%.1f",
             workload_input.zip_code,
             location_info["latitude"],
             location_info["longitude"],
             region,
+            (time.perf_counter() - location_started_at) * 1000.0,
         )
 
     else:
@@ -154,6 +164,7 @@ def run_util_pipeline(
 
     reference_now = get_current_reference_time(current_time_override)
 
+    forecast_started_at = time.perf_counter()
     pipeline_logger.info("Util pipeline: forecast fetch start region=%s", region)
     forecast_df = get_forecast_table(
         forecast_mode=forecast_mode,
@@ -164,7 +175,12 @@ def run_util_pipeline(
         historical_days=historical_days,
         deadline=workload_input.deadline,
     )
-    pipeline_logger.info("Util pipeline: forecast fetch success region=%s rows=%s", region, len(forecast_df))
+    pipeline_logger.info(
+        "Util pipeline: forecast fetch success region=%s rows=%s elapsed_ms=%.1f",
+        region,
+        len(forecast_df),
+        (time.perf_counter() - forecast_started_at) * 1000.0,
+    )
 
     print(
         "[OPTIMIZER INPUT DEBUG] Pricing context:",
@@ -197,6 +213,7 @@ def run_util_pipeline(
         },
     )
 
+    baseline_started_at = time.perf_counter()
     pipeline_logger.info("Util pipeline: baseline build start")
     baseline_df = build_baseline_func(
         forecast_df=forecast_df,
@@ -204,8 +221,13 @@ def run_util_pipeline(
         deadline=workload_input.deadline,
         current_time_override=reference_now,
     )
-    pipeline_logger.info("Util pipeline: baseline build success rows=%s", len(baseline_df))
+    pipeline_logger.info(
+        "Util pipeline: baseline build success rows=%s elapsed_ms=%.1f",
+        len(baseline_df),
+        (time.perf_counter() - baseline_started_at) * 1000.0,
+    )
 
+    optimizer_started_at = time.perf_counter()
     pipeline_logger.info("Util pipeline: optimizer solve start objective=%s", workload_input.objective)
     optimized_df = optimize_func(
         forecast_df=forecast_df,
@@ -217,19 +239,33 @@ def run_util_pipeline(
         carbon_weight=getattr(workload_input, "carbon_weight", 0.5),
         price_weight=getattr(workload_input, "price_weight", 0.5),
     )
-    pipeline_logger.info("Util pipeline: optimizer solve success rows=%s", len(optimized_df))
+    pipeline_logger.info(
+        "Util pipeline: optimizer solve success rows=%s elapsed_ms=%.1f",
+        len(optimized_df),
+        (time.perf_counter() - optimizer_started_at) * 1000.0,
+    )
 
+    schedule_started_at = time.perf_counter()
     pipeline_logger.info("Util pipeline: schedule formatting start")
     schedule_df = build_schedule_func(optimized_df)
-    pipeline_logger.info("Util pipeline: schedule formatting success rows=%s", len(schedule_df))
+    pipeline_logger.info(
+        "Util pipeline: schedule formatting success rows=%s elapsed_ms=%.1f",
+        len(schedule_df),
+        (time.perf_counter() - schedule_started_at) * 1000.0,
+    )
 
+    metrics_started_at = time.perf_counter()
     pipeline_logger.info("Util pipeline: metrics calculation start")
     metrics_dict = calculate_metrics_func(
         baseline_df=baseline_df,
         optimized_df=optimized_df,
         machine_watts=workload_input.machine_watts,
     )
-    pipeline_logger.info("Util pipeline: metrics calculation success")
+    pipeline_logger.info(
+        "Util pipeline: metrics calculation success elapsed_ms=%.1f total_elapsed_ms=%.1f",
+        (time.perf_counter() - metrics_started_at) * 1000.0,
+        (time.perf_counter() - total_started_at) * 1000.0,
+    )
 
     return {
         "workload_input": workload_input,

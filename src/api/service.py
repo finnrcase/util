@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from pathlib import Path
 import logging
+import time
 
 from src.api.schemas import CoverageResponse, ExportRequest, ExportResponse, OptimizeRequest, OptimizeResponse
 from src.api.serializers import (
@@ -32,6 +33,7 @@ DEFAULT_EXPORT_ROOT = PROJECT_ROOT / "exports" / "api"
 
 
 def execute_optimization(request: OptimizeRequest) -> dict:
+    started_at = time.perf_counter()
     api_logger.info(
         "Util API optimize engine start: zip=%s objective=%s hours=%s deadline=%s forecast_mode=%s schedule_mode=%s",
         request.zip_code,
@@ -65,16 +67,18 @@ def execute_optimization(request: OptimizeRequest) -> dict:
     )
 
     api_logger.info(
-        "Util API optimize engine success: region=%s forecast_rows=%s optimized_rows=%s schedule_rows=%s",
+        "Util API optimize engine success: region=%s forecast_rows=%s optimized_rows=%s schedule_rows=%s elapsed_ms=%.1f",
         result.get("region"),
         len(result.get("forecast", [])),
         len(result.get("optimized", [])),
         len(result.get("schedule", [])),
+        (time.perf_counter() - started_at) * 1000.0,
     )
     return result
 
 
 def build_optimize_response(request: OptimizeRequest, result: dict) -> OptimizeResponse:
+    started_at = time.perf_counter()
     api_logger.info("Util API optimize response build start")
     diagnostics = build_diagnostics_summary(result) if request.include_diagnostics else None
     response = OptimizeResponse(
@@ -90,10 +94,11 @@ def build_optimize_response(request: OptimizeRequest, result: dict) -> OptimizeR
         diagnostics=diagnostics,
     )
     api_logger.info(
-        "Util API optimize response build success: summary_cards=%s badges=%s chart_keys=%s",
+        "Util API optimize response build success: summary_cards=%s badges=%s chart_keys=%s elapsed_ms=%.1f",
         len(response.summary.get("cards", [])),
         len(response.summary.get("badges", [])),
         sorted(response.charts.keys()),
+        (time.perf_counter() - started_at) * 1000.0,
     )
     return response
 

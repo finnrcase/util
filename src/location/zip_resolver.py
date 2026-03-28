@@ -7,13 +7,14 @@ from __future__ import annotations
 from concurrent.futures import ThreadPoolExecutor, TimeoutError as FutureTimeoutError
 from functools import lru_cache
 import logging
+import time
 from typing import Any
 
 import pandas as pd
 import pgeocode
 
 
-ZIP_RESOLUTION_TIMEOUT_SECONDS = 12
+ZIP_RESOLUTION_TIMEOUT_SECONDS = 4
 _zip_executor = ThreadPoolExecutor(max_workers=2, thread_name_prefix="util_zip_lookup")
 zip_logger = logging.getLogger("uvicorn.error")
 
@@ -41,30 +42,8 @@ def _query_postal_code_with_timeout(zip_code: str, country_code: str) -> Any:
 
 
 def zip_to_coordinates(zip_code: str, country_code: str = "US") -> dict[str, Any]:
-    """
-    Resolve a ZIP code to approximate latitude/longitude using postal data.
-
-    Parameters
-    ----------
-    zip_code : str
-        ZIP code provided by the user.
-    country_code : str
-        Postal-country code for pgeocode. Defaults to "US".
-
-    Returns
-    -------
-    dict
-        Dictionary containing:
-        - zip_code
-        - latitude
-        - longitude
-
-    Raises
-    ------
-    ValueError
-        If the ZIP code cannot be resolved.
-    """
     zip_code = str(zip_code).strip()
+    started_at = time.perf_counter()
     zip_logger.info("Util ZIP lookup: starting coordinate resolution for zip=%s", zip_code)
 
     result = _query_postal_code_with_timeout(zip_code, country_code)
@@ -81,24 +60,16 @@ def zip_to_coordinates(zip_code: str, country_code: str = "US") -> dict[str, Any
         "longitude": float(longitude),
     }
     zip_logger.info(
-        "Util ZIP lookup: resolved zip=%s latitude=%s longitude=%s",
+        "Util ZIP lookup: resolved zip=%s latitude=%s longitude=%s elapsed_ms=%.1f",
         zip_code,
         resolved["latitude"],
         resolved["longitude"],
+        (time.perf_counter() - started_at) * 1000.0,
     )
     return resolved
 
 
 def zip_to_place_label(zip_code: str, country_code: str = "US") -> str:
-    """
-    Resolve a ZIP code to a human-readable place label like
-    "Los Angeles, CA" using postal data.
-
-    Raises
-    ------
-    ValueError
-        If the ZIP code cannot be resolved to a usable place label.
-    """
     zip_code = str(zip_code).strip()
 
     result = _query_postal_code_with_timeout(zip_code, country_code)

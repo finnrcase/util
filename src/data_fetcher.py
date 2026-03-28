@@ -4,13 +4,15 @@ Data loading utilities for Util.
 
 from pathlib import Path
 import logging
+import time
 
 import pandas as pd
 
 from services.watttime_service import get_watttime_forecast, get_watttime_historical
 from src.forecasting.carbon_blender import extend_forecast_with_history
 from src.forecasting.pattern_extension import extend_series_with_history
-from src.pricing import PricingUnavailableError, align_price_series, get_normalized_price_series, get_price_series
+from src.pricing import PricingUnavailableError, align_price_series, get_price_series
+
 
 data_fetcher_logger = logging.getLogger("uvicorn.error")
 
@@ -23,6 +25,33 @@ def _normalize_timestamp_column(df: pd.DataFrame, column: str = "timestamp") -> 
         .dt.tz_localize(None)
     )
     return df
+
+
+def _coerce_local_timestamp(value: str | None) -> pd.Timestamp | None:
+    ts = pd.to_datetime(value, errors="coerce")
+    if pd.isna(ts):
+        return None
+
+    if getattr(ts, "tzinfo", None) is None:
+        return ts.tz_localize("America/Los_Angeles")
+    return ts.tz_convert("America/Los_Angeles")
+
+
+def _deadline_exceeds_live_horizon(deadline: str | None, live_df: pd.DataFrame) -> bool:
+    deadline_ts = _coerce_local_timestamp(deadline)
+    if deadline_ts is None or live_df.empty:
+        return False
+
+    live_max = pd.to_datetime(live_df["timestamp"], errors="coerce").dropna().max()
+    if pd.isna(live_max):
+        return False
+
+    if getattr(live_max, "tzinfo", None) is None:
+        live_max = live_max.tz_localize("America/Los_Angeles")
+    else:
+        live_max = live_max.tz_convert("America/Los_Angeles")
+
+    return deadline_ts > live_max
 
 
 def load_carbon_forecast(filepath: str | Path) -> pd.DataFrame:
@@ -70,27 +99,34 @@ def build_forecast_table(
 
 
 def _fetch_live_forecast_for_region(region: str):
-    """
-    Fetch WattTime forecast for the requested region only.
-    No silent preview-region fallback is allowed in the live location-aware flow.
-    """
+    started_at = time.perf_counter()
     data_fetcher_logger.info("Util forecast: WattTime carbon fetch start region=%s", region)
     carbon_df = get_watttime_forecast(region)
     region_used = region
     access_mode = "direct_region"
-    data_fetcher_logger.info("Util forecast: WattTime carbon fetch success requested_region=%s region_used=%s access_mode=%s rows=%s", region, region_used, access_mode, len(carbon_df))
+    data_fetcher_logger.info(
+        "Util forecast: WattTime carbon fetch success requested_region=%s region_used=%s access_mode=%s rows=%s elapsed_ms=%.1f",
+        region,
+        region_used,
+        access_mode,
+        len(carbon_df),
+        (time.perf_counter() - started_at) * 1000.0,
+    )
     return carbon_df, region_used, access_mode
 
 
 def _fetch_live_historical_for_region(region: str, days: int):
-    """
-    Fetch WattTime historical data for the requested region only.
-    No silent preview-region fallback is allowed in the live location-aware flow.
-    """
+    started_at = time.perf_counter()
     data_fetcher_logger.info("Util forecast: WattTime historical fetch start region=%s days=%s", region, days)
     historical_df = get_watttime_historical(region=region, days=days)
     region_used = region
-    data_fetcher_logger.info("Util forecast: WattTime historical fetch success requested_region=%s region_used=%s rows=%s", region, region_used, len(historical_df))
+    data_fetcher_logger.info(
+        "Util forecast: WattTime historical fetch success requested_region=%s region_used=%s rows=%s elapsed_ms=%.1f",
+        region,
+        region_used,
+        len(historical_df),
+        (time.perf_counter() - started_at) * 1000.0,
+    )
     return historical_df, region_used
 
 
@@ -138,10 +174,6 @@ def build_live_historical_export_table(
     region: str,
     days: int = 14,
 ) -> pd.DataFrame:
-    """
-    Fetch historical WattTime data for CSV export and normalize it to
-    Util's local display timezone.
-    """
     historical_df, historical_region_used = _fetch_live_historical_for_region(
         region,
         days,
@@ -172,13 +204,19 @@ def build_live_price_forecast_table(
         live_target_ts = target_ts
 
     interval_minutes = _infer_interval_minutes_from_timestamps(target_ts)
-    data_fetcher_logger.info("Util forecast: pricing fetch start region=%s", region)
+    price_started_at = time.perf_counter()
+    data_fetcher_logger.info("Util forecast: live price fetch start region=%s", region)
     live_price_df = get_price_series(
         region_code=region,
         start_time=live_target_ts.min(),
         end_time=live_target_ts.max(),
     )
-    data_fetcher_logger.info("Util forecast: pricing fetch success region=%s rows=%s", region, len(live_price_df))
+    data_fetcher_logger.info(
+        "Util forecast: live price fetch success region=%s rows=%s elapsed_ms=%.1f",
+        region,
+        len(live_price_df),
+        (time.perf_counter() - price_started_at) * 1000.0,
+    )
 
     live_aligned_df = align_price_series(
         price_df=live_price_df,
@@ -188,20 +226,6 @@ def build_live_price_forecast_table(
     if "price_node" in live_price_df.columns:
         live_aligned_df["price_node"] = live_price_df["price_node"].dropna().iloc[0]
     live_aligned_df["price_signal_source"] = "live_forecast"
-    print(
-        "[PRICE DEBUG] live aligned price rows:",
-        len(live_aligned_df),
-        "non-null prices:",
-        int(live_aligned_df["price_per_kwh"].notna().sum()),
-        "provider:",
-        live_aligned_df["source_provider"].dropna().iloc[0] if "source_provider" in live_aligned_df.columns and live_aligned_df["source_provider"].dropna().any() else None,
-        "market:",
-        live_aligned_df["source_market"].dropna().iloc[0] if "source_market" in live_aligned_df.columns and live_aligned_df["source_market"].dropna().any() else None,
-        "node_or_zone:",
-        live_aligned_df["node_or_zone"].dropna().iloc[0] if "node_or_zone" in live_aligned_df.columns and live_aligned_df["node_or_zone"].dropna().any() else None,
-        "columns:",
-        list(live_aligned_df.columns),
-    )
 
     live_price_max = pd.to_datetime(live_price_df["timestamp"], errors="coerce").dropna().max()
     if pd.isna(live_price_max):
@@ -220,7 +244,7 @@ def build_live_price_forecast_table(
         live_aligned_df["price_extension_message"] = (
             "Live price data does not cover the requested optimization horizon, so Util kept live rows only."
         )
-        print("[PRICE DEBUG] extension skipped because historical extension was not enabled.")
+        data_fetcher_logger.info("Util forecast: historical price fetch skipped region=%s reason=extension_not_enabled", region)
         return live_aligned_df
 
     if deadline is None:
@@ -228,28 +252,29 @@ def build_live_price_forecast_table(
         live_aligned_df["price_extension_message"] = (
             "Price historical-pattern extension requires a deadline, so Util kept live rows only."
         )
-        print("[PRICE DEBUG] extension skipped because deadline was missing.")
+        data_fetcher_logger.info("Util forecast: historical price fetch skipped region=%s reason=missing_deadline", region)
         return live_aligned_df
 
     try:
         history_end = live_price_max - pd.Timedelta(minutes=interval_minutes)
         history_start = history_end - pd.Timedelta(days=historical_days)
+        history_started_at = time.perf_counter()
+        data_fetcher_logger.info("Util forecast: historical price fetch start region=%s days=%s", region, historical_days)
         historical_price_df = get_price_series(
             region_code=region,
             start_time=history_start,
             end_time=history_end,
         )
-        print(f"[PRICE DEBUG] historical raw price rows fetched: {len(historical_price_df)}")
+        data_fetcher_logger.info(
+            "Util forecast: historical price fetch success region=%s rows=%s elapsed_ms=%.1f",
+            region,
+            len(historical_price_df),
+            (time.perf_counter() - history_started_at) * 1000.0,
+        )
 
         historical_template_df = _build_historical_price_template(
             historical_price_df,
             interval_minutes=interval_minutes,
-        )
-        print(
-            "[PRICE DEBUG] historical price template rows:",
-            len(historical_template_df),
-            "non-null prices:",
-            int(historical_template_df["price_per_kwh"].notna().sum()),
         )
 
         live_extension_seed_df = live_aligned_df.dropna(subset=["price_per_kwh"]).copy()
@@ -265,12 +290,6 @@ def build_live_price_forecast_table(
             live_source_value="live_forecast",
             historical_source_value="historical_pattern_estimate",
             profile_value_column="historical_avg_price_per_kwh",
-        )
-        print(
-            "[PRICE DEBUG] extended price rows:",
-            len(extended_price_df),
-            "non-null prices:",
-            int(extended_price_df["price_per_kwh"].notna().sum()),
         )
 
         combined_df = pd.merge(
@@ -289,17 +308,9 @@ def build_live_price_forecast_table(
 
         combined_df["price_extension_status"] = "extended"
         combined_df["price_extension_message"] = ""
-        print(
-            "[PRICE DEBUG] final combined price rows:",
-            len(combined_df),
-            "non-null prices:",
-            int(combined_df["price_per_kwh"].notna().sum()),
-            "columns:",
-            list(combined_df.columns),
-        )
         return combined_df
     except Exception as exc:
-        print(f"[PRICE DEBUG] price extension failed; preserving live price rows. Error: {exc}")
+        data_fetcher_logger.warning("Util forecast: historical price fetch fallback region=%s detail=%s", region, exc)
         live_aligned_df["price_extension_status"] = "live_only_extension_failed"
         live_aligned_df["price_extension_message"] = (
             f"Historical-pattern price extension failed; Util kept live price rows only. Details: {exc}"
@@ -314,17 +325,9 @@ def build_live_carbon_forecast_table(
     historical_days: int = 7,
     deadline: str | None = None,
 ) -> pd.DataFrame:
-    """
-    Build a forecast table using live carbon forecast data from WattTime
-    and live or estimated electricity pricing when available.
-
-    carbon_estimation_mode:
-    - forecast_only
-    - forecast_plus_historical_pattern
-    """
-
     requested_region = region
 
+    total_started_at = time.perf_counter()
     data_fetcher_logger.info("Util forecast: live carbon table start requested_region=%s carbon_mode=%s", requested_region, carbon_estimation_mode)
     carbon_df, forecast_region_used, forecast_access_mode = _fetch_live_forecast_for_region(
         requested_region
@@ -339,33 +342,35 @@ def build_live_carbon_forecast_table(
     carbon_df = _normalize_timestamp_column(carbon_df, "timestamp")
 
     if carbon_estimation_mode == "forecast_plus_historical_expectation":
-
+        needs_historical_carbon = _deadline_exceeds_live_horizon(deadline, carbon_df)
         if deadline is None:
             raise ValueError(
                 "forecast_plus_historical_expectation mode requires deadline."
             )
 
-        historical_df, historical_region_used = _fetch_live_historical_for_region(
-            requested_region,
-            historical_days,
-        )
-
-        historical_df = _normalize_timestamp_column(historical_df, "timestamp")
-
-        carbon_df = extend_forecast_with_history(
-            live_forecast_df=carbon_df,
-            historical_df=historical_df,
-            deadline=deadline,
-        )
-
-        carbon_df["historical_region_used"] = historical_region_used
+        if needs_historical_carbon:
+            historical_df, historical_region_used = _fetch_live_historical_for_region(
+                requested_region,
+                historical_days,
+            )
+            historical_df = _normalize_timestamp_column(historical_df, "timestamp")
+            carbon_df = extend_forecast_with_history(
+                live_forecast_df=carbon_df,
+                historical_df=historical_df,
+                deadline=deadline,
+            )
+            carbon_df["historical_region_used"] = historical_region_used
+        else:
+            carbon_df["carbon_source"] = "live_forecast"
+            data_fetcher_logger.info(
+                "Util forecast: carbon historical fetch skipped region=%s reason=live_forecast_covers_deadline",
+                requested_region,
+            )
 
     elif carbon_estimation_mode == "forecast_only":
-
         carbon_df["carbon_source"] = "live_forecast"
 
     else:
-
         raise ValueError(
             "carbon_estimation_mode must be either "
             "'forecast_only' or 'forecast_plus_historical_expectation'"
@@ -389,7 +394,6 @@ def build_live_carbon_forecast_table(
         if live_price_target_ts.empty:
             live_price_target_ts = carbon_df["timestamp"]
 
-        data_fetcher_logger.info("Util forecast: price alignment start region=%s", forecast_region_used)
         pricing_df = build_live_price_forecast_table(
             region=forecast_region_used,
             target_timestamps=carbon_df["timestamp"],
@@ -398,7 +402,6 @@ def build_live_carbon_forecast_table(
             deadline=deadline,
             allow_historical_extension=(carbon_estimation_mode == "forecast_plus_historical_expectation"),
         )
-        data_fetcher_logger.info("Util forecast: price alignment success region=%s rows=%s", forecast_region_used, len(pricing_df))
         forecast_df = pd.merge(
             carbon_df,
             pricing_df,
@@ -419,8 +422,10 @@ def build_live_carbon_forecast_table(
             missing_mask = forecast_df["price_signal_source"].isna()
             if missing_mask.any():
                 forecast_df.loc[missing_mask, "price_signal_source"] = "placeholder"
-            print(
-                f"[PRICE DEBUG] filled {missing_price_rows} uncovered price rows with fallback pricing after preserving live rows."
+            data_fetcher_logger.warning(
+                "Util forecast: filled uncovered live price rows with fallback pricing count=%s region=%s",
+                missing_price_rows,
+                forecast_region_used,
             )
         pricing_status = "live_market"
         extension_status = (
@@ -500,9 +505,14 @@ def build_live_carbon_forecast_table(
         forecast_df["price_extension_status"] = "placeholder"
         forecast_df["price_extension_message"] = pricing_message
 
-    data_fetcher_logger.info("Util forecast: live carbon table ready region=%s rows=%s non_null_price_rows=%s", forecast_region_used, len(forecast_df), int(pd.to_numeric(forecast_df["price_per_kwh"], errors="coerce").notna().sum()))
+    data_fetcher_logger.info(
+        "Util forecast: live carbon table ready region=%s rows=%s non_null_price_rows=%s elapsed_ms=%.1f",
+        forecast_region_used,
+        len(forecast_df),
+        int(pd.to_numeric(forecast_df["price_per_kwh"], errors="coerce").notna().sum()),
+        (time.perf_counter() - total_started_at) * 1000.0,
+    )
 
-    # metadata columns for transparency
     forecast_df["forecast_region_requested"] = requested_region
     forecast_df["forecast_region_used"] = forecast_region_used
     forecast_df["forecast_access_mode"] = forecast_access_mode
@@ -558,16 +568,7 @@ def get_forecast_table(
     historical_days: int = 7,
     deadline: str | None = None,
 ) -> pd.DataFrame:
-    """
-    Master forecast loader.
-
-    Supported modes:
-    - demo
-    - live_carbon
-    """
-
     if forecast_mode == "demo":
-
         if carbon_filepath is None or price_filepath is None:
             raise ValueError(
                 "Demo mode requires carbon_filepath and price_filepath."
@@ -576,7 +577,6 @@ def get_forecast_table(
         return build_forecast_table(carbon_filepath, price_filepath)
 
     if forecast_mode == "live_carbon":
-
         return build_live_carbon_forecast_table(
             region=region,
             placeholder_price_per_kwh=placeholder_price_per_kwh,
@@ -588,7 +588,3 @@ def get_forecast_table(
     raise ValueError(
         "Invalid forecast_mode. Supported values are 'demo' and 'live_carbon'."
     )
-
-
-
-
