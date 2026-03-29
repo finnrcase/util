@@ -14,7 +14,7 @@ import pandas as pd
 import pgeocode
 
 
-ZIP_RESOLUTION_TIMEOUT_SECONDS = 4
+ZIP_RESOLUTION_TIMEOUT_SECONDS = 12
 _zip_executor = ThreadPoolExecutor(max_workers=2, thread_name_prefix="util_zip_lookup")
 zip_logger = logging.getLogger("uvicorn.error")
 
