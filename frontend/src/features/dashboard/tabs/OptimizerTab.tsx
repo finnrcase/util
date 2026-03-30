@@ -59,6 +59,11 @@ export function OptimizerTab({ register, errors, onSubmit, isSubmitting, errorMe
             )}
             <span>{isSubmitting ? "Optimizing..." : "Run Optimization"}</span>
           </button>
+          {isSubmitting ? (
+            <div className="rounded-[1.2rem] border border-violet-300/14 bg-[linear-gradient(180deg,rgba(167,139,250,0.08),rgba(167,139,250,0.02))] px-4 py-3 text-sm leading-6 text-slate-100/90 shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]">
+              Processing: resolving location, loading forecast, fetching pricing, and solving the schedule.
+            </div>
+          ) : null}
           {lastRun ? <span className="rounded-full border border-emerald-300/20 bg-emerald-300/10 px-3 py-2 text-sm font-medium text-emerald-100">Optimization ran</span> : null}
         </div>
 
@@ -158,11 +163,6 @@ export function OptimizerTab({ register, errors, onSubmit, isSubmitting, errorMe
                 <input type="checkbox" className="mt-1 h-4 w-4 rounded accent-violet-300" {...register("enable_cloud_upload")} />
                 <span className="min-w-0 text-sm text-slate-100">Save outputs to AWS cloud</span>
               </label>
-
-              <div className="rounded-[1.25rem] border border-cyan-300/12 bg-[linear-gradient(180deg,rgba(34,211,238,0.08),rgba(34,211,238,0.02))] p-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]">
-                <p className="text-[11px] uppercase tracking-[0.18em] text-cyan-200">Power estimator tip</p>
-                
-              </div>
             </div>
           </section>
         </SectionCard>
@@ -218,6 +218,7 @@ export function OptimizerTab({ register, errors, onSubmit, isSubmitting, errorMe
     </div>
   );
 }
+
 
 
 
