@@ -6,6 +6,15 @@ const API_BASE_URL = (rawApiBaseUrl ?? "").replace(/\/+$/, "");
 const API_PREFIX = import.meta.env.DEV ? "" : API_BASE_URL;
 const IS_DEV = import.meta.env.DEV;
 
+if (!IS_DEV && !API_BASE_URL) {
+  console.warn("[util-api] No VITE_API_BASE_URL is configured for a non-dev build. Desktop packaging should set VITE_API_BASE_URL to the local backend address.");
+}
+
+type HealthResponse = {
+  status: string;
+  service: string;
+};
+
 function logDev(label: string, value: unknown): void {
   if (IS_DEV) {
     console.info(`[util-api] ${label}`, value);
@@ -162,4 +171,28 @@ export function buildExportDownloadUrl(path: string): string {
 
 export { API_BASE_URL };
 export const RESOLVED_API_MODE = import.meta.env.DEV ? "vite-proxy" : isAbsoluteApiBase ? "absolute" : API_BASE_URL || "relative";
+export const HEALTH_PATH = "/health";
+export const HEALTH_URL = buildApiUrl(HEALTH_PATH);
 
+export async function fetchHealth(): Promise<HealthResponse> {
+  return requestJson<HealthResponse>(HEALTH_PATH);
+}
+
+export async function waitForBackendReady(retries = 20, delayMs = 500): Promise<HealthResponse> {
+  let lastError: unknown;
+
+  for (let attempt = 1; attempt <= retries; attempt += 1) {
+    try {
+      return await fetchHealth();
+    } catch (error) {
+      lastError = error;
+      if (attempt < retries) {
+        await new Promise((resolve) => window.setTimeout(resolve, delayMs));
+      }
+    }
+  }
+
+  throw lastError instanceof Error
+    ? lastError
+    : new Error("Backend health check failed before the app became ready.");
+}

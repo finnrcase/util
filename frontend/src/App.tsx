@@ -6,7 +6,7 @@ import { Bolt, ChartColumn, Cpu, Download, Globe, Info, LineChart } from "lucide
 import { AppShell } from "./components/AppShell";
 import { SidebarNav, type SidebarItem } from "./components/SidebarNav";
 import { TopBar } from "./components/TopBar";
-import { API_BASE_URL, RESOLVED_API_MODE, exportScenario, fetchCoverage, optimizeScenario } from "./lib/api";
+import { API_BASE_URL, HEALTH_URL, RESOLVED_API_MODE, exportScenario, fetchCoverage, optimizeScenario, waitForBackendReady } from "./lib/api";
 import type { ExportRequest, OptimizeRequest } from "./types/api";
 import { formSchema, getDefaultDeadline, toExportPayload, toOptimizePayload, type FormInputValues, type FormValues } from "./features/dashboard/form";
 import { compactRuntimeLabel, completionStatus } from "./features/dashboard/utils";
@@ -77,7 +77,43 @@ export default function App() {
   const [activeTab, setActiveTab] = useState<DashboardTabId>("optimizer");
   const [lastSubmittedPayload, setLastSubmittedPayload] = useState<OptimizeRequest | null>(null);
   const [lastSubmittedExportPayload, setLastSubmittedExportPayload] = useState<ExportRequest | null>(null);
+  const [isBackendReady, setIsBackendReady] = useState(false);
+  const [backendError, setBackendError] = useState<string>();
+  const [backendRetryKey, setBackendRetryKey] = useState(0);
   const mainContentRef = useRef<HTMLElement | null>(null);
+
+  useEffect(() => {
+    const content = mainContentRef.current;
+    if (!content) {
+      return;
+    }
+
+    content.scrollTop = 0;
+  }, [activeTab]);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    setIsBackendReady(false);
+    setBackendError(undefined);
+
+    void waitForBackendReady()
+      .then(() => {
+        if (!cancelled) {
+          setIsBackendReady(true);
+        }
+      })
+      .catch((error: unknown) => {
+        if (!cancelled) {
+          setBackendError(error instanceof Error ? error.message : String(error));
+        }
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [backendRetryKey]);
+
 
   const {
     register,
@@ -106,6 +142,7 @@ export default function App() {
     queryKey: ["coverage"],
     queryFn: fetchCoverage,
     staleTime: 5 * 60 * 1000,
+    enabled: isBackendReady,
   });
 
   const currentRun = optimizeMutation.data;
@@ -195,6 +232,30 @@ export default function App() {
     }
   };
 
+  if (!isBackendReady) {
+    return (
+      <AppShell sidebar={<SidebarNav items={sidebarItems} activeItemId={activeTab} onNavigate={(id) => setActiveTab(id as DashboardTabId)} />}>
+        <main className="flex flex-1 items-center justify-center px-4 py-8 sm:px-5 lg:px-7 lg:py-10">
+          <div className="w-full max-w-2xl rounded-[1.8rem] border border-white/10 bg-white/[0.04] p-6 text-center shadow-shell">
+            <p className="text-xs uppercase tracking-[0.24em] text-violet-200">Backend Status</p>
+            <h1 className="mt-3 text-2xl font-semibold text-text">Starting Util services</h1>
+            <p className="mt-3 text-sm leading-7 text-slate-100/85">
+              {backendError
+                ? "The desktop UI is waiting for the Python backend to become reachable."
+                : "Util is waiting for the Python backend to finish booting before the dashboard unlocks."}
+            </p>
+            {backendError ? <p className="mt-4 rounded-2xl border border-danger/25 bg-danger/10 px-4 py-3 text-sm text-red-100">{backendError}</p> : <p className="mt-4 text-sm text-muted">Checking health at {HEALTH_URL}</p>}
+            <div className="mt-6 flex justify-center">
+              <button type="button" onClick={() => setBackendRetryKey((value) => value + 1)} className="rounded-full border border-violet-300/20 bg-violet-300/10 px-4 py-2 text-sm text-violet-100 transition hover:border-violet-200/35 hover:bg-violet-300/15">
+                Retry connection
+              </button>
+            </div>
+          </div>
+        </main>
+      </AppShell>
+    );
+  }
+
   return (
     <AppShell sidebar={<SidebarNav items={sidebarItems} activeItemId={activeTab} onNavigate={(id) => setActiveTab(id as DashboardTabId)} />}>
       <div className="border-b border-white/10 px-5 py-4 lg:hidden">
@@ -225,7 +286,3 @@ export default function App() {
     </AppShell>
   );
 }
-
-
-
-

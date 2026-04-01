@@ -21,6 +21,7 @@ from src.api.serializers import (
 from src.exporter import generate_export_package
 from src.inputs import WorkloadInput
 from src.pipeline import run_util_pipeline
+from src.runtime_config import get_app_storage_root
 
 
 api_logger = logging.getLogger("uvicorn.error")
@@ -29,7 +30,7 @@ DATA_DIR = PROJECT_ROOT / "data" / "raw"
 DEFAULT_MAPPING_PATH = DATA_DIR / "zip_to_region_sample.csv"
 DEFAULT_CARBON_PATH = DATA_DIR / "sample_carbon_forecast.csv"
 DEFAULT_PRICE_PATH = DATA_DIR / "sample_price_forecast.csv"
-DEFAULT_EXPORT_ROOT = PROJECT_ROOT / "exports" / "api"
+DEFAULT_EXPORT_ROOT = get_app_storage_root() / "exports" / "api"
 
 
 def execute_optimization(request: OptimizeRequest) -> dict:

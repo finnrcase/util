@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import os
+import sys
 from functools import lru_cache
 from pathlib import Path
 from typing import Any
@@ -44,6 +45,22 @@ def get_project_root() -> Path:
 
     return Path(__file__).resolve().parents[1]
 
+
+@lru_cache(maxsize=1)
+def get_app_storage_root(app_name: str = "Util") -> Path:
+    override = str(get_setting("UTIL_APP_DATA_DIR", "") or "").strip()
+    if override:
+        return Path(override).expanduser().resolve()
+
+    home = Path.home()
+    if os.name == "nt":
+        base = Path(os.environ.get("LOCALAPPDATA") or (home / "AppData" / "Local"))
+    elif sys.platform == "darwin":
+        base = home / "Library" / "Application Support"
+    else:
+        base = Path(os.environ.get("XDG_DATA_HOME") or (home / ".local" / "share"))
+
+    return (base / app_name).resolve()
 
 @lru_cache(maxsize=1)
 def load_project_env() -> Path:

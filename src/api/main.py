@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import logging
+import os
 import time
 import traceback
 from pathlib import Path
@@ -10,26 +11,25 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, JSONResponse
 
 from src.api.schemas import CoverageResponse, ExportRequest, ExportResponse, OptimizeRequest, OptimizeResponse
-from src.api.service import (
-    PROJECT_ROOT,
-    build_coverage_response,
-    build_export_response,
-    build_optimize_response,
-    execute_optimization,
-)
+from src.runtime_config import get_app_storage_root
 
 
+MODULE_IMPORT_STARTED_AT = time.perf_counter()
+PROCESS_STARTED_AT = float(os.environ.get("UTIL_PROCESS_STARTED_AT", str(time.time())))
+api_logger = logging.getLogger("uvicorn.error")
 ALLOWED_ORIGINS = [
     "http://127.0.0.1:5173",
     "http://localhost:5173",
     "http://127.0.0.1:3000",
     "http://localhost:3000",
+    "http://tauri.localhost",
+    "https://tauri.localhost",
+    "tauri://localhost",
     "https://util-ten-delta.vercel.app",
 ]
 ALLOWED_METHODS = ["GET", "POST", "OPTIONS"]
 ALLOWED_HEADERS = ["Accept", "Content-Type", "Origin", "Authorization"]
-api_logger = logging.getLogger("uvicorn.error")
-EXPORTS_ROOT = (PROJECT_ROOT / "exports").resolve()
+EXPORTS_ROOT = (get_app_storage_root() / "exports" / "api").resolve()
 
 
 app = FastAPI(
@@ -45,6 +45,15 @@ app.add_middleware(
     allow_methods=ALLOWED_METHODS,
     allow_headers=ALLOWED_HEADERS,
 )
+
+
+@app.on_event("startup")
+def log_app_startup() -> None:
+    api_logger.info(
+        "Util API startup complete: module_import_ms=%.1f process_to_startup_ms=%.1f",
+        (time.perf_counter() - MODULE_IMPORT_STARTED_AT) * 1000.0,
+        (time.time() - PROCESS_STARTED_AT) * 1000.0,
+    )
 
 
 @app.middleware("http")
@@ -83,6 +92,8 @@ def optimize(request: OptimizeRequest) -> OptimizeResponse:
         request.include_diagnostics,
     )
     try:
+        from src.api.service import build_optimize_response, execute_optimization
+
         result = execute_optimization(request)
         response = build_optimize_response(request, result)
         api_logger.info(
@@ -111,13 +122,30 @@ def optimize(request: OptimizeRequest) -> OptimizeResponse:
         )
 
 
+@app.get("/health")
+@app.get("/api/v1/health")
+def health() -> dict[str, str]:
+    api_logger.info(
+        "Util API health ready: process_uptime_ms=%.1f",
+        (time.time() - PROCESS_STARTED_AT) * 1000.0,
+    )
+    return {
+        "status": "ok",
+        "service": "util-api",
+    }
+
+
 @app.get("/api/v1/coverage", response_model=CoverageResponse)
 def coverage() -> CoverageResponse:
+    from src.api.service import build_coverage_response
+
     return build_coverage_response()
 
 
 @app.post("/api/v1/export", response_model=ExportResponse)
 def export(request: ExportRequest) -> ExportResponse:
+    from src.api.service import build_export_response
+
     return build_export_response(request)
 
 
