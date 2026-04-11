@@ -2374,26 +2374,19 @@ with tab1:
                 with st.expander("AI debug info", expanded=True):
                     st.markdown("**URL resolution**")
                     st.write({
-                        "UTIL_API_BASE_URL found": (
-                            "yes — os.environ" if _ai_debug.get("in_os_environ")
-                            else "yes — streamlit secrets" if _ai_debug.get("in_streamlit_secrets")
-                            else "NO — using hardcoded default"
-                        ),
-                        "resolved backend URL": _ai_debug.get("api_base"),
-                        "full endpoint URL": _ai_debug.get("url"),
+                        "resolved_url": _ai_debug.get("resolved_url"),
                         "url_source": _ai_debug.get("url_source"),
-                        "dotenv_package_available": _ai_debug.get("dotenv_package_available"),
-                        "env_file_path": _ai_debug.get("env_file_path"),
-                        "env_file_exists": _ai_debug.get("env_file_exists"),
+                        "endpoint": _ai_debug.get("endpoint"),
                     })
                     st.markdown("**Request outcome**")
                     st.write({
                         "outcome": _ai_debug.get("outcome"),
                         "status_code": _ai_debug.get("status_code"),
+                        "started_at": _ai_debug.get("started_at"),
+                        "finished_at": _ai_debug.get("finished_at"),
+                        "elapsed_seconds": _ai_debug.get("elapsed_seconds"),
                         "error_type": _ai_debug.get("error_type"),
                         "error_detail": _ai_debug.get("error_detail"),
-                        "payload_objective": _ai_debug.get("payload_objective"),
-                        "payload_region": _ai_debug.get("payload_region"),
                         "response_json": _ai_debug.get("response_json"),
                     })
 

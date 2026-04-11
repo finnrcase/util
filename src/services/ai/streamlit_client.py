@@ -8,22 +8,20 @@ No AI provider logic lives here — all model calls are handled by the backend.
 """
 
 import logging
+import os
+import time
 from typing import Any
 
 import pandas as pd
 import requests
 
-import os
-
-from src.runtime_config import get_project_root, get_setting
+from src.runtime_config import get_project_root
 
 
 _logger = logging.getLogger(__name__)
 
-# Default backend URL — valid for local development only.
-# Override with UTIL_API_BASE_URL env var or Streamlit secret for deployed environments.
 _DEFAULT_API_BASE = "http://127.0.0.1:8000"
-_TIMEOUT_SECONDS = 15
+_TIMEOUT_SECONDS = 45
 
 _UNAVAILABLE: dict[str, Any] = {
     "status": "unavailable",
@@ -37,109 +35,36 @@ _UNAVAILABLE: dict[str, Any] = {
 
 def _resolve_api_base() -> tuple[str, dict[str, Any]]:
     """
-    Resolve the backend base URL and return (url, diagnostics).
+    Resolve the backend base URL.
 
     Resolution order:
-      1. st.secrets["UTIL_API_BASE_URL"]   — Streamlit Cloud / deployed
-      2. os.environ["UTIL_API_BASE_URL"]   — shell env or process env
-      3. .env file read directly           — local dev via dotenv
-      4. Hardcoded default                 — http://127.0.0.1:8000 (local only)
+      1. st.secrets["UTIL_API_BASE_URL"]
+      2. os.getenv("UTIL_API_BASE_URL")
+      3. http://127.0.0.1:8000  (local dev fallback only)
 
-    Uses .get() on st.secrets so a missing key never raises.
-    Records secrets_error if st.secrets itself is inaccessible.
+    Returns (resolved_url, {"resolved_url": ..., "url_source": ...}).
     """
-    project_root = get_project_root()
-    env_file = project_root / ".env"
-
-    try:
-        from dotenv import dotenv_values as _dv
-        dotenv_available = True
-    except ImportError:
-        _dv = None  # type: ignore[assignment]
-        dotenv_available = False
-
-    # ------------------------------------------------------------------
     # 1. Streamlit secrets
-    # ------------------------------------------------------------------
-    secrets_value: str | None = None
-    secrets_error: str | None = None
     try:
         import streamlit as _st
-        raw = _st.secrets.get("UTIL_API_BASE_URL")
-        if raw:
-            secrets_value = str(raw).strip().rstrip("/")
-    except Exception as exc:
-        secrets_error = f"{type(exc).__name__}: {exc}"
+        val = str(_st.secrets["UTIL_API_BASE_URL"]).strip().rstrip("/")
+        if val:
+            return val, {"resolved_url": val, "url_source": "streamlit_secrets"}
+    except Exception:
+        pass
 
-    if secrets_value:
-        return secrets_value, {
-            "source": "streamlit_secrets",
-            "resolved_url": secrets_value,
-            "secrets_error": None,
-            "in_os_environ": "UTIL_API_BASE_URL" in os.environ,
-            "dotenv_available": dotenv_available,
-            "env_file_path": str(env_file),
-            "env_file_exists": env_file.exists(),
-        }
+    # 2. Environment variable / .env loaded into os.environ at startup
+    val = os.getenv("UTIL_API_BASE_URL", "").strip().rstrip("/")
+    if val:
+        return val, {"resolved_url": val, "url_source": "environment_variable"}
 
-    # ------------------------------------------------------------------
-    # 2. os.environ (includes values dotenv loaded at import time)
-    # ------------------------------------------------------------------
-    env_value = os.environ.get("UTIL_API_BASE_URL", "").strip().rstrip("/")
-    if env_value:
-        return env_value, {
-            "source": "environment_variable",
-            "resolved_url": env_value,
-            "secrets_error": secrets_error,
-            "in_os_environ": True,
-            "dotenv_available": dotenv_available,
-            "env_file_path": str(env_file),
-            "env_file_exists": env_file.exists(),
-        }
-
-    # ------------------------------------------------------------------
-    # 3. .env file read directly (fallback if dotenv didn't populate env)
-    # ------------------------------------------------------------------
-    dotenv_value: str | None = None
-    dotenv_error: str | None = None
-    if dotenv_available and _dv is not None and env_file.exists():
-        try:
-            dotenv_value = (_dv(env_file).get("UTIL_API_BASE_URL") or "").strip().rstrip("/") or None
-        except Exception as exc:
-            dotenv_error = f"{type(exc).__name__}: {exc}"
-
-    if dotenv_value:
-        return dotenv_value, {
-            "source": "dotenv_file",
-            "resolved_url": dotenv_value,
-            "secrets_error": secrets_error,
-            "in_os_environ": False,
-            "dotenv_available": dotenv_available,
-            "env_file_path": str(env_file),
-            "env_file_exists": True,
-        }
-
-    # ------------------------------------------------------------------
-    # 4. Hardcoded default — local dev only
-    # ------------------------------------------------------------------
+    # 3. Hardcoded local-dev default
     _logger.warning(
-        "Streamlit AI client: UTIL_API_BASE_URL not found in secrets, "
-        "os.environ, or .env — falling back to %s (local dev only). "
-        "secrets_error=%s  dotenv_error=%s",
+        "Streamlit AI client: UTIL_API_BASE_URL not found in st.secrets or os.environ — "
+        "falling back to %s (local dev only)",
         _DEFAULT_API_BASE,
-        secrets_error,
-        dotenv_error,
     )
-    return _DEFAULT_API_BASE, {
-        "source": "hardcoded_default",
-        "resolved_url": _DEFAULT_API_BASE,
-        "secrets_error": secrets_error,
-        "dotenv_error": dotenv_error,
-        "in_os_environ": False,
-        "dotenv_available": dotenv_available,
-        "env_file_path": str(env_file),
-        "env_file_exists": env_file.exists(),
-    }
+    return _DEFAULT_API_BASE, {"resolved_url": _DEFAULT_API_BASE, "url_source": "hardcoded_default"}
 
 
 def _build_run_key(result: dict) -> str:
@@ -176,7 +101,6 @@ def build_ai_payload(result: dict) -> dict[str, Any]:
     Build the AiInterpretRequest payload from a pipeline result dict.
 
     Reads only from already-computed optimizer output — no new calculations.
-    Matches the payload shape used by the React frontend.
     """
     metrics = result.get("metrics", {})
     workload = result.get("workload_input")
@@ -200,8 +124,6 @@ def build_ai_payload(result: dict) -> dict[str, Any]:
         "schedule_summary": window_summary or "Window unavailable",
     }
 
-    # Include the baseline as an alternative so the AI has comparison data.
-    # Both values come directly from the pipeline result — no recomputation.
     alternatives: list[dict[str, Any]] = []
     baseline_cost = metrics.get("baseline_cost")
     baseline_carbon = metrics.get("baseline_carbon_kg")
@@ -227,48 +149,44 @@ def call_interpret(result: dict) -> dict[str, Any]:
     POST the optimizer result to /api/v1/ai/interpret and return the parsed response.
 
     Returns the unavailable fallback dict on any failure — never raises.
-    The backend handles all AI provider logic; this function is HTTP only.
-
-    Every return value includes a '_debug' key with diagnostic info.
-    This key is ignored by all status checks and can be displayed in a
-    Streamlit expander for debugging without affecting production UI.
+    Every return value includes a '_debug' key for the Streamlit debug expander.
     """
     api_base, url_diag = _resolve_api_base()
     url = f"{api_base}/api/v1/ai/interpret"
 
     debug: dict[str, Any] = {
-        # URL resolution
-        "api_base": api_base,
-        "url": url,
-        "url_source": url_diag["source"],
-        "in_os_environ": url_diag["in_os_environ"],
-        "in_streamlit_secrets": url_diag["in_streamlit_secrets"],
-        "dotenv_package_available": url_diag["dotenv_package_available"],
-        "env_file_path": url_diag["env_file_path"],
-        "env_file_exists": url_diag["env_file_exists"],
-        # Request outcome
+        "resolved_url": url_diag["resolved_url"],
+        "url_source": url_diag["url_source"],
+        "endpoint": url,
         "outcome": None,
         "status_code": None,
-        "response_json": None,
+        "elapsed_seconds": None,
+        "started_at": None,
+        "finished_at": None,
         "error_type": None,
         "error_detail": None,
-        "payload_objective": None,
-        "payload_region": None,
+        "response_json": None,
     }
 
     try:
         payload = build_ai_payload(result)
-        debug["payload_objective"] = payload.get("selected_objective")
-        debug["payload_region"] = payload.get("region")
 
         _logger.info(
-            "Streamlit AI client: POST %s objective=%s region=%s",
+            "Streamlit AI client: POST %s objective=%s region=%s timeout=%ss",
             url,
             payload.get("selected_objective"),
             payload.get("region"),
+            _TIMEOUT_SECONDS,
         )
+
+        t_start = time.time()
+        debug["started_at"] = time.strftime("%H:%M:%S", time.localtime(t_start))
+
         response = requests.post(url, json=payload, timeout=_TIMEOUT_SECONDS)
 
+        t_end = time.time()
+        debug["finished_at"] = time.strftime("%H:%M:%S", time.localtime(t_end))
+        debug["elapsed_seconds"] = round(t_end - t_start, 2)
         debug["status_code"] = response.status_code
 
         response.raise_for_status()
@@ -276,27 +194,26 @@ def call_interpret(result: dict) -> dict[str, Any]:
         body = response.json()
         debug["outcome"] = "success"
         debug["response_json"] = body
-
         return {**body, "_debug": debug}
 
     except requests.ConnectionError as exc:
+        t_end = time.time()
+        debug["finished_at"] = time.strftime("%H:%M:%S", time.localtime(t_end))
+        debug["elapsed_seconds"] = round(t_end - (time.time() - 0), 2)
         debug["outcome"] = "connection_error"
         debug["error_type"] = "ConnectionError"
         debug["error_detail"] = str(exc)
-        _logger.info(
-            "Streamlit AI client: backend not reachable at %s — "
-            "set UTIL_API_BASE_URL if the backend runs on a different address",
-            api_base,
-        )
+        _logger.info("Streamlit AI client: connection error to %s — %s", api_base, exc)
         return {**_UNAVAILABLE, "_debug": debug}
 
     except requests.Timeout:
+        t_end = time.time()
+        debug["finished_at"] = time.strftime("%H:%M:%S", time.localtime(t_end))
+        debug["elapsed_seconds"] = _TIMEOUT_SECONDS
         debug["outcome"] = "timeout"
         debug["error_type"] = "Timeout"
         debug["error_detail"] = f"No response within {_TIMEOUT_SECONDS}s"
-        _logger.warning(
-            "Streamlit AI client: request timed out after %ss", _TIMEOUT_SECONDS
-        )
+        _logger.warning("Streamlit AI client: request timed out after %ss", _TIMEOUT_SECONDS)
         return {**_UNAVAILABLE, "_debug": debug}
 
     except requests.HTTPError as exc:
@@ -306,20 +223,12 @@ def call_interpret(result: dict) -> dict[str, Any]:
         debug["error_type"] = "HTTPError"
         debug["error_detail"] = f"HTTP {status_code}: {body_text[:500]}"
         debug["status_code"] = status_code
-        _logger.error(
-            "Streamlit AI client: HTTP error status=%s body=%s",
-            status_code,
-            body_text[:200],
-        )
+        _logger.error("Streamlit AI client: HTTP error status=%s body=%s", status_code, body_text[:200])
         return {**_UNAVAILABLE, "_debug": debug}
 
     except Exception as exc:
         debug["outcome"] = "unexpected_error"
         debug["error_type"] = type(exc).__name__
         debug["error_detail"] = str(exc)
-        _logger.error(
-            "Streamlit AI client: unexpected error type=%s detail=%s",
-            type(exc).__name__,
-            str(exc),
-        )
+        _logger.error("Streamlit AI client: unexpected error type=%s detail=%s", type(exc).__name__, str(exc))
         return {**_UNAVAILABLE, "_debug": debug}

@@ -62,52 +62,70 @@ def interpret(request: AiInterpretRequest) -> AiInterpretResponse:
     Returns AiInterpretResponse. Never raises — returns unavailable or error
     status on any failure. Provider API key is never surfaced to callers.
     """
-    # Diagnostic entry log — always fires on every interpret call.
-    # Shows the resolved values of every config gate so the exit reason is visible
-    # in uvicorn logs without exposing secret values.
-    key_present = bool(_get_api_key())
+    import time as _time
+    t0 = _time.monotonic()
+
+    # [AI-3] Resolve config — do this once so each gate can log its resolved value.
     enabled = _is_enabled()
+    key_present = bool(_get_api_key())
     model = _get_model()
+
     ai_logger.info(
-        "Util AI service [DIAG] entry: enabled=%s key_present=%s model=%s objective=%s",
+        "[AI-3-CONFIG] loaded: enabled=%s key_present=%s model=%s objective=%s elapsed=%.3fs",
         enabled,
         key_present,
         model,
         request.selected_objective,
+        _time.monotonic() - t0,
     )
+    ai_logger.info("[AI-4] ai_enabled=%s", enabled)
+    ai_logger.info("[AI-5] anthropic_key_present=%s", key_present)
+    ai_logger.info("[AI-6] model_configured=%s value=%s", bool(model), model)
 
-    # [AI-1] Enabled check
     if not enabled:
-        ai_logger.info("Util AI service [AI-1] exit: AI_SUMMARY_ENABLED is false or unset")
+        ai_logger.info("[AI-GATE] exit: AI_SUMMARY_ENABLED is false or unset elapsed=%.3fs", _time.monotonic() - t0)
         return _UNAVAILABLE
 
-    # [AI-2] API key check
     api_key = _get_api_key()
     if not api_key:
-        ai_logger.info("Util AI service [AI-2] exit: ANTHROPIC_API_KEY is missing or empty in env")
+        ai_logger.info("[AI-GATE] exit: ANTHROPIC_API_KEY missing or empty elapsed=%.3fs", _time.monotonic() - t0)
         return _UNAVAILABLE
 
-    # [AI-3] Package availability check
     try:
         import anthropic
     except ImportError:
         ai_logger.warning(
-            "Util AI service [AI-3] exit: 'anthropic' package not installed — "
-            "run: pip install anthropic  (or: pip install -r requirements.txt)"
+            "[AI-GATE] exit: 'anthropic' package not installed — "
+            "run: pip install anthropic elapsed=%.3fs",
+            _time.monotonic() - t0,
         )
         return _UNAVAILABLE
 
-    # Past all gates — attempt provider call
-    prompt = build_interpret_prompt(request)
-    ai_logger.info(
-        "Util AI service [AI-4] provider call: model=%s objective=%s region=%s",
-        model,
-        request.selected_objective,
-        request.region or "unset",
-    )
-
+    # [AI-7] Provider client
     try:
         client = anthropic.Anthropic(api_key=api_key)
+        ai_logger.info("[AI-7] provider client created elapsed=%.3fs", _time.monotonic() - t0)
+    except Exception as exc:
+        ai_logger.error(
+            "[AI-7] failed to create provider client: type=%s msg=%s elapsed=%.3fs",
+            type(exc).__name__,
+            str(exc)[:200],
+            _time.monotonic() - t0,
+        )
+        return _ERROR
+
+    # [AI-8] Build prompt and start provider request
+    prompt = build_interpret_prompt(request)
+    ai_logger.info(
+        "[AI-8] provider request started: model=%s max_tokens=%s prompt_chars=%s elapsed=%.3fs",
+        model,
+        _MAX_TOKENS,
+        len(prompt),
+        _time.monotonic() - t0,
+    )
+    t_provider = _time.monotonic()
+
+    try:
         message = client.messages.create(
             model=model,
             max_tokens=_MAX_TOKENS,
@@ -115,51 +133,82 @@ def interpret(request: AiInterpretRequest) -> AiInterpretResponse:
             messages=[{"role": "user", "content": prompt}],
         )
         raw_text: str = message.content[0].text
-        ai_logger.info("Util AI service [AI-5] provider response received: chars=%s", len(raw_text))
+        t_provider_elapsed = round(_time.monotonic() - t_provider, 3)
+
+        # [AI-9] Provider request finished
+        ai_logger.info(
+            "[AI-9] provider request finished: response_chars=%s provider_elapsed=%.3fs total_elapsed=%.3fs",
+            len(raw_text),
+            t_provider_elapsed,
+            _time.monotonic() - t0,
+        )
+
     except anthropic.AuthenticationError:
-        # Never log the key value.
-        ai_logger.error("Util AI service [AI-6] exit: authentication failed — check ANTHROPIC_API_KEY value")
+        ai_logger.error(
+            "[AI-ERR] authentication failed — check ANTHROPIC_API_KEY "
+            "provider_elapsed=%.3fs total_elapsed=%.3fs",
+            round(_time.monotonic() - t_provider, 3),
+            round(_time.monotonic() - t0, 3),
+        )
         return _ERROR
     except anthropic.RateLimitError:
-        ai_logger.warning("Util AI service [AI-6] exit: provider rate limit hit")
+        ai_logger.warning(
+            "[AI-ERR] provider rate limit hit "
+            "provider_elapsed=%.3fs total_elapsed=%.3fs",
+            round(_time.monotonic() - t_provider, 3),
+            round(_time.monotonic() - t0, 3),
+        )
         return _ERROR
     except anthropic.APIStatusError as exc:
         ai_logger.error(
-            "Util AI service [AI-6] exit: API status error status=%s — "
-            "check AI_SUMMARY_MODEL value (got: %s)",
+            "[AI-ERR] API status error: status=%s model=%s "
+            "provider_elapsed=%.3fs total_elapsed=%.3fs",
             exc.status_code,
             model,
+            round(_time.monotonic() - t_provider, 3),
+            round(_time.monotonic() - t0, 3),
         )
         return _ERROR
     except Exception as exc:
-        ai_logger.error("Util AI service [AI-6] exit: unexpected provider error type=%s", type(exc).__name__)
+        ai_logger.error(
+            "[AI-ERR] unexpected provider error: type=%s msg=%s "
+            "provider_elapsed=%.3fs total_elapsed=%.3fs",
+            type(exc).__name__,
+            str(exc)[:200],
+            round(_time.monotonic() - t_provider, 3),
+            round(_time.monotonic() - t0, 3),
+        )
         return _ERROR
 
     try:
         data = _parse_ai_json(raw_text)
-        ai_logger.info("Util AI service [AI-7] parse success")
 
         def _str_or_none(val: object) -> str | None:
             return str(val) if val not in (None, "null", "") else None
 
-        return AiInterpretResponse(
+        response = AiInterpretResponse(
             status="ok",
-            # Primary display field.
             summary=_str_or_none(data.get("summary")),
-            # Structured judgment fields.
             tradeoff_strength=_str_or_none(data.get("tradeoff_strength")),
             decision_confidence=_str_or_none(data.get("decision_confidence")),
             objective_driver=_str_or_none(data.get("objective_driver")),
             alternative_attractiveness=_str_or_none(data.get("alternative_attractiveness")),
-            # Legacy sectioned fields — populated when old-style prompt output is returned.
             why_this_schedule=_str_or_none(data.get("why_this_schedule")),
             tradeoff_summary=_str_or_none(data.get("tradeoff_summary")),
             scenario_comparison=_str_or_none(data.get("scenario_comparison")),
             recommendation_memo=_str_or_none(data.get("recommendation_memo")),
         )
+        # [AI-10] Total elapsed
+        ai_logger.info(
+            "[AI-10] complete: status=ok total_elapsed=%.3fs",
+            round(_time.monotonic() - t0, 3),
+        )
+        return response
+
     except (json.JSONDecodeError, KeyError, IndexError, TypeError) as exc:
         ai_logger.error(
-            "Util AI service [AI-7] exit: failed to parse model response type=%s",
+            "[AI-ERR] JSON parse failed: type=%s total_elapsed=%.3fs",
             type(exc).__name__,
+            round(_time.monotonic() - t0, 3),
         )
         return _ERROR

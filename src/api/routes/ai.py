@@ -106,12 +106,19 @@ def interpret(request_body: AiInterpretRequest, request: Request) -> Any:
             },
         )
 
+    t_route_start = time.monotonic()
     ai_route_logger.info(
-        "Util AI route: interpret start client=%s objective=%s region=%s alternatives=%s",
+        "[AI-ROUTE-1] entered: client=%s objective=%s region=%s alternatives=%s",
         client_ip,
         request_body.selected_objective,
         request_body.region or "unset",
         len(request_body.alternatives),
+    )
+
+    ai_route_logger.info(
+        "[AI-ROUTE-2] payload parsed: selected_objective=%s deadline=%s",
+        request_body.selected_objective,
+        request_body.deadline or "none",
     )
 
     try:
@@ -119,20 +126,22 @@ def interpret(request_body: AiInterpretRequest, request: Request) -> Any:
 
         result = run_interpret(request_body)
 
+        elapsed = round(time.monotonic() - t_route_start, 3)
         ai_route_logger.info(
-            "Util AI route [ROUTE] complete: status=%s client=%s",
+            "[AI-ROUTE-OK] complete: status=%s client=%s elapsed=%.3fs",
             result.status,
             client_ip,
+            elapsed,
         )
         return result
 
     except Exception as exc:
-        # This block fires only if interpret() raises unexpectedly (it should not).
-        # The [ROUTE-EXC] tag makes this easy to find in uvicorn logs.
+        elapsed = round(time.monotonic() - t_route_start, 3)
         ai_route_logger.exception(
-            "Util AI route [ROUTE-EXC] unhandled exception type=%s client=%s — "
-            "this indicates a code bug, not a config problem",
+            "[AI-ROUTE-EXC] unhandled exception: type=%s elapsed=%.3fs client=%s — "
+            "interpret() should not raise; this is a code bug",
             type(exc).__name__,
+            elapsed,
             client_ip,
         )
         return _unavailable_json()
