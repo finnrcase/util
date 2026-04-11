@@ -1835,6 +1835,95 @@ def build_price_chart(display_df: pd.DataFrame) -> alt.Chart:
     )
 
 
+def build_multi_location_overlay_chart(
+    timeseries: list[dict],
+    metric_col: str,
+    y_title: str,
+    winner_zip: str | None = None,
+) -> alt.Chart | None:
+    """
+    Overlay line chart — one line per ZIP code over the full deadline horizon.
+
+    Reuses result["schedule"] data captured by run_multi_location_analysis.
+    Highlights the winning location's selected run window with emerald dots.
+
+    metric_col : "price_per_kwh" or "carbon_g_per_kwh"
+    winner_zip : zip_code string of the location that won on this metric
+    """
+    frames = []
+    for entry in timeseries:
+        df = entry["data"]
+        if metric_col not in df.columns:
+            continue
+        cols = ["timestamp", metric_col, "location"] + (
+            ["run_flag"] if "run_flag" in df.columns else []
+        )
+        chunk = df[cols].copy()
+        chunk = chunk.dropna(subset=[metric_col])
+        chunk["timestamp"] = pd.to_datetime(chunk["timestamp"])
+        frames.append(chunk)
+
+    if not frames:
+        return None
+
+    combined = pd.concat(frames, ignore_index=True)
+    if combined.empty:
+        return None
+
+    if "run_flag" not in combined.columns:
+        combined["run_flag"] = 0
+
+    axis = alt.Axis(
+        titleColor="#dbe7ff",
+        labelColor="#a7b1c7",
+        gridColor="rgba(157, 180, 255, 0.12)",
+        domainColor="rgba(157, 180, 255, 0.16)",
+        tickColor="rgba(157, 180, 255, 0.16)",
+    )
+
+    lines = alt.Chart(combined).mark_line(strokeWidth=2).encode(
+        x=alt.X("timestamp:T", title="Time", axis=axis),
+        y=alt.Y(f"{metric_col}:Q", title=y_title, axis=axis),
+        color=alt.Color(
+            "location:N",
+            legend=alt.Legend(
+                labelColor="#a7b1c7",
+                titleColor="#dbe7ff",
+                title="Location",
+            ),
+        ),
+        tooltip=[
+            alt.Tooltip("timestamp:T", title="Time", format="%b %d, %I:%M %p"),
+            alt.Tooltip(f"{metric_col}:Q", title=y_title, format=".3f"),
+            alt.Tooltip("location:N", title="Location"),
+        ],
+    )
+
+    # Highlight selected run window for the winning location.
+    layers: list[alt.Chart] = [lines]
+    if winner_zip is not None:
+        winner_data = combined[
+            combined["location"].str.startswith(winner_zip) & (combined["run_flag"] == 1)
+        ]
+        if not winner_data.empty:
+            winner_points = alt.Chart(winner_data).mark_circle(
+                size=70,
+                color="#6ee7b7",
+                opacity=0.9,
+            ).encode(
+                x=alt.X("timestamp:T"),
+                y=alt.Y(f"{metric_col}:Q"),
+                tooltip=[
+                    alt.Tooltip("timestamp:T", title="Selected interval", format="%b %d, %I:%M %p"),
+                    alt.Tooltip("location:N", title="Winner"),
+                ],
+            )
+            layers.append(winner_points)
+
+    chart = alt.layer(*layers).properties(height=300)
+    return chart.configure_view(strokeWidth=0).configure(background="transparent")
+
+
 def build_location_display_info(result: dict) -> dict:
     location_info = result.get("location_info", {}) or {}
     forecast_df = result.get("forecast", pd.DataFrame()).copy()
@@ -3062,7 +3151,7 @@ with tab6:
                     objective,
                     objective_value,
                 )
-                multi_location_results = run_multi_location_analysis(
+                multi_location_results, ml_timeseries = run_multi_location_analysis(
                     zip_codes=zip_codes,
                     compute_hours_required=int(compute_hours),
                     deadline=deadline,
@@ -3076,6 +3165,15 @@ with tab6:
                 if multi_location_results.empty:
                     st.info("No location results were returned.")
                 else:
+                    lowest_cost_row = multi_location_results.loc[
+                        multi_location_results["optimized_cost"].idxmin()
+                    ]
+                    lowest_carbon_row = multi_location_results.loc[
+                        multi_location_results["optimized_carbon_kg"].idxmin()
+                    ]
+
+                    st.subheader("Results")
+                    st.markdown('<div class="util-spacer-xs"></div>', unsafe_allow_html=True)
                     st.dataframe(multi_location_results, use_container_width=True)
                     multi_location_csv = multi_location_results.to_csv(index=False).encode("utf-8")
                     st.download_button(
@@ -3085,15 +3183,39 @@ with tab6:
                         mime="text/csv",
                     )
 
-                    lowest_cost_row = multi_location_results.loc[
-                        multi_location_results["optimized_cost"].idxmin()
-                    ]
-                    lowest_carbon_row = multi_location_results.loc[
-                        multi_location_results["optimized_carbon_kg"].idxmin()
-                    ]
-
                     st.write(f"Lowest Cost Location: ZIP {lowest_cost_row['zip_code']}")
                     st.write(f"Lowest Carbon Location: ZIP {lowest_carbon_row['zip_code']}")
+
+                    # ----------------------------------------------------------
+                    # Overlay charts — one line per ZIP over the deadline horizon.
+                    # Data comes from result["schedule"] captured per-zip above;
+                    # no new forecasting runs are triggered here.
+                    # Emerald dots mark the winning location's selected window.
+                    # ----------------------------------------------------------
+                    if ml_timeseries:
+                        st.markdown('<div class="util-spacer-sm"></div>', unsafe_allow_html=True)
+                        st.subheader("Cost Signal by Location")
+                        st.markdown('<div class="util-spacer-xs"></div>', unsafe_allow_html=True)
+                        cost_chart = build_multi_location_overlay_chart(
+                            ml_timeseries,
+                            metric_col="price_per_kwh",
+                            y_title="Price ($/kWh)",
+                            winner_zip=lowest_cost_row["zip_code"],
+                        )
+                        if cost_chart is not None:
+                            st.altair_chart(cost_chart, use_container_width=True)
+
+                        st.markdown('<div class="util-spacer-sm"></div>', unsafe_allow_html=True)
+                        st.subheader("Carbon Signal by Location")
+                        st.markdown('<div class="util-spacer-xs"></div>', unsafe_allow_html=True)
+                        carbon_chart = build_multi_location_overlay_chart(
+                            ml_timeseries,
+                            metric_col="carbon_g_per_kwh",
+                            y_title="Carbon Intensity (g/kWh)",
+                            winner_zip=lowest_carbon_row["zip_code"],
+                        )
+                        if carbon_chart is not None:
+                            st.altair_chart(carbon_chart, use_container_width=True)
 
             except Exception as e:
                 error_message = str(e)

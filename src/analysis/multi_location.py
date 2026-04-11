@@ -33,8 +33,20 @@ def run_multi_location_analysis(
     mapping_path,
     forecast_mode: str,
     schedule_mode: str,
-) -> pd.DataFrame:
+) -> tuple[pd.DataFrame, list[dict[str, Any]]]:
+    """
+    Returns (summary_df, timeseries).
+
+    summary_df    — one row per ZIP with scalar metrics (existing shape, unchanged).
+    timeseries    — list of dicts, one per ZIP, each containing:
+                      zip_code  : str
+                      region    : str | None
+                      location  : str  (display label: "ZIP · region")
+                      data      : pd.DataFrame with timestamp, price_per_kwh,
+                                  carbon_g_per_kwh, run_flag columns
+    """
     rows: list[dict[str, Any]] = []
+    timeseries: list[dict[str, Any]] = []
 
     for zip_code in zip_codes:
         workload = WorkloadInput(
@@ -55,14 +67,32 @@ def run_multi_location_analysis(
         )
 
         metrics = result["metrics"]
+        region = result["region"]
         rows.append(
             {
                 "zip_code": zip_code,
-                "region": result["region"],
+                "region": region,
                 "optimized_cost": metrics["optimized_cost"],
                 "optimized_carbon_kg": metrics["optimized_carbon_kg"],
                 "forecast_access_mode": _extract_forecast_access_mode(result),
             }
         )
 
-    return pd.DataFrame(rows)
+        # Capture per-zip time series for overlay charts.
+        # result["schedule"] already has timestamp, price_per_kwh,
+        # carbon_g_per_kwh, and run_flag — no extra computation needed.
+        schedule_df = result.get("schedule")
+        if schedule_df is not None and not schedule_df.empty:
+            ts_cols = [c for c in ["timestamp", "price_per_kwh", "carbon_g_per_kwh", "run_flag"]
+                       if c in schedule_df.columns]
+            ts = schedule_df[ts_cols].copy()
+            label = f"{zip_code} · {region}" if region and region != zip_code else zip_code
+            ts["location"] = label
+            timeseries.append({
+                "zip_code": zip_code,
+                "region": region,
+                "location": label,
+                "data": ts,
+            })
+
+    return pd.DataFrame(rows), timeseries
