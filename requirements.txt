@@ -13,3 +13,4 @@ requests
 python-dotenv
 pgeocode
 boto3
+anthropic

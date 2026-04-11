@@ -1,6 +1,7 @@
 import type { FormEventHandler } from "react";
 import type { FieldErrors, UseFormRegister } from "react-hook-form";
 import { SectionCard } from "../../../components/SectionCard";
+import { AiDecisionSummaryCard } from "../../../components/AiDecisionSummaryCard";
 import type { FormInputValues } from "../form";
 import type { OptimizeResponse } from "../../../types/api";
 
@@ -38,6 +39,8 @@ export function OptimizerTab({ register, errors, onSubmit, isSubmitting, errorMe
   const runWindow = lastRun?.schedule.recommended_window;
 
   return (
+    <div className="grid gap-6">
+    {lastRun ? <AiDecisionSummaryCard optimizeResponse={lastRun} /> : null}
     <div className="grid gap-6 xl:grid-cols-[minmax(0,1.35fr)_360px] xl:items-start">
       <form className="grid gap-5" onSubmit={onSubmit}>
         <div className="flex flex-wrap items-center gap-3">
@@ -215,6 +218,8 @@ export function OptimizerTab({ register, errors, onSubmit, isSubmitting, errorMe
           </div>
         ) : null}
       </SectionCard>
+    </div>
+
     </div>
   );
 }

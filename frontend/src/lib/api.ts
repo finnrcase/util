@@ -1,4 +1,4 @@
-import type { CoverageResponse, ExportRequest, ExportResponse, OptimizeRequest, OptimizeResponse } from "../types/api";
+import type { AiInterpretRequest, AiInterpretResponse, CoverageResponse, ExportRequest, ExportResponse, OptimizeRequest, OptimizeResponse } from "../types/api";
 
 const rawApiBaseUrl = import.meta.env.VITE_API_BASE_URL as string | undefined;
 const isAbsoluteApiBase = typeof rawApiBaseUrl === "string" && /^https?:\/\//i.test(rawApiBaseUrl);
@@ -176,6 +176,16 @@ export const HEALTH_URL = buildApiUrl(HEALTH_PATH);
 
 export async function fetchHealth(): Promise<HealthResponse> {
   return requestJson<HealthResponse>(HEALTH_PATH);
+}
+
+export async function interpretOptimization(payload: AiInterpretRequest): Promise<AiInterpretResponse> {
+  return requestJson<AiInterpretResponse>("/api/v1/ai/interpret", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(payload),
+  });
 }
 
 export async function waitForBackendReady(retries = 20, delayMs = 500): Promise<HealthResponse> {

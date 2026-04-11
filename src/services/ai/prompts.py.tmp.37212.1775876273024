@@ -1,0 +1,77 @@
+from __future__ import annotations
+
+import json
+from typing import Any
+
+from src.services.ai.schemas import AiInterpretRequest, InterpretRequest
+
+
+SYSTEM_PROMPT = """\
+You are an analyst writing decision support summaries for Util, a compute workload scheduling optimizer.
+Your job is to synthesize optimizer output into a single, direct analytical paragraph.
+
+Hard rules — violations make the output unusable:
+- Every claim must be directly traceable to a field in the input JSON.
+- Do not use hedging language: "likely", "probably", "typically", "generally", "usually",
+  "often", "suggests", "indicates", "may", "might", "could", or any similar qualifier.
+- Do not reference market conditions, grid behavior, time-of-day patterns,
+  or electricity pricing conventions unless those exact labels appear in the input.
+- Do not infer reasons for numeric values — state them as given facts.
+- If a field needed to support a claim is absent from the input, omit that claim entirely.
+- Write 3–5 sentences. Be direct and analytical, not conversational.
+- Return ONLY a valid JSON object. No prose, markdown, or code fences outside the JSON.
+
+Output schema:
+{
+  "summary": "State the objective and its numeric outcome. If alternatives are present, compare the selected result against them in concrete numeric terms. State what the difference means for this specific workload. End with the clearest decision-support takeaway the data supports."
+}
+"""
+
+
+def build_interpret_prompt(request: AiInterpretRequest) -> str:
+    """
+    Build a compact, grounded prompt from an AiInterpretRequest.
+
+    Only includes facts drawn from the provided data.
+    All values pass through json.dumps to prevent prompt injection.
+    """
+    facts: dict[str, Any] = {
+        "selected_objective": request.selected_objective,
+        "region": request.region,
+        "deadline": request.deadline,
+        "selected_result": request.selected_result.model_dump(exclude_none=True),
+    }
+
+    if request.alternatives:
+        facts["alternatives"] = [
+            alt.model_dump(exclude_none=True) for alt in request.alternatives
+        ]
+
+    return (
+        "Report on the following optimizer result using only the fields below. "
+        "Return JSON only. Do not add any information not present in this data:\n\n"
+        + json.dumps(facts, indent=2, default=str)
+    )
+
+
+def _extract_scenario_facts(scenario: InterpretRequest) -> dict[str, Any]:
+    """Compact fact dict for a comparison scenario."""
+    m = scenario.metrics
+    s = scenario.schedule
+    result: dict[str, Any] = {
+        "objective": scenario.objective,
+        "schedule_mode": scenario.schedule_mode,
+        "region": scenario.location.resolved_region,
+        "window_start": s.recommended_window_start,
+        "window_end": s.recommended_window_end,
+        "selected_intervals": s.selected_interval_count,
+    }
+    if m.cost_savings is not None:
+        result["cost_savings_usd"] = round(m.cost_savings, 4)
+    if m.carbon_savings_kg is not None:
+        result["carbon_savings_kg"] = round(m.carbon_savings_kg, 4)
+    if m.cost_reduction_pct is not None:
+        result["cost_reduction_pct"] = round(m.cost_reduction_pct, 2)
+    if m.carbon_reduction_pct is not None:
+        result["carbon_reduction_pct"] = round(m.carbon_reduction_pct, 2)
+    return result

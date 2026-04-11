@@ -1,5 +1,44 @@
 export type Objective = "carbon" | "cost" | "balanced";
 
+// ---------------------------------------------------------------------------
+// AI Decision Summary — POST /api/v1/ai/interpret
+// Matches backend AiInterpretRequest / AiInterpretResponse in
+// src/services/ai/schemas.py. Decoupled from optimizer input schema.
+// ---------------------------------------------------------------------------
+
+export interface AiScenarioResult {
+  objective: string;
+  projected_cost?: number | null;
+  projected_emissions?: number | null;
+  schedule_summary?: string | null;
+  [key: string]: unknown; // backend accepts extra fields via model_config extra="allow"
+}
+
+export interface AiInterpretRequest {
+  selected_objective: string;
+  deadline?: string | null;
+  region?: string | null;
+  selected_result: AiScenarioResult;
+  alternatives?: AiScenarioResult[];
+}
+
+export interface AiInterpretResponse {
+  status: "ok" | "unavailable" | "error";
+  /** Primary display field — single polished memo paragraph. */
+  summary?: string | null;
+  /** Structured judgment fields. Available for future UI use. */
+  tradeoff_strength?: "clear" | "moderate" | "marginal" | "none" | null;
+  decision_confidence?: "high" | "medium" | "low" | null;
+  objective_driver?: "objective" | "constraint" | "mixed" | null;
+  alternative_attractiveness?: "meaningful" | "marginal" | "none" | null;
+  /** Legacy sectioned fields kept for backward compatibility. */
+  why_this_schedule?: string | null;
+  tradeoff_summary?: string | null;
+  scenario_comparison?: string | null;
+  recommendation_memo?: string | null;
+  message?: string | null;
+}
+
 export interface OptimizeRequest {
   zip_code: string;
   compute_hours_required: number;

@@ -1,0 +1,2 @@
+run_id,generated_at,zip_code,resolved_region,resolved_watttime_region,location_lookup_status,carbon_source,pricing_status,pricing_source,pricing_market,pricing_node,price_signal_source,primary_objective,coverage_note
+util-20260411T025311Z-86a469da,2026-04-11 02:53:11 UTC,93106,CAISO_SANBERNARDINO,CAISO_SANBERNARDINO,success,live_forecast,live_market,CAISO,Day-Ahead,TH_NP15_GEN-APND,live_forecast,carbon,Using CAISO dam pricing routed from the resolved WattTime region.

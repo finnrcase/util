@@ -18,6 +18,7 @@ from src.data_fetcher import build_live_historical_export_table
 from src.location.zip_resolver import zip_to_place_label
 from src.pipeline import run_util_pipeline
 from src.runtime_config import get_app_mode, get_bool_setting, get_runtime_diagnostics, get_setting
+from src.services.ai.streamlit_client import _build_run_key, call_interpret
 from src.scheduling_window import (
     APP_TIMEZONE,
     InfeasibleScheduleError,
@@ -2322,7 +2323,7 @@ with tab1:
             metrics = result["metrics"]
             forecast = result["forecast"].copy()
             optimized = result["optimized"].copy()
-            
+
             selected_schedule = schedule[schedule["run_flag"] == 1].copy()
             run_window = build_run_window_summary(schedule)
             comparison = build_run_now_comparison(
@@ -2330,6 +2331,37 @@ with tab1:
                 machine_watts=int(result["workload_input"].machine_watts)
             )
 
+            # ------------------------------------------------------------------
+            # AI Summary — shown at the top of results so users see it first.
+            # One call per unique run result (deduplicated via session state).
+            # ------------------------------------------------------------------
+            _ai_key = _build_run_key(result)
+            if st.session_state.get("_ai_run_key") != _ai_key:
+                st.session_state["_ai_run_key"] = _ai_key
+                st.session_state["_ai_summary"] = None
+
+            if st.session_state.get("_ai_summary") is None:
+                with st.spinner("Generating AI summary of optimizer output…"):
+                    st.session_state["_ai_summary"] = call_interpret(result)
+
+            _ai_data = st.session_state.get("_ai_summary") or {}
+            if _ai_data.get("status") == "ok":
+                # Prefer the new summary field; fall back to joining legacy fields.
+                _ai_text = _ai_data.get("summary") or " ".join(filter(None, [
+                    _ai_data.get("why_this_schedule"),
+                    _ai_data.get("tradeoff_summary"),
+                    _ai_data.get("scenario_comparison"),
+                    _ai_data.get("recommendation_memo"),
+                ]))
+                if _ai_text:
+                    render_info_card(
+                        title="AI Summary (interpreted by Claude)",
+                        body=_ai_text,
+                    )
+            else:
+                st.caption(_ai_data.get("message") or "AI summary unavailable for this run.")
+
+            st.markdown('<div class="util-spacer-xs"></div>', unsafe_allow_html=True)
             st.subheader("Optimization Summary")
 
             st.markdown('<div class="util-spacer-xs"></div>', unsafe_allow_html=True)
@@ -2513,6 +2545,7 @@ with tab1:
                 st.warning("No run intervals were selected.")
             else:
                 st.dataframe(build_selected_schedule_df(schedule), use_container_width=True)
+
 
     render_section_shell_end()
 
