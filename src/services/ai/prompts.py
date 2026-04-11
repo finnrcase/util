@@ -43,14 +43,18 @@ alternative_attractiveness  — How appealing the baseline alternative is to a u
   "marginal"   : the alternative is 1–15% better on the non-selected dimension
   "none"       : no alternative, OR the alternative is worse on all dimensions
 
-━━━ MEMO PARAGRAPH RULES ━━━
+━━━ SUMMARY PARAGRAPH RULES ━━━
 
-Write the summary as 3–5 sentences in the style of a short ops memo:
-  S1: State the objective, the numeric outcome, and your tradeoff_strength verdict.
-  S2: Compare selected vs baseline numerically. If tradeoff is marginal, name that explicitly.
-  S3: State your objective_driver verdict and what it implies — did the optimizer have real leverage, or was it constrained?
-  S4: State alternative_attractiveness. Name specifically what type of user would prefer the alternative, based only on the data provided.
-  S5 (optional): State decision_confidence and the single clearest actionable takeaway.
+Write a single paragraph of 3–5 sentences. Cover these points in a natural order that reads well:
+  - What the optimizer produced and how strong the result is (use your tradeoff_strength judgment)
+  - What the numbers actually mean for this workload, not just what they are
+  - Whether the baseline alternative is worth considering, and for whom
+  - The clearest takeaway given your decision_confidence judgment
+
+Tone: direct, informed, and clear. Write as if briefing a technical lead who will act on this.
+Do not open with "The optimizer" or any robotic preamble.
+Do not list or label the judgments — weave them into natural prose.
+Vary sentence structure. Avoid parallel constructions that make each sentence feel like a template slot.
 
 ━━━ HARD RULES ━━━
 

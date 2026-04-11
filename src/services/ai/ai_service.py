@@ -132,6 +132,7 @@ def interpret(request: AiInterpretRequest) -> AiInterpretResponse:
             max_tokens=_MAX_TOKENS,
             system=SYSTEM_PROMPT,
             messages=[{"role": "user", "content": prompt}],
+            timeout=_PROVIDER_TIMEOUT_SECONDS,
         )
         raw_text: str = message.content[0].text
         t_provider_elapsed = round(_time.monotonic() - t_provider, 3)
@@ -144,6 +145,15 @@ def interpret(request: AiInterpretRequest) -> AiInterpretResponse:
             _time.monotonic() - t0,
         )
 
+    except anthropic.APITimeoutError:
+        ai_logger.warning(
+            "[AI-ERR] provider timeout: no response within %ss "
+            "provider_elapsed=%.3fs total_elapsed=%.3fs",
+            _PROVIDER_TIMEOUT_SECONDS,
+            round(_time.monotonic() - t_provider, 3),
+            round(_time.monotonic() - t0, 3),
+        )
+        return _UNAVAILABLE
     except anthropic.AuthenticationError:
         ai_logger.error(
             "[AI-ERR] authentication failed — check ANTHROPIC_API_KEY "
