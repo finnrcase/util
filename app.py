@@ -2076,8 +2076,8 @@ with tab1:
         kicker="Optimization Studio",
         title="Workload Optimization",
         description=(
-            "Set workload constraints, choose how Util estimates carbon signals, and generate a "
-            "recommended run window without changing the optimization logic underneath."
+            "Tell Util when your workload needs to run and how long it takes. "
+            "Util finds the cheapest or cleanest window before your deadline."
         ),
     )
 
