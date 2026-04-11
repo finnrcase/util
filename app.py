@@ -2371,10 +2371,23 @@ with tab1:
                         "to your deployed backend URL (e.g. https://your-backend.onrender.com).",
                         icon="⚠️",
                     )
-                with st.expander("AI debug info", expanded=False):
+                with st.expander("AI debug info", expanded=True):
+                    st.markdown("**URL resolution**")
                     st.write({
-                        "api_base": _ai_debug.get("api_base"),
-                        "url": _ai_debug.get("url"),
+                        "UTIL_API_BASE_URL found": (
+                            "yes — os.environ" if _ai_debug.get("in_os_environ")
+                            else "yes — streamlit secrets" if _ai_debug.get("in_streamlit_secrets")
+                            else "NO — using hardcoded default"
+                        ),
+                        "resolved backend URL": _ai_debug.get("api_base"),
+                        "full endpoint URL": _ai_debug.get("url"),
+                        "url_source": _ai_debug.get("url_source"),
+                        "dotenv_package_available": _ai_debug.get("dotenv_package_available"),
+                        "env_file_path": _ai_debug.get("env_file_path"),
+                        "env_file_exists": _ai_debug.get("env_file_exists"),
+                    })
+                    st.markdown("**Request outcome**")
+                    st.write({
                         "outcome": _ai_debug.get("outcome"),
                         "status_code": _ai_debug.get("status_code"),
                         "error_type": _ai_debug.get("error_type"),

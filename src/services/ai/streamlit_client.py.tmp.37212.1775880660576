@@ -183,20 +183,12 @@ def call_interpret(result: dict) -> dict[str, Any]:
     This key is ignored by all status checks and can be displayed in a
     Streamlit expander for debugging without affecting production UI.
     """
-    api_base, url_diag = _resolve_api_base()
+    api_base = _get_api_base()
     url = f"{api_base}/api/v1/ai/interpret"
 
     debug: dict[str, Any] = {
-        # URL resolution
         "api_base": api_base,
         "url": url,
-        "url_source": url_diag["source"],
-        "in_os_environ": url_diag["in_os_environ"],
-        "in_streamlit_secrets": url_diag["in_streamlit_secrets"],
-        "dotenv_package_available": url_diag["dotenv_package_available"],
-        "env_file_path": url_diag["env_file_path"],
-        "env_file_exists": url_diag["env_file_exists"],
-        # Request outcome
         "outcome": None,
         "status_code": None,
         "response_json": None,

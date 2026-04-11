@@ -35,61 +35,17 @@ _UNAVAILABLE: dict[str, Any] = {
 }
 
 
-def _resolve_api_base() -> tuple[str, dict[str, Any]]:
-    """
-    Resolve the backend base URL and return it alongside a diagnostics dict.
-
-    Resolution order:
-      1. os.environ["UTIL_API_BASE_URL"]  (includes values loaded from .env by dotenv)
-      2. Streamlit secrets["UTIL_API_BASE_URL"]
-      3. Hardcoded default (local dev only)
-
-    Returns (url, diagnostics).
-    """
-    try:
-        from dotenv import load_dotenv as _ld
-        dotenv_available = True
-    except ImportError:
-        dotenv_available = False
-
-    project_root = get_project_root()
-    env_file = project_root / ".env"
-
-    in_os_environ = "UTIL_API_BASE_URL" in os.environ
-    in_streamlit_secrets = False
-    try:
-        import streamlit as st
-        in_streamlit_secrets = "UTIL_API_BASE_URL" in st.secrets
-    except Exception:
-        pass
-
-    if in_os_environ:
-        resolved = os.environ["UTIL_API_BASE_URL"].rstrip("/")
-        source = "os.environ (includes .env if dotenv loaded it)"
-    elif in_streamlit_secrets:
-        import streamlit as st
-        resolved = str(st.secrets["UTIL_API_BASE_URL"]).rstrip("/")
-        source = "streamlit secrets"
-    else:
-        resolved = _DEFAULT_API_BASE
-        source = "hardcoded default (UTIL_API_BASE_URL not found anywhere)"
-        _logger.warning(
-            "Streamlit AI client: UTIL_API_BASE_URL is not set — "
-            "falling back to %s (local dev only). "
-            "Set UTIL_API_BASE_URL in .env or Streamlit secrets for deployed environments.",
-            _DEFAULT_API_BASE,
-        )
-
-    diag: dict[str, Any] = {
-        "resolved_url": resolved,
-        "source": source,
-        "in_os_environ": in_os_environ,
-        "in_streamlit_secrets": in_streamlit_secrets,
-        "dotenv_package_available": dotenv_available,
-        "env_file_path": str(env_file),
-        "env_file_exists": env_file.exists(),
-    }
-    return resolved, diag
+def _get_api_base() -> str:
+    configured = get_setting("UTIL_API_BASE_URL")
+    if configured:
+        return str(configured).rstrip("/")
+    _logger.warning(
+        "Streamlit AI client: UTIL_API_BASE_URL is not set — "
+        "falling back to %s (local dev only). "
+        "Set UTIL_API_BASE_URL in .env or Streamlit secrets for deployed environments.",
+        _DEFAULT_API_BASE,
+    )
+    return _DEFAULT_API_BASE
 
 
 def _build_run_key(result: dict) -> str:
@@ -183,20 +139,12 @@ def call_interpret(result: dict) -> dict[str, Any]:
     This key is ignored by all status checks and can be displayed in a
     Streamlit expander for debugging without affecting production UI.
     """
-    api_base, url_diag = _resolve_api_base()
+    api_base = _get_api_base()
     url = f"{api_base}/api/v1/ai/interpret"
 
     debug: dict[str, Any] = {
-        # URL resolution
         "api_base": api_base,
         "url": url,
-        "url_source": url_diag["source"],
-        "in_os_environ": url_diag["in_os_environ"],
-        "in_streamlit_secrets": url_diag["in_streamlit_secrets"],
-        "dotenv_package_available": url_diag["dotenv_package_available"],
-        "env_file_path": url_diag["env_file_path"],
-        "env_file_exists": url_diag["env_file_exists"],
-        # Request outcome
         "outcome": None,
         "status_code": None,
         "response_json": None,
