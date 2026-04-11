@@ -3056,11 +3056,17 @@ with tab6:
                 forecast_mode = FORECAST_MODE
                 schedule_mode = "block" if schedule_mode_label == "Continuous Block" else "flexible"
 
+                import logging as _logging
+                _logging.getLogger(__name__).debug(
+                    "multi-location: objective_label=%r objective_value=%r",
+                    objective,
+                    objective_value,
+                )
                 multi_location_results = run_multi_location_analysis(
                     zip_codes=zip_codes,
                     compute_hours_required=int(compute_hours),
                     deadline=deadline,
-                    objective=objective,
+                    objective=objective_value,
                     machine_watts=int(machine_watts),
                     mapping_path=ZIP_PATH,
                     forecast_mode=forecast_mode,
