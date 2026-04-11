@@ -13,6 +13,7 @@ ai_logger = logging.getLogger("uvicorn.error")
 
 _DEFAULT_MODEL = "claude-haiku-4-5-20251001"
 _MAX_TOKENS = 600
+_PROVIDER_TIMEOUT_SECONDS = 30
 
 _UNAVAILABLE = AiInterpretResponse(
     status="unavailable",
