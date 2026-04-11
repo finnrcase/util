@@ -2361,6 +2361,22 @@ with tab1:
             else:
                 st.caption(_ai_data.get("message") or "AI summary unavailable for this run.")
 
+            # DEBUG — remove once root cause is confirmed.
+            _ai_debug = _ai_data.get("_debug")
+            if _ai_debug:
+                with st.expander("AI debug info", expanded=False):
+                    st.write({
+                        "api_base": _ai_debug.get("api_base"),
+                        "url": _ai_debug.get("url"),
+                        "outcome": _ai_debug.get("outcome"),
+                        "status_code": _ai_debug.get("status_code"),
+                        "error_type": _ai_debug.get("error_type"),
+                        "error_detail": _ai_debug.get("error_detail"),
+                        "payload_objective": _ai_debug.get("payload_objective"),
+                        "payload_region": _ai_debug.get("payload_region"),
+                        "response_json": _ai_debug.get("response_json"),
+                    })
+
             st.markdown('<div class="util-spacer-xs"></div>', unsafe_allow_html=True)
             st.subheader("Optimization Summary")
 
