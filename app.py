@@ -2361,9 +2361,16 @@ with tab1:
             else:
                 st.caption(_ai_data.get("message") or "AI summary unavailable for this run.")
 
-            # DEBUG — remove once root cause is confirmed.
             _ai_debug = _ai_data.get("_debug")
             if _ai_debug:
+                _using_default = _ai_debug.get("api_base") == "http://127.0.0.1:8000"
+                if _using_default and _ai_debug.get("outcome") == "connection_error":
+                    st.warning(
+                        "AI summary: backend not reachable at http://127.0.0.1:8000. "
+                        "Set **UTIL_API_BASE_URL** in your .env file or Streamlit secrets "
+                        "to your deployed backend URL (e.g. https://your-backend.onrender.com).",
+                        icon="⚠️",
+                    )
                 with st.expander("AI debug info", expanded=False):
                     st.write({
                         "api_base": _ai_debug.get("api_base"),
