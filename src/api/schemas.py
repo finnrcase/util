@@ -67,3 +67,4 @@ class OptimizeResponse(BaseModel):
     charts: dict[str, Any]
     provenance: dict[str, Any]
     diagnostics: dict[str, Any] | None = None
+    feasibility_analysis: dict[str, Any] | None = None

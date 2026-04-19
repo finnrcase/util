@@ -15,8 +15,8 @@ pip install -r requirements.txt
 # Streamlit UI
 streamlit run app.py
 
-# FastAPI backend
-uvicorn src.api.main:app --reload
+# FastAPI backend — must be launched from project root so src.* imports resolve
+python -m uvicorn src.api.main:app --reload --host 127.0.0.1 --port 8000
 ```
 
 ### Frontend (React + TypeScript)
@@ -37,10 +37,19 @@ pytest tests/test_optimizer.py      # Single test file
 
 ## Environment
 
-Requires a `.env` file at project root. Required variables:
-- `WATTTIME_USERNAME`, `WATTTIME_PASSWORD` — carbon intensity data source
+Requires a `.env` file at project root. Copy `.env.example` to get started. Key variables:
 
-Optional: AWS S3 credentials for export storage. See `src/runtime_config.py` for the full list and fallback order (env vars → `.env` → Streamlit Secrets).
+| Variable | Required | Purpose |
+|---|---|---|
+| `WATTTIME_USERNAME`, `WATTTIME_PASSWORD` | Yes (live mode) | Carbon intensity data |
+| `ANTHROPIC_API_KEY` | Yes (AI summary) | Claude API for AI Decision Summary |
+| `AI_SUMMARY_ENABLED` | No (default `true`) | Toggle AI summary feature |
+| `AI_SUMMARY_MODEL` | No (default `claude-haiku-4-5-20251001`) | Model used for summaries |
+| `AI_SUMMARY_RATE_LIMIT` | No (default `10`) | Requests per 60s per IP |
+| `UTIL_API_BASE_URL` | Deployed Streamlit only | Backend URL for Streamlit→FastAPI calls; defaults to `http://127.0.0.1:8000` |
+| `UTIL_SHOW_AI_DEBUG` | No (default `false`) | Show AI debug panel in Streamlit UI |
+
+`get_setting()` in `src/runtime_config.py` resolves variables in this order: `os.environ` → `.env` (loaded at import time via `load_dotenv`) → Streamlit Secrets → supplied default.
 
 ## Architecture
 
@@ -72,18 +81,34 @@ One adapter per electricity market: CAISO (California), ERCOT (Texas), PJM, MISO
 
 ### Optimization Modes
 - **Schedule types**: `flexible` (best individual intervals) vs `block` (single continuous window)
-- **Objectives**: `carbon`, `cost`, or `balanced` (weighted combination)
+- **Objectives**: `carbon`, `cost`, or `balanced` (weighted combination). Must be exactly one of these strings — UI display labels (`"Minimize Carbon"` etc.) must be mapped to backend values before passing to the pipeline.
 - **Estimation**: `forecast_only` or `forecast_plus_historical_expectation`
 
 ### Forecasting (`src/forecasting/`)
 Short-horizon forecasts are extended using ML pattern matching (`pattern_extension.py`) and blended with historical data (`carbon_blender.py`). In demo mode, sample CSVs under `data/raw/` are used instead of live API calls.
 
+### AI Decision Summary (`src/services/ai/`)
+Strictly additive layer — does not affect optimizer logic or scheduling. Architecture:
+
+- `POST /api/v1/ai/interpret` (`src/api/routes/ai.py`) — rate-limited FastAPI route
+- `ai_service.py` — calls Anthropic API, returns `AiInterpretResponse`; never raises, always falls back to `status="unavailable"`
+- `schemas.py` — `AiInterpretRequest` / `AiInterpretResponse`; decoupled from optimizer schemas
+- `prompts.py` — structured system prompt with judgment criteria (`tradeoff_strength`, `decision_confidence`, `objective_driver`, `alternative_attractiveness`) + single `summary` paragraph
+- `streamlit_client.py` — Streamlit-side HTTP client; resolves backend URL via `st.secrets["UTIL_API_BASE_URL"]` → `os.getenv` → localhost fallback
+
+The React frontend calls the same endpoint via `frontend/src/lib/api.ts:interpretOptimization()`. Both surfaces use the same backend AI layer with different UI wrappers only.
+
+Provider timeout is 30 seconds (`_PROVIDER_TIMEOUT_SECONDS` in `ai_service.py`). All logs use bracketed tags (`[AI-3-CONFIG]`, `[AI-8]`, etc.) for easy grepping in Render logs.
+
 ### Multiple Interfaces
 The same Python optimization engine is exposed through four surfaces:
-- **Streamlit app** (`app.py`) — interactive dashboard
+- **Streamlit app** (`app.py`) — interactive dashboard; the Streamlit process must also have the FastAPI backend reachable for the AI summary feature
 - **FastAPI REST API** (`src/api/main.py`) — programmatic access; schemas in `src/api/schemas.py`
 - **React frontend** (`frontend/src/`) — modern web UI with TanStack Query and React Hook Form
 - **Tauri desktop app** (`frontend/src-tauri/`) — native wrapper around the React frontend; Rust sidecar launcher in `scripts/backend_sidecar.py`
 
 ### Location Resolution (`src/location/`)
 `zip_resolver.py` → `region_resolver.py` → `location_service.py` (WattTime region lookup). Demo mode uses `data/raw/zip_to_region_sample.csv`.
+
+### Multi-Location Analysis (`src/analysis/multi_location.py`)
+`run_multi_location_analysis()` runs the full pipeline once per ZIP and returns `(summary_df, timeseries)` — a scalar results DataFrame plus per-ZIP time series dicts containing `timestamp`, `price_per_kwh`, `carbon_g_per_kwh`, and `run_flag` from `result["schedule"]`. The Streamlit tab uses this to render overlay charts without additional pipeline runs.

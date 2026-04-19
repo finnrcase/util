@@ -182,37 +182,6 @@ def run_util_pipeline(
         (time.perf_counter() - forecast_started_at) * 1000.0,
     )
 
-    print(
-        "[OPTIMIZER INPUT DEBUG] Pricing context:",
-        {
-            "pricing_status": (
-                forecast_df["pricing_status"].dropna().iloc[0]
-                if "pricing_status" in forecast_df.columns and not forecast_df["pricing_status"].dropna().empty
-                else ""
-            ),
-            "pricing_source": (
-                forecast_df["pricing_source"].dropna().iloc[0]
-                if "pricing_source" in forecast_df.columns and not forecast_df["pricing_source"].dropna().empty
-                else ""
-            ),
-            "pricing_market": (
-                forecast_df["pricing_market"].dropna().iloc[0]
-                if "pricing_market" in forecast_df.columns and not forecast_df["pricing_market"].dropna().empty
-                else ""
-            ),
-            "pricing_node": (
-                forecast_df["pricing_node"].dropna().iloc[0]
-                if "pricing_node" in forecast_df.columns and not forecast_df["pricing_node"].dropna().empty
-                else ""
-            ),
-            "forecast_rows": len(forecast_df),
-            "optimizer_intervals": len(forecast_df),
-            "non_null_price_rows": int(forecast_df["price_per_kwh"].notna().sum()) if "price_per_kwh" in forecast_df.columns else 0,
-            "placeholder_price_rows": int((forecast_df.get("price_signal_source") == "placeholder").sum()) if "price_signal_source" in forecast_df.columns else 0,
-            "live_price_rows": int((forecast_df.get("price_signal_source") == "live_forecast").sum()) if "price_signal_source" in forecast_df.columns else 0,
-        },
-    )
-
     baseline_started_at = time.perf_counter()
     pipeline_logger.info("Util pipeline: baseline build start")
     baseline_df = build_baseline_func(

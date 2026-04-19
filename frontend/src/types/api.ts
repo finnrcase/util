@@ -228,4 +228,55 @@ export interface OptimizeResponse {
     coverage_note: string;
   };
   diagnostics?: Record<string, unknown> | null;
+  feasibility_analysis?: FeasibilityAnalysis | null;
+}
+
+// ---------------------------------------------------------------------------
+// Opportunity Screening — feasibility_analysis nested object
+// ---------------------------------------------------------------------------
+
+export type RecommendationCategory =
+  | "Prioritize"
+  | "Promising but monitor"
+  | "Caution"
+  | "Deprioritize";
+
+export type FeasibilityBucket = "Low" | "Moderate" | "High";
+
+export type OverallLabel = "Strong" | "Moderate" | "Marginal" | "Infeasible";
+
+export interface FeasibilityDriver {
+  key: string;
+  label: string;
+  rank: number;
+  severity: number;
+  direction: "risk" | "opportunity";
+  detail: string;
+}
+
+export interface FeasibilityAnalysis {
+  recommendation: {
+    category: RecommendationCategory;
+    headline: string;
+    body: string;
+    action: string;
+  };
+  summary: {
+    overall_label: OverallLabel;
+    feasibility_score: number;
+    friction_score: number;
+    delay_risk_score: number;
+    feasibility_bucket: FeasibilityBucket;
+    friction_bucket: FeasibilityBucket;
+    delay_risk_bucket: FeasibilityBucket;
+  };
+  component_scores: {
+    grid_stress_score: number | null;
+    price_volatility_risk: number | null;
+    carbon_instability_risk: number | null;
+    timing_risk: number | null;
+    load_pressure_score: number | null;
+  };
+  drivers: FeasibilityDriver[];
+  interpretation: string;
 }

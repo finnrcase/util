@@ -84,7 +84,7 @@ async def log_optimize_requests(request: Request, call_next):
     return response
 
 
-@app.post("/api/v1/optimize", response_model=OptimizeResponse)
+@app.post("/api/v1/optimize", response_model=OptimizeResponse, response_model_exclude_none=True)
 def optimize(request: OptimizeRequest) -> OptimizeResponse:
     started_at = time.perf_counter()
     api_logger.info(
@@ -126,16 +126,31 @@ def optimize(request: OptimizeRequest) -> OptimizeResponse:
 
 
 @app.get("/health")
-@app.get("/api/v1/health")
-def health() -> dict[str, str]:
+def health() -> JSONResponse:
     api_logger.info(
         "Util API health ready: process_uptime_ms=%.1f",
         (time.time() - PROCESS_STARTED_AT) * 1000.0,
     )
-    return {
-        "status": "ok",
-        "service": "util-api",
-    }
+    return JSONResponse(
+        content={
+            "status": "ok",
+            "service": "util-api",
+        }
+    )
+
+
+@app.get("/api/v1/health")
+def api_health() -> JSONResponse:
+    api_logger.info(
+        "Util API versioned health ready: process_uptime_ms=%.1f",
+        (time.time() - PROCESS_STARTED_AT) * 1000.0,
+    )
+    return JSONResponse(
+        content={
+            "status": "ok",
+            "service": "util-api",
+        }
+    )
 
 
 @app.get("/api/v1/coverage", response_model=CoverageResponse)

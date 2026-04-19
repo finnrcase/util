@@ -1,13 +1,20 @@
 import type { AiInterpretRequest, AiInterpretResponse, CoverageResponse, ExportRequest, ExportResponse, OptimizeRequest, OptimizeResponse } from "../types/api";
 
+const DEFAULT_BACKEND_BASE_URL = "http://127.0.0.1:8000";
 const rawApiBaseUrl = import.meta.env.VITE_API_BASE_URL as string | undefined;
-const isAbsoluteApiBase = typeof rawApiBaseUrl === "string" && /^https?:\/\//i.test(rawApiBaseUrl);
-const API_BASE_URL = (rawApiBaseUrl ?? "").replace(/\/+$/, "");
-const API_PREFIX = import.meta.env.DEV ? "" : API_BASE_URL;
+const normalizedConfiguredApiBase = (rawApiBaseUrl ?? "").replace(/\/+$/, "");
+const isAbsoluteApiBase = /^https?:\/\//i.test(normalizedConfiguredApiBase);
 const IS_DEV = import.meta.env.DEV;
+const BACKEND_BASE_URL = isAbsoluteApiBase ? normalizedConfiguredApiBase : DEFAULT_BACKEND_BASE_URL;
+const API_BASE_URL = IS_DEV
+  ? normalizedConfiguredApiBase
+  : BACKEND_BASE_URL;
+const API_PREFIX = IS_DEV ? "" : API_BASE_URL;
 
-if (!IS_DEV && !API_BASE_URL) {
-  console.warn("[util-api] No VITE_API_BASE_URL is configured for a non-dev build. Desktop packaging should set VITE_API_BASE_URL to the local backend address.");
+if (!IS_DEV && !normalizedConfiguredApiBase) {
+  console.warn(
+    `[util-api] No VITE_API_BASE_URL is configured for a non-dev build. Falling back to ${DEFAULT_BACKEND_BASE_URL}.`,
+  );
 }
 
 type HealthResponse = {
@@ -22,8 +29,16 @@ function logDev(label: string, value: unknown): void {
 }
 
 function buildApiUrl(path: string): string {
+  if (/^https?:\/\//i.test(path)) {
+    return path;
+  }
   const normalizedPath = path.startsWith("/") ? path : `/${path}`;
   return `${API_PREFIX}${normalizedPath}`;
+}
+
+function buildBackendUrl(path: string): string {
+  const normalizedPath = path.startsWith("/") ? path : `/${path}`;
+  return `${BACKEND_BASE_URL}${normalizedPath}`;
 }
 
 function classifyNetworkError(error: unknown): string {
@@ -127,16 +142,32 @@ async function requestJson<T>(path: string, init?: RequestInit): Promise<T> {
     throw await buildResponseError(response, finalUrl);
   }
 
+  const responseText = await response.text();
+  const responsePreview = responseText.slice(0, 300);
+  const contentType = response.headers.get("content-type") ?? "";
+
+  console.info("[util-api] response body preview", {
+    url: finalUrl,
+    status: response.status,
+    contentType,
+    bodyPreview: responsePreview,
+  });
+
   try {
-    return (await response.json()) as T;
+    return JSON.parse(responseText) as T;
   } catch (error) {
+    const parseMessage = error instanceof Error ? error.message : String(error);
     console.error("[util-api] response parse error", {
       url: finalUrl,
+      status: response.status,
+      contentType,
+      bodyPreview: responsePreview,
       durationMs: performance.now() - startedAt,
       error,
     });
     throw new Error(
-      `Optimize request failed (parse_error): Response from ${finalUrl} was not valid JSON.`
+      `Optimize request failed (parse_error): Response from ${finalUrl} was not valid JSON. `
+      + `content-type=${contentType || "<missing>"} preview=${JSON.stringify(responsePreview)} parse=${parseMessage}`
     );
   }
 }
@@ -169,13 +200,17 @@ export function buildExportDownloadUrl(path: string): string {
   return buildApiUrl(`/api/v1/export/download?path=${encodeURIComponent(path)}`);
 }
 
-export { API_BASE_URL };
-export const RESOLVED_API_MODE = import.meta.env.DEV ? "vite-proxy" : isAbsoluteApiBase ? "absolute" : API_BASE_URL || "relative";
+export { API_BASE_URL, BACKEND_BASE_URL };
+export const RESOLVED_API_MODE = import.meta.env.DEV ? "vite-proxy" : isAbsoluteApiBase ? "configured-absolute" : "desktop-fallback";
 export const HEALTH_PATH = "/health";
-export const HEALTH_URL = buildApiUrl(HEALTH_PATH);
+export const HEALTH_URL = buildBackendUrl(HEALTH_PATH);
 
 export async function fetchHealth(): Promise<HealthResponse> {
-  return requestJson<HealthResponse>(HEALTH_PATH);
+  return requestJson<HealthResponse>(HEALTH_URL, {
+    headers: {
+      Accept: "application/json",
+    },
+  });
 }
 
 export async function interpretOptimization(payload: AiInterpretRequest): Promise<AiInterpretResponse> {
@@ -192,10 +227,24 @@ export async function waitForBackendReady(retries = 20, delayMs = 500): Promise<
   let lastError: unknown;
 
   for (let attempt = 1; attempt <= retries; attempt += 1) {
+    console.info("[util-api] backend readiness attempt", {
+      attempt,
+      retries,
+      healthUrl: HEALTH_URL,
+      apiBaseUrl: API_BASE_URL || "<relative>",
+      backendBaseUrl: BACKEND_BASE_URL,
+      mode: RESOLVED_API_MODE,
+    });
     try {
       return await fetchHealth();
     } catch (error) {
       lastError = error;
+      console.error("[util-api] backend readiness attempt failed", {
+        attempt,
+        healthUrl: HEALTH_URL,
+        backendBaseUrl: BACKEND_BASE_URL,
+        error,
+      });
       if (attempt < retries) {
         await new Promise((resolve) => window.setTimeout(resolve, delayMs));
       }

@@ -1,8 +1,8 @@
 from __future__ import annotations
 
-from pathlib import Path
 import logging
 import time
+from pathlib import Path
 
 from src.api.schemas import CoverageResponse, ExportRequest, ExportResponse, OptimizeRequest, OptimizeResponse
 from src.api.serializers import (
@@ -81,7 +81,7 @@ def execute_optimization(request: OptimizeRequest) -> dict:
 def build_optimize_response(request: OptimizeRequest, result: dict) -> OptimizeResponse:
     started_at = time.perf_counter()
     api_logger.info("Util API optimize response build start")
-    diagnostics = build_diagnostics_summary(result) if request.include_diagnostics else None
+
     response = OptimizeResponse(
         input=build_input_summary(request.model_dump()),
         location=build_location_summary(result),
@@ -92,8 +92,10 @@ def build_optimize_response(request: OptimizeRequest, result: dict) -> OptimizeR
         schedule=build_schedule_summary(result),
         charts=build_chart_payloads(result),
         provenance=build_provenance_summary(result),
-        diagnostics=diagnostics,
+        diagnostics=build_diagnostics_summary(result) if request.include_diagnostics else None,
+        feasibility_analysis=_build_feasibility_payload(request, result),
     )
+
     api_logger.info(
         "Util API optimize response build success: summary_cards=%s badges=%s chart_keys=%s elapsed_ms=%.1f",
         len(response.summary.get("cards", [])),
@@ -137,6 +139,41 @@ def build_coverage_response() -> CoverageResponse:
             "PJM and NYISO are not part of this thin API phase.",
         ],
     )
+
+
+def _build_feasibility_payload(
+    request: OptimizeRequest,
+    result: dict,
+) -> dict | None:
+    """
+    Run Opportunity Screening from the existing pipeline result.
+
+    This helper never raises. If screening fails, the optimizer response still
+    succeeds and `feasibility_analysis` is omitted.
+    """
+    try:
+        from src.analysis.feasibility_analysis import (
+            run_feasibility_from_pipeline_result,
+            serialize_feasibility_result,
+        )
+
+        deadline_str = (
+            request.deadline.isoformat()
+            if hasattr(request.deadline, "isoformat")
+            else str(request.deadline)
+        )
+        feasibility_result = run_feasibility_from_pipeline_result(
+            pipeline_result=result,
+            deadline_str=deadline_str,
+        )
+        return serialize_feasibility_result(feasibility_result)
+    except Exception as exc:
+        api_logger.warning(
+            "Util API feasibility: analysis failed, omitting from response: type=%s msg=%s",
+            type(exc).__name__,
+            str(exc)[:200],
+        )
+        return None
 
 
 def build_export_response(request: ExportRequest) -> ExportResponse:

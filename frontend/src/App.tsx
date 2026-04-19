@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useMutation, useQuery } from "@tanstack/react-query";
-import { Bolt, ChartColumn, Cpu, Download, Globe, Info, LineChart } from "lucide-react";
+import { Bolt, ChartColumn, Cpu, Download, Globe, Info, LineChart, ScanSearch } from "lucide-react";
 import { AppShell } from "./components/AppShell";
 import { SidebarNav, type SidebarItem } from "./components/SidebarNav";
 import { TopBar } from "./components/TopBar";
@@ -16,9 +16,10 @@ import { ExportsTab } from "./features/dashboard/tabs/ExportsTab";
 import { SavingsAnalysisTab } from "./features/dashboard/tabs/SavingsAnalysisTab";
 import { PowerEstimatorTab } from "./features/dashboard/tabs/PowerEstimatorTab";
 import { MultiLocationTab } from "./features/dashboard/tabs/MultiLocationTab";
+import { OpportunityScreeningTab } from "./features/dashboard/tabs/OpportunityScreeningTab";
 import { AboutUtilTab } from "./features/dashboard/tabs/AboutUtilTab";
 
-type DashboardTabId = "optimizer" | "forecast_visuals" | "savings_analysis" | "power_estimator" | "multi_location" | "exports" | "about_util";
+type DashboardTabId = "optimizer" | "forecast_visuals" | "savings_analysis" | "power_estimator" | "multi_location" | "opportunity_screening" | "exports" | "about_util";
 
 const sidebarItems: SidebarItem[] = [
   { id: "optimizer", label: "Optimizer", icon: Bolt },
@@ -26,6 +27,7 @@ const sidebarItems: SidebarItem[] = [
   { id: "savings_analysis", label: "Savings Analysis", icon: ChartColumn },
   { id: "power_estimator", label: "Power Estimator", icon: Cpu },
   { id: "multi_location", label: "Multi Location", icon: Globe },
+  { id: "opportunity_screening", label: "Opportunity Screening", icon: ScanSearch },
   { id: "exports", label: "Exports", icon: Download },
   { id: "about_util", label: "About Util", icon: Info },
 ];
@@ -49,6 +51,10 @@ const tabConfig: Record<DashboardTabId, { title: string; subtitle: string }> = {
   },
   multi_location: {
     title: "Multi Location",
+    subtitle: "",
+  },
+  opportunity_screening: {
+    title: "Opportunity Screening",
     subtitle: "",
   },
   exports: {
@@ -213,6 +219,8 @@ export default function App() {
         return <PowerEstimatorTab onApplyEstimator={handleApplyEstimator} />;
       case "multi_location":
         return <MultiLocationTab initialValues={formSchema.parse(getValues())} onUseBestLocation={handleUseBestLocation} />;
+      case "opportunity_screening":
+        return <OpportunityScreeningTab data={currentRun ?? null} />;
       case "exports":
         return (
           <ExportsTab

@@ -17,6 +17,28 @@ client = TestClient(app)
 VERCEL_ORIGIN = "https://util-ten-delta.vercel.app"
 
 
+def test_health_endpoint_returns_json() -> None:
+    response = client.get("/health")
+
+    assert response.status_code == 200
+    assert response.headers["content-type"].startswith("application/json")
+    assert response.json() == {
+        "status": "ok",
+        "service": "util-api",
+    }
+
+
+def test_versioned_health_endpoint_returns_json() -> None:
+    response = client.get("/api/v1/health")
+
+    assert response.status_code == 200
+    assert response.headers["content-type"].startswith("application/json")
+    assert response.json() == {
+        "status": "ok",
+        "service": "util-api",
+    }
+
+
 def _fake_result() -> dict:
     timestamps = pd.to_datetime(
         [
@@ -102,7 +124,7 @@ def _fake_result() -> dict:
 
 
 def test_optimize_endpoint_returns_frontend_safe_sections(monkeypatch) -> None:
-    monkeypatch.setattr("src.api.main.execute_optimization", lambda request: _fake_result())
+    monkeypatch.setattr("src.api.service.execute_optimization", lambda request: _fake_result())
 
     response = client.post(
         "/api/v1/optimize",
@@ -129,6 +151,7 @@ def test_optimize_endpoint_returns_frontend_safe_sections(monkeypatch) -> None:
         "charts",
         "provenance",
         "diagnostics",
+        "feasibility_analysis",
     }
     assert payload["location"]["resolved_region"] == "LDWP"
     assert payload["pricing"]["pricing_source"] == "CAISO"
@@ -141,6 +164,32 @@ def test_optimize_endpoint_returns_frontend_safe_sections(monkeypatch) -> None:
     assert "price_timeseries" in payload["charts"]
     assert payload["charts"]["baseline_vs_optimized_comparison"]["rows"][0]["metric"] == "Cost"
     assert payload["diagnostics"]["price_alignment_method"] == "merge_asof_backward"
+    assert payload["feasibility_analysis"]["summary"]["overall_label"] in {"Strong", "Moderate", "Marginal", "Infeasible"}
+    assert "drivers" in payload["feasibility_analysis"]
+
+
+def test_optimize_omits_feasibility_analysis_when_screening_fails(monkeypatch) -> None:
+    monkeypatch.setattr("src.api.service.execute_optimization", lambda request: _fake_result())
+
+    def _raise(*args, **kwargs):
+        raise RuntimeError("screening failed")
+
+    monkeypatch.setattr("src.analysis.feasibility_analysis.run_feasibility_from_pipeline_result", _raise)
+
+    response = client.post(
+        "/api/v1/optimize",
+        json={
+            "zip_code": "90012",
+            "compute_hours_required": 1,
+            "deadline": "2026-03-27T06:00:00",
+            "objective": "cost",
+            "machine_watts": 1000,
+        },
+    )
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert "feasibility_analysis" not in payload
 
 
 def test_optimize_preflight_options_returns_cors_headers() -> None:
@@ -160,7 +209,7 @@ def test_optimize_preflight_options_returns_cors_headers() -> None:
 
 
 def test_optimize_post_returns_cors_headers_for_browser_origin(monkeypatch) -> None:
-    monkeypatch.setattr("src.api.main.execute_optimization", lambda request: _fake_result())
+    monkeypatch.setattr("src.api.service.execute_optimization", lambda request: _fake_result())
 
     response = client.post(
         "/api/v1/optimize",
@@ -242,7 +291,7 @@ def test_coverage_endpoint_returns_supported_markets() -> None:
 
 def test_export_endpoint_returns_artifact_info(monkeypatch) -> None:
     monkeypatch.setattr(
-        "src.api.main.build_export_response",
+        "src.api.service.build_export_response",
         lambda request: ExportResponse(
             export_dir="c:/dev/util/exports/api/util-test",
             run_id="util-test",
