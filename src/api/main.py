@@ -106,6 +106,22 @@ def optimize(request: OptimizeRequest) -> OptimizeResponse:
             (time.perf_counter() - started_at) * 1000.0,
         )
         return response
+    except TimeoutError as exc:
+        api_logger.error(
+            "Util API optimize route timeout zip=%s objective=%s elapsed_ms=%.1f msg=%s",
+            request.zip_code,
+            request.objective,
+            (time.perf_counter() - started_at) * 1000.0,
+            str(exc),
+        )
+        return JSONResponse(
+            status_code=503,
+            content={
+                "error": "Location lookup timed out",
+                "error_type": "TimeoutError",
+                "detail": str(exc),
+            },
+        )
     except Exception as exc:
         trace = traceback.format_exc()
         api_logger.exception(
