@@ -17,6 +17,12 @@ function formatCurrency(value: number | null | undefined): string {
   return `$${Number(value ?? 0).toFixed(2)}`;
 }
 
+function formatPercentChange(value: number | null | undefined): string {
+  const numericValue = Number(value ?? 0);
+  const absValue = Math.abs(numericValue).toFixed(1);
+  return numericValue >= 0 ? `${absValue}% lower` : `${absValue}% higher`;
+}
+
 export function SavingsAnalysisTab({ data, isLoading, errorMessage }: SavingsAnalysisTabProps) {
   if (isLoading) {
     return <SectionCard title="Savings Analysis" subtitle=""><div className="rounded-[1.6rem] border border-white/10 bg-white/[0.03] p-10 text-center text-muted">Calculating savings, carbon outcomes, and the recommendation summary...</div></SectionCard>;
@@ -43,10 +49,34 @@ export function SavingsAnalysisTab({ data, isLoading, errorMessage }: SavingsAna
 
   const cards: SummaryCardModel[] = [
     { id: "workload_energy", title: "Workload Energy", value: `${workloadEnergyKwh.toFixed(2)} kWh` },
-    { id: "cost_outcome", title: "Cost Outcome", value: formatCurrency(optimizedCost), supporting_text: `Baseline ${formatCurrency(baselineCost)}`, tone: "positive" },
-    { id: "carbon_outcome", title: "Carbon Outcome", value: formatKg(optimizedCarbon), supporting_text: `Baseline ${formatKg(baselineCarbon)}`, tone: "positive" },
-    { id: "saved_vs_baseline", title: "Savings vs Baseline", value: formatCurrency(costSavings), supporting_text: `${costReductionPct.toFixed(1)}% lower`, tone: "positive" },
-    { id: "carbon_reduction", title: "Carbon Reduction", value: formatKg(carbonSavings), supporting_text: `${carbonReductionPct.toFixed(1)}% lower`, tone: "positive" },
+    {
+      id: "cost_change",
+      title: "Running Cost Change",
+      value: formatPercentChange(costReductionPct),
+      supporting_text: `${formatCurrency(baselineCost)} now -> ${formatCurrency(optimizedCost)} optimized`,
+      tone: "positive",
+    },
+    {
+      id: "carbon_change",
+      title: "Carbon Change",
+      value: formatPercentChange(carbonReductionPct),
+      supporting_text: `${formatKg(baselineCarbon)} now -> ${formatKg(optimizedCarbon)} optimized`,
+      tone: "positive",
+    },
+    {
+      id: "saved_vs_baseline",
+      title: "Dollar Savings",
+      value: formatCurrency(costSavings),
+      supporting_text: `Current objective: ${objectiveLabel}`,
+      tone: "positive",
+    },
+    {
+      id: "carbon_reduction",
+      title: "Carbon Reduction",
+      value: formatKg(carbonSavings),
+      supporting_text: `${compactRuntimeLabel(data)} compute window`,
+      tone: "positive",
+    },
     { id: "deadline_status", title: "Deadline / Completion", value: completionStatus(data), supporting_text: formatDateTime(data.input.deadline) },
   ];
 
