@@ -39,6 +39,17 @@ def test_versioned_health_endpoint_returns_json() -> None:
     }
 
 
+def test_warmup_endpoint_returns_json(monkeypatch) -> None:
+    monkeypatch.setattr("src.location.zip_resolver.warm_zip_lookup", lambda country_code="US": None)
+
+    response = client.post("/api/v1/warmup")
+
+    assert response.status_code == 200
+    assert response.headers["content-type"].startswith("application/json")
+    assert response.json()["status"] == "ok"
+    assert response.json()["service"] == "util-api"
+
+
 def _fake_result() -> dict:
     timestamps = pd.to_datetime(
         [

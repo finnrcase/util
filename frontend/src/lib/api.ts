@@ -22,6 +22,12 @@ type HealthResponse = {
   service: string;
 };
 
+type WarmupResponse = {
+  status: string;
+  service: string;
+  steps?: string[];
+};
+
 function logDev(label: string, value: unknown): void {
   if (IS_DEV) {
     console.info(`[util-api] ${label}`, value);
@@ -213,6 +219,15 @@ export async function fetchHealth(): Promise<HealthResponse> {
   });
 }
 
+export async function triggerWarmup(): Promise<WarmupResponse> {
+  return requestJson<WarmupResponse>("/api/v1/warmup", {
+    method: "POST",
+    headers: {
+      Accept: "application/json",
+    },
+  });
+}
+
 export async function interpretOptimization(payload: AiInterpretRequest): Promise<AiInterpretResponse> {
   return requestJson<AiInterpretResponse>("/api/v1/ai/interpret", {
     method: "POST",
@@ -236,7 +251,11 @@ export async function waitForBackendReady(retries = 20, delayMs = 500): Promise<
       mode: RESOLVED_API_MODE,
     });
     try {
-      return await fetchHealth();
+      const health = await fetchHealth();
+      void triggerWarmup().catch((error: unknown) => {
+        console.warn("[util-api] backend warmup request failed", { error });
+      });
+      return health;
     } catch (error) {
       lastError = error;
       console.error("[util-api] backend readiness attempt failed", {

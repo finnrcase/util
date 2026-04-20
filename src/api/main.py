@@ -153,6 +153,37 @@ def api_health() -> JSONResponse:
     )
 
 
+@app.post("/api/v1/warmup")
+def warmup() -> JSONResponse:
+    started_at = time.perf_counter()
+    warmup_steps: list[str] = []
+
+    try:
+        from src.location.zip_resolver import warm_zip_lookup
+
+        warm_zip_lookup("US")
+        warmup_steps.append("zip_lookup")
+    except Exception as exc:
+        api_logger.warning(
+            "Util API warmup: zip warmup failed type=%s msg=%s",
+            type(exc).__name__,
+            str(exc)[:200],
+        )
+
+    api_logger.info(
+        "Util API warmup complete: steps=%s elapsed_ms=%.1f",
+        warmup_steps,
+        (time.perf_counter() - started_at) * 1000.0,
+    )
+    return JSONResponse(
+        content={
+            "status": "ok",
+            "service": "util-api",
+            "steps": warmup_steps,
+        }
+    )
+
+
 @app.get("/api/v1/coverage", response_model=CoverageResponse)
 def coverage() -> CoverageResponse:
     from src.api.service import build_coverage_response

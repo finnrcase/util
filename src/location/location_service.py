@@ -18,13 +18,31 @@ location_logger = logging.getLogger("uvicorn.error")
 def resolve_zip_to_watttime_region(zip_code: str) -> dict[str, Any]:
     started_at = time.perf_counter()
     location_logger.info("Util location: zip->coordinates start zip=%s", zip_code)
-    coordinate_info = zip_to_coordinates(zip_code)
-    location_logger.info(
-        "Util location: zip->coordinates success zip=%s lat=%s lon=%s",
-        coordinate_info["zip_code"],
-        coordinate_info["latitude"],
-        coordinate_info["longitude"],
-    )
+    try:
+        coordinate_info = zip_to_coordinates(zip_code)
+        location_logger.info(
+            "Util location: zip->coordinates success zip=%s lat=%s lon=%s source=%s retry_used=%s lookup_elapsed_ms=%.1f",
+            coordinate_info["zip_code"],
+            coordinate_info["latitude"],
+            coordinate_info["longitude"],
+            coordinate_info.get("_lookup_source", "unknown"),
+            coordinate_info.get("_retry_used", False),
+            float(coordinate_info.get("_lookup_duration_ms", 0.0)),
+        )
+    except TimeoutError:
+        location_logger.exception(
+            "Util location: zip->coordinates timeout zip=%s total_elapsed_ms=%.1f",
+            zip_code,
+            (time.perf_counter() - started_at) * 1000.0,
+        )
+        raise
+    except Exception:
+        location_logger.exception(
+            "Util location: zip->coordinates failure zip=%s total_elapsed_ms=%.1f",
+            zip_code,
+            (time.perf_counter() - started_at) * 1000.0,
+        )
+        raise
 
     region_started_at = time.perf_counter()
     location_logger.info(
