@@ -265,7 +265,20 @@ export default function App() {
         <div className="mx-auto flex w-full max-w-[1360px] flex-col gap-6 xl:gap-7">
           {!isBackendReady ? (
             <div className={`flex items-center justify-between gap-4 rounded-[1.25rem] border px-4 py-3 text-sm ${backendError ? "border-danger/25 bg-danger/10 text-red-100" : "border-violet-300/14 bg-[linear-gradient(180deg,rgba(167,139,250,0.08),rgba(167,139,250,0.02))] text-slate-100/90"}`}>
-              <span>{backendError ? backendError : `Connecting to backend\u2026`}</span>
+              <div className="flex items-center gap-3">
+                {!backendError ? (
+                  <span aria-hidden="true" className="relative inline-flex h-4 w-4 shrink-0 items-center justify-center">
+                    <span className="absolute inset-0 rounded-full border-2 border-violet-300/20" />
+                    <span className="absolute inset-0 animate-spin rounded-full border-2 border-transparent border-t-violet-300/80 border-r-violet-300/40" />
+                  </span>
+                ) : null}
+                <div>
+                  <span>{backendError ? backendError : "Connecting to backend…"}</span>
+                  {!backendError ? (
+                    <span className="ml-2 text-xs text-slate-400">This can take 25–30 seconds on first load (demo server waking up).</span>
+                  ) : null}
+                </div>
+              </div>
               {backendError ? (
                 <button type="button" onClick={() => setBackendRetryKey((k) => k + 1)} className="shrink-0 rounded-full border border-white/10 bg-white/[0.06] px-3 py-1.5 text-xs text-slate-100 hover:bg-white/10">
                   Retry connection
