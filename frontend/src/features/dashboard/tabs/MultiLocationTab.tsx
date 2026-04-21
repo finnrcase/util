@@ -11,6 +11,7 @@ import type { Objective, OptimizeRequest, OptimizeResponse } from "../../../type
 interface MultiLocationTabProps {
   initialValues: FormValues;
   onUseBestLocation: (zip: string) => void;
+  isBackendReady?: boolean;
 }
 
 interface LocationResult {
@@ -161,7 +162,7 @@ function ResultCard({ result, isBest }: { result: LocationResult; isBest: boolea
     return (
       <div className="rounded-[1.5rem] border border-danger/25 bg-danger/10 p-5">
         <div className="flex items-center justify-between gap-3">
-          <p className="text-sm font-semibold text-red-100">Location {result.slotId} · {result.zip}</p>
+          <p className="text-sm font-semibold text-red-100">Location {result.slotId} ï¿½ {result.zip}</p>
           <span className="rounded-full border border-danger/25 bg-danger/10 px-3 py-1 text-xs text-red-100">Failed</span>
         </div>
         <p className="mt-3 text-sm leading-6 text-red-100/90">{result.error}</p>
@@ -214,7 +215,7 @@ function ResultCard({ result, isBest }: { result: LocationResult; isBest: boolea
   );
 }
 
-export function MultiLocationTab({ initialValues, onUseBestLocation }: MultiLocationTabProps) {
+export function MultiLocationTab({ initialValues, onUseBestLocation, isBackendReady = true }: MultiLocationTabProps) {
   const [comparisonValues, setComparisonValues] = useState<FormValues>(initialValues);
   const [zips, setZips] = useState({ A: "90012", B: "77002", C: "60601" });
   const [results, setResults] = useState<LocationResult[]>([]);
@@ -259,7 +260,7 @@ export function MultiLocationTab({ initialValues, onUseBestLocation }: MultiLoca
 
     const isCarbonFocused = comparisonValues.objective === "carbon";
     const series = successful.map((entry, index) => ({
-      label: `Location ${entry.slotId} · ${entry.zip}`,
+      label: `Location ${entry.slotId} ï¿½ ${entry.zip}`,
       stroke: comparisonStrokes[index % comparisonStrokes.length],
       rows: isCarbonFocused ? chartRowsFromCarbon(entry.result) : chartRowsFromPrice(entry.result),
     })).filter((entry) => entry.rows.length);
@@ -367,7 +368,7 @@ export function MultiLocationTab({ initialValues, onUseBestLocation }: MultiLoca
           </div>
           <div className="flex flex-wrap gap-3">
             <button type="button" onClick={() => { setResults([]); setValidationError(null); }} className="rounded-[1.2rem] border border-white/10 bg-white/[0.04] px-4 py-2.5 text-sm text-slate-100/90 transition hover:bg-white/[0.07]">Reset Results</button>
-            <button type="button" onClick={handleRunComparison} disabled={comparisonMutation.isPending} className="rounded-[1.25rem] bg-gradient-to-r from-violet-200 via-fuchsia-300 to-cyan-200 px-5 py-3 text-sm font-semibold text-slate-950 shadow-[0_16px_36px_rgba(139,92,246,0.32)] transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-60">{comparisonMutation.isPending ? "Running Comparison..." : "Run location comparison"}</button>
+            <button type="button" onClick={handleRunComparison} disabled={comparisonMutation.isPending || !isBackendReady} className="rounded-[1.25rem] bg-gradient-to-r from-violet-200 via-fuchsia-300 to-cyan-200 px-5 py-3 text-sm font-semibold text-slate-950 shadow-[0_16px_36px_rgba(139,92,246,0.32)] transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-60">{comparisonMutation.isPending ? "Running Comparison..." : "Run location comparison"}</button>
           </div>
         </div>
         {validationError ? <div className="mt-4 rounded-2xl border border-amber-300/25 bg-amber-300/10 p-4 text-sm text-amber-100">{validationError}</div> : null}

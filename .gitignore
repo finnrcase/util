@@ -10,6 +10,7 @@ __pycache__/
 .env
 .venv/
 .vscode/
+.env.example
 
 dist/
 build/

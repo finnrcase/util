@@ -212,11 +212,16 @@ export const HEALTH_PATH = "/health";
 export const HEALTH_URL = buildBackendUrl(HEALTH_PATH);
 
 export async function fetchHealth(): Promise<HealthResponse> {
-  return requestJson<HealthResponse>(HEALTH_URL, {
-    headers: {
-      Accept: "application/json",
-    },
-  });
+  const controller = new AbortController();
+  const timer = window.setTimeout(() => controller.abort(), 8_000);
+  try {
+    return await requestJson<HealthResponse>(HEALTH_URL, {
+      headers: { Accept: "application/json" },
+      signal: controller.signal,
+    });
+  } finally {
+    window.clearTimeout(timer);
+  }
 }
 
 export async function triggerWarmup(): Promise<WarmupResponse> {
@@ -238,13 +243,19 @@ export async function interpretOptimization(payload: AiInterpretRequest): Promis
   });
 }
 
-export async function waitForBackendReady(retries = 20, delayMs = 500): Promise<HealthResponse> {
+export async function waitForBackendReady(retries = 30): Promise<HealthResponse> {
   let lastError: unknown;
 
   for (let attempt = 1; attempt <= retries; attempt += 1) {
+    // First 3 attempts poll quickly in case the backend is already up.
+    // After that, slow down to 3 s per attempt to survive a Render cold start
+    // (wake-up typically takes 30–90 s) without hammering the server.
+    const delayMs = attempt <= 3 ? 500 : 3_000;
+
     console.info("[util-api] backend readiness attempt", {
       attempt,
       retries,
+      delayMs,
       healthUrl: HEALTH_URL,
       apiBaseUrl: API_BASE_URL || "<relative>",
       backendBaseUrl: BACKEND_BASE_URL,

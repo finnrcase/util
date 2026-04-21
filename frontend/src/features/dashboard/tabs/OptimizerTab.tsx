@@ -10,6 +10,7 @@ interface OptimizerTabProps {
   errors: FieldErrors<FormInputValues>;
   onSubmit: FormEventHandler<HTMLFormElement>;
   isSubmitting: boolean;
+  isBackendReady?: boolean;
   errorMessage?: string;
   lastRun?: OptimizeResponse;
   values: Partial<FormInputValues>;
@@ -34,7 +35,7 @@ function selectClass(hasError?: boolean) {
   return `${fieldClass(hasError)} appearance-none bg-[linear-gradient(180deg,rgba(15,22,37,0.96),rgba(10,14,25,0.96))] pr-11`;
 }
 
-export function OptimizerTab({ register, errors, onSubmit, isSubmitting, errorMessage, lastRun, values }: OptimizerTabProps) {
+export function OptimizerTab({ register, errors, onSubmit, isSubmitting, isBackendReady = true, errorMessage, lastRun, values }: OptimizerTabProps) {
   const isExtendedMode = values.carbon_estimation_mode === "forecast_plus_historical_expectation";
   const runWindow = lastRun?.schedule.recommended_window;
 
@@ -46,7 +47,7 @@ export function OptimizerTab({ register, errors, onSubmit, isSubmitting, errorMe
         <div className="flex flex-wrap items-center gap-3">
           <button
             type="submit"
-            disabled={isSubmitting}
+            disabled={isSubmitting || !isBackendReady}
             className="inline-flex min-h-[3.5rem] items-center justify-center gap-2 rounded-[1.35rem] bg-gradient-to-r from-violet-200 via-fuchsia-300 to-cyan-200 px-6 py-3 text-base font-semibold text-slate-950 shadow-[0_18px_42px_rgba(139,92,246,0.38)] ring-1 ring-white/10 transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-60"
           >
             {isSubmitting ? (

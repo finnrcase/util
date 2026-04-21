@@ -210,7 +210,7 @@ export default function App() {
   const renderTab = () => {
     switch (activeTab) {
       case "optimizer":
-        return <OptimizerTab register={register} errors={errors} onSubmit={handleOptimizeSubmit} isSubmitting={optimizeMutation.isPending} errorMessage={optimizeError} lastRun={currentRun} values={formValues} />;
+        return <OptimizerTab register={register} errors={errors} onSubmit={handleOptimizeSubmit} isSubmitting={optimizeMutation.isPending} isBackendReady={isBackendReady} errorMessage={optimizeError} lastRun={currentRun} values={formValues} />;
       case "forecast_visuals":
         return <ForecastTab data={currentRun} />;
       case "savings_analysis":
@@ -218,7 +218,7 @@ export default function App() {
       case "power_estimator":
         return <PowerEstimatorTab onApplyEstimator={handleApplyEstimator} />;
       case "multi_location":
-        return <MultiLocationTab initialValues={formSchema.parse(getValues())} onUseBestLocation={handleUseBestLocation} />;
+        return <MultiLocationTab initialValues={formSchema.parse(getValues())} onUseBestLocation={handleUseBestLocation} isBackendReady={isBackendReady} />;
       case "opportunity_screening":
         return <OpportunityScreeningTab data={currentRun ?? null} />;
       case "exports":
@@ -239,30 +239,6 @@ export default function App() {
         return null;
     }
   };
-
-  if (!isBackendReady) {
-    return (
-      <AppShell sidebar={<SidebarNav items={sidebarItems} activeItemId={activeTab} onNavigate={(id) => setActiveTab(id as DashboardTabId)} />}>
-        <main className="flex flex-1 items-center justify-center px-4 py-8 sm:px-5 lg:px-7 lg:py-10">
-          <div className="w-full max-w-2xl rounded-[1.8rem] border border-white/10 bg-white/[0.04] p-6 text-center shadow-shell">
-            <p className="text-xs uppercase tracking-[0.24em] text-violet-200">Backend Status</p>
-            <h1 className="mt-3 text-2xl font-semibold text-text">Starting Util services</h1>
-            <p className="mt-3 text-sm leading-7 text-slate-100/85">
-              {backendError
-                ? "The desktop UI is waiting for the Python backend to become reachable."
-                : "Util is waiting for the Python backend to finish booting before the dashboard unlocks."}
-            </p>
-            {backendError ? <p className="mt-4 rounded-2xl border border-danger/25 bg-danger/10 px-4 py-3 text-sm text-red-100">{backendError}</p> : <p className="mt-4 text-sm text-muted">Checking health at {HEALTH_URL}</p>}
-            <div className="mt-6 flex justify-center">
-              <button type="button" onClick={() => setBackendRetryKey((value) => value + 1)} className="rounded-full border border-violet-300/20 bg-violet-300/10 px-4 py-2 text-sm text-violet-100 transition hover:border-violet-200/35 hover:bg-violet-300/15">
-                Retry connection
-              </button>
-            </div>
-          </div>
-        </main>
-      </AppShell>
-    );
-  }
 
   return (
     <AppShell sidebar={<SidebarNav items={sidebarItems} activeItemId={activeTab} onNavigate={(id) => setActiveTab(id as DashboardTabId)} />}>
@@ -287,6 +263,16 @@ export default function App() {
 
       <main ref={mainContentRef} className="flex-1 overflow-y-auto px-4 py-4 sm:px-5 lg:px-7 lg:py-6">
         <div className="mx-auto flex w-full max-w-[1360px] flex-col gap-6 xl:gap-7">
+          {!isBackendReady ? (
+            <div className={`flex items-center justify-between gap-4 rounded-[1.25rem] border px-4 py-3 text-sm ${backendError ? "border-danger/25 bg-danger/10 text-red-100" : "border-violet-300/14 bg-[linear-gradient(180deg,rgba(167,139,250,0.08),rgba(167,139,250,0.02))] text-slate-100/90"}`}>
+              <span>{backendError ? backendError : `Connecting to backend\u2026`}</span>
+              {backendError ? (
+                <button type="button" onClick={() => setBackendRetryKey((k) => k + 1)} className="shrink-0 rounded-full border border-white/10 bg-white/[0.06] px-3 py-1.5 text-xs text-slate-100 hover:bg-white/10">
+                  Retry connection
+                </button>
+              ) : null}
+            </div>
+          ) : null}
           <TopBar title={tabConfig[activeTab].title} subtitle={tabConfig[activeTab].subtitle} statusItems={statusItems} />
           {renderTab()}
         </div>
