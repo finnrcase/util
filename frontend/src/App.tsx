@@ -86,6 +86,7 @@ export default function App() {
   const [isBackendReady, setIsBackendReady] = useState(false);
   const [backendError, setBackendError] = useState<string>();
   const [backendRetryKey, setBackendRetryKey] = useState(0);
+  const [isOptimizeRetrying, setIsOptimizeRetrying] = useState(false);
   const mainContentRef = useRef<HTMLElement | null>(null);
 
   useEffect(() => {
@@ -136,7 +137,9 @@ export default function App() {
   const formValues = watch();
 
   const optimizeMutation = useMutation({
-    mutationFn: optimizeScenario,
+    mutationFn: (payload: OptimizeRequest) =>
+      optimizeScenario(payload, () => setIsOptimizeRetrying(true)),
+    onSettled: () => setIsOptimizeRetrying(false),
   });
 
   const exportMutation = useMutation({
@@ -210,7 +213,7 @@ export default function App() {
   const renderTab = () => {
     switch (activeTab) {
       case "optimizer":
-        return <OptimizerTab register={register} errors={errors} onSubmit={handleOptimizeSubmit} isSubmitting={optimizeMutation.isPending} isBackendReady={isBackendReady} errorMessage={optimizeError} lastRun={currentRun} values={formValues} />;
+        return <OptimizerTab register={register} errors={errors} onSubmit={handleOptimizeSubmit} isSubmitting={optimizeMutation.isPending} isBackendReady={isBackendReady} errorMessage={optimizeError} lastRun={currentRun} values={formValues} isRetrying={isOptimizeRetrying} />;
       case "forecast_visuals":
         return <ForecastTab data={currentRun} />;
       case "savings_analysis":

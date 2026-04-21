@@ -178,14 +178,51 @@ async function requestJson<T>(path: string, init?: RequestInit): Promise<T> {
   }
 }
 
-export async function optimizeScenario(payload: OptimizeRequest): Promise<OptimizeResponse> {
-  return requestJson<OptimizeResponse>("/api/v1/optimize", {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify(payload),
-  });
+const OPTIMIZE_TIMEOUT_MS = 90_000;
+const OPTIMIZE_MAX_RETRIES = 2;
+const OPTIMIZE_RETRY_DELAY_MS = 2_000;
+
+function isRetryableOptimizeError(error: unknown): boolean {
+  if (!(error instanceof Error)) return false;
+  // buildNetworkError tags the message with the kind in parentheses.
+  // Only these kinds benefit from a retry — proper API responses (4xx/5xx) do not.
+  return /\((abort|timeout|network|unknown_network)\)/.test(error.message);
+}
+
+export async function optimizeScenario(
+  payload: OptimizeRequest,
+  onRetry?: (attempt: number) => void,
+): Promise<OptimizeResponse> {
+  let lastError: unknown;
+
+  for (let attempt = 0; attempt <= OPTIMIZE_MAX_RETRIES; attempt++) {
+    if (attempt > 0) {
+      console.warn(`[util-api] optimize retry attempt=${attempt}/${OPTIMIZE_MAX_RETRIES}`);
+      onRetry?.(attempt);
+      await new Promise<void>((resolve) => window.setTimeout(resolve, OPTIMIZE_RETRY_DELAY_MS));
+    }
+
+    const controller = new AbortController();
+    const timer = window.setTimeout(() => controller.abort(), OPTIMIZE_TIMEOUT_MS);
+
+    try {
+      return await requestJson<OptimizeResponse>("/api/v1/optimize", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+        signal: controller.signal,
+      });
+    } catch (error) {
+      lastError = error;
+      if (!isRetryableOptimizeError(error) || attempt === OPTIMIZE_MAX_RETRIES) {
+        throw error;
+      }
+    } finally {
+      window.clearTimeout(timer);
+    }
+  }
+
+  throw lastError;
 }
 
 export async function fetchCoverage(): Promise<CoverageResponse> {

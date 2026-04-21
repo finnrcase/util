@@ -14,6 +14,7 @@ interface OptimizerTabProps {
   errorMessage?: string;
   lastRun?: OptimizeResponse;
   values: Partial<FormInputValues>;
+  isRetrying?: boolean;
 }
 
 function SectionLabel({ title, subtitle }: { title: string; subtitle?: string }) {
@@ -35,7 +36,7 @@ function selectClass(hasError?: boolean) {
   return `${fieldClass(hasError)} appearance-none bg-[linear-gradient(180deg,rgba(15,22,37,0.96),rgba(10,14,25,0.96))] pr-11`;
 }
 
-export function OptimizerTab({ register, errors, onSubmit, isSubmitting, isBackendReady = true, errorMessage, lastRun, values }: OptimizerTabProps) {
+export function OptimizerTab({ register, errors, onSubmit, isSubmitting, isBackendReady = true, errorMessage, lastRun, values, isRetrying = false }: OptimizerTabProps) {
   const isExtendedMode = values.carbon_estimation_mode === "forecast_plus_historical_expectation";
   const runWindow = lastRun?.schedule.recommended_window;
 
@@ -65,7 +66,9 @@ export function OptimizerTab({ register, errors, onSubmit, isSubmitting, isBacke
           </button>
           {isSubmitting ? (
             <div className="rounded-[1.2rem] border border-violet-300/14 bg-[linear-gradient(180deg,rgba(167,139,250,0.08),rgba(167,139,250,0.02))] px-4 py-3 text-sm leading-6 text-slate-100/90 shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]">
-              Processing: resolving location, loading forecast, fetching pricing, and solving the schedule.
+              {isRetrying
+                ? "Waking up backend\u2026 retrying request."
+                : "Processing: resolving location, loading forecast, fetching pricing, and solving the schedule."}
             </div>
           ) : null}
           {lastRun ? <span className="rounded-full border border-emerald-300/20 bg-emerald-300/10 px-3 py-2 text-sm font-medium text-emerald-100">Optimization ran</span> : null}
